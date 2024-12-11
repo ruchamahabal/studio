@@ -62,13 +62,16 @@ const useStudioStore = defineStore("store", () => {
 			selectedBlockIds.value.splice(0, selectedBlockIds.value.length, block.componentId)
 		}
 		selectedSlot.value = null
+		selectedSlotBlock.value = null
 		studioLayout.leftPanelActiveTab = "Layers"
 	}
 
 	// slots
 	const selectedSlot = ref<string | null>()
-	function selectSlot(slotName: string) {
+	const selectedSlotBlock = ref<string | null>()
+	function selectSlot(slotName: string, slotComponentId: string) {
 		selectedSlot.value = slotName
+		selectedSlotBlock.value = slotComponentId
 	}
 
 	// studio apps
@@ -239,6 +242,7 @@ const useStudioStore = defineStore("store", () => {
 		pageBlocks,
 		// slots
 		selectedSlot,
+		selectedSlotBlock,
 		selectSlot,
 		// studio app
 		activeApp,

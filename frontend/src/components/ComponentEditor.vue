@@ -208,6 +208,7 @@ const updateSlotOverlayRefs = () => {
 				element,
 				slotOverlays[slotName].element!,
 				store.canvas?.canvasProps as CanvasProps,
+				true,
 			)
 		}
 	})

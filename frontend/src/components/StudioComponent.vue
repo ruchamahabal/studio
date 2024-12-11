@@ -14,11 +14,12 @@
 	>
 		<!-- Dynamically render named slots -->
 		<template v-for="(slotContent, slotName) in block.componentSlots" :key="slotName" v-slot:[slotName]>
-			<template v-if="isHTML(slotContent)">
-				<component :is="{ template: slotContent }" :class="slotClasses" :data-slot-name="slotName" />
+			<StudioComponent v-if="slotContent.componentId" :block="getBlockInstance(slotContent)" :class="slotClasses" :data-slot-name="slotName" :data-component-id="block.componentId" />
+			<template v-else-if="isHTML(slotContent)">
+				<component :is="{ template: slotContent }" :class="slotClasses" :data-slot-name="slotName" :data-component-id="block.componentId" />
 			</template>
 			<template v-else>
-				<span :class="slotClasses" :data-slot-name="slotName">{{ slotContent }}</span>
+				<span :class="slotClasses" :data-slot-name="slotName" :data-component-id="block.componentId">{{ slotContent }}</span>
 			</template>
 		</template>
 
@@ -60,7 +61,7 @@ import ComponentEditor from "@/components/ComponentEditor.vue"
 
 import Block from "@/utils/block"
 import useStudioStore from "@/stores/studioStore"
-import { getComponentRoot, isDynamicValue, getDynamicValue, isHTML } from "@/utils/helpers"
+import { getComponentRoot, isDynamicValue, getDynamicValue, isHTML, getBlockInstance } from "@/utils/helpers"
 
 import { CanvasProps } from "@/types"
 
@@ -160,7 +161,7 @@ const handleClick = (e: MouseEvent) => {
 	}
 
 	if (e.target?.dataset.slotName) {
-		store.selectSlot(e.target.dataset.slotName)
+		store.selectSlot(e.target.dataset.slotName, block?.componentId || props.block.componentId)
 	}
 
 	e.stopPropagation()

@@ -89,7 +89,7 @@ const componentSlots = ref<string[]>([])
 watch(
 	() => props.block?.componentName,
 	async () => {
-		if (!props.block || props.block.isRoot()) return
+		if (!props.block || props.block?.isRoot()) return
 		const slots = await getComponentSlots(props.block.componentName)
 		componentSlots.value = slots.map((slot) => slot.name)
 	},

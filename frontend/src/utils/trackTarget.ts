@@ -13,7 +13,7 @@ declare global {
 window.observer = null;
 const updateList: (() => void)[] = [];
 
-function trackTarget(target: HTMLElement | SVGElement, host: HTMLElement, canvasProps: CanvasProps) {
+function trackTarget(target: HTMLElement | SVGElement, host: HTMLElement, canvasProps: CanvasProps, addPadding: boolean) {
 	const targetBounds = reactive(useElementBounding(target));
 	const container = target.closest(".canvas-container");
 	// TODO: too much? find a better way to track changes
@@ -37,8 +37,9 @@ function trackTarget(target: HTMLElement | SVGElement, host: HTMLElement, canvas
 		});
 	}
 	watchEffect(() => {
-		host.style.width = numberToPx(targetBounds.width, false);
-		host.style.height = numberToPx(targetBounds.height, false);
+		const padding = addPadding ? 20 : 0
+		host.style.width = numberToPx(targetBounds.width + padding, false);
+		host.style.height = numberToPx(targetBounds.height + padding, false);
 		host.style.top = numberToPx(targetBounds.top, false);
 		host.style.left = numberToPx(targetBounds.left, false);
 	});
