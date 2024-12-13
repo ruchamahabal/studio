@@ -145,6 +145,7 @@ watch(
 		if (store.selectedBlocks.length) {
 			store.selectedBlocks.forEach((block: Block) => {
 				if (block) {
+					if (block.isSlotContent) return
 					let parentBlock = block.getParentBlock()
 					// open all parent blocks
 					while (parentBlock && !parentBlock.isRoot()) {

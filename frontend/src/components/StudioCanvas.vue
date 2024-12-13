@@ -92,7 +92,7 @@ import FitScreenIcon from "@/components/Icons/FitScreenIcon.vue"
 import StudioCanvas from "@/components/StudioCanvas.vue"
 
 import useStudioStore from "@/stores/studioStore"
-import { getBlockCopy, getComponentBlock } from "@/utils/helpers"
+import { getBlockCopy, getComponentBlock, isObjectEmpty } from "@/utils/helpers"
 import setPanAndZoom from "@/utils/panAndZoom"
 import Block from "@/utils/block"
 
@@ -169,7 +169,12 @@ const { isOverDropZone } = useDropZone(canvasContainer, {
 		const componentName = ev.dataTransfer?.getData("componentName")
 		if (componentName) {
 			const newBlock = getComponentBlock(componentName)
-			parentComponent.addChild(newBlock)
+
+			if (store.selectedSlot && store.selectedSlotBlock === parentComponent.componentId) {
+				parentComponent.updateSlot(store.selectedSlot, newBlock)
+			} else {
+				parentComponent.addChild(newBlock)
+			}
 		}
 	},
 })
@@ -182,8 +187,16 @@ const findBlock = (componentId: string, blocks?: Block[]): Block | null => {
 	for (const block of blocks) {
 		if (block.componentId === componentId) return block
 
-		if (block.children) {
+		if (block.children?.length > 0) {
 			const found = findBlock(componentId, block.children)
+			if (found) return found
+		}
+		if (!isObjectEmpty(block.componentSlots)) {
+			let found = null
+			for (const slot of Object.values(block.componentSlots)) {
+				found = findBlock(componentId, [slot])
+				if (found) break
+			}
 			if (found) return found
 		}
 	}

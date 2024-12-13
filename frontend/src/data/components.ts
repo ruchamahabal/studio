@@ -272,7 +272,7 @@ export const COMPONENTS: FrappeUIComponents = {
 		icon: "Feather",
 		initialState: {
 			name: "activity",
-			class: "h-6 w-6",
+			class: "h-4 w-4",
 		},
 	},
 	FileUploader: {

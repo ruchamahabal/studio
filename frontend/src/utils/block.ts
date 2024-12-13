@@ -15,6 +15,7 @@ class Block implements BlockOptions {
 	componentName: string
 	componentProps: Record<string, any>
 	componentSlots: Record<string, any>
+	isSlotContent: boolean
 	componentEvents: Record<string, any>
 	blockName: string
 	originalElement?: string | undefined
@@ -55,6 +56,9 @@ class Block implements BlockOptions {
 			child.parentBlock = this;
 			return reactive(new Block(child))
 		})
+
+		// block could also be the slot content
+		this.isSlotContent = options.isSlotContent || false
 	}
 
 	generateComponentId(componentName?: string | null): string {
@@ -339,7 +343,7 @@ class Block implements BlockOptions {
 		this.componentSlots[slot] = ""
 	}
 
-	updateSlot(slot: string, content: string) {
+	updateSlot(slot: string, content: string | Block) {
 		this.componentSlots[slot] = content
 	}
 
