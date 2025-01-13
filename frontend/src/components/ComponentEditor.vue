@@ -70,7 +70,7 @@
 		}"
 	>
 		<template #body-content>
-			<CodeEditor
+			<!-- <CodeEditor
 				:modelValue="block.getSlotContent(store.selectedSlot?.slotName) || ''"
 				type="HTML"
 				height="60vh"
@@ -84,6 +84,20 @@
 					}
 				"
 				required
+			/> -->
+
+			<Code
+				:modelValue="block.getSlotContent(store.selectedSlot?.slotName) || ''"
+				language="html"
+				height="60vh"
+				:showSaveButton="true"
+				@save="
+					(val) => {
+						if (!store.selectedSlot) return
+						props.block.updateSlot(store.selectedSlot?.slotName, val)
+						store.showSlotEditorDialog = false
+					}
+				"
 			/>
 		</template>
 	</Dialog>
@@ -102,6 +116,7 @@ import useStudioStore from "@/stores/studioStore"
 import trackTarget, { Tracker } from "@/utils/trackTarget"
 
 import { CanvasProps } from "@/types"
+import Code from "./Code.vue"
 
 const props = defineProps({
 	block: {
