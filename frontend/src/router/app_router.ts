@@ -33,6 +33,7 @@ const addDynamicRoutes = async (appRoute: string) => {
 }
 
 router.beforeEach(async (to, _, next) => {
+	debugger
 	// TODO: find a performant way to handle adding dynamic routes
 	if (to.params.appRoute && to.params.appRoute !== "studio") {
 		try {

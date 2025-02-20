@@ -7,12 +7,12 @@
 		<title>Frappe Studio</title>
 	</head>
 	<body>
-		<!-- For the main app builder -->
-		<div id="studio"></div>
+		<!-- For rendering apps built by studio -->
+		<div id="app"></div>
 		<div id="modals"></div>
 		<div id="popovers"></div>
 
 		<script> window.csrf_token = '{{ csrf_token }}'; </script>
-		<script type="module" src="/src/main.ts"></script>
+		<script type="module" src="./studio-app.ts"></script>
 	</body>
 </html>

@@ -21,6 +21,12 @@ export default defineConfig({
 		target: "es2015",
 		sourcemap: true,
 		chunkSizeWarningLimit: 1000,
+		rollupOptions: {
+			input: {
+				"studio": path.resolve(__dirname, "index.html"),
+				"studio-app": path.resolve(__dirname, "studio-app/index.html"),
+			}
+		}
 	},
 	optimizeDeps: {
 		include: ["frappe-ui > feather-icons", "showdown", "engine.io-client"],
