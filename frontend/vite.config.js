@@ -19,7 +19,7 @@ export default defineConfig({
 		rollupOptions: {
 			input: {
 				studio: path.resolve(__dirname, "index.html"),
-				renderer: path.resolve(__dirname, "src/renderer.ts"),
+				renderer: path.resolve(__dirname, "src/app_renderer/index.html"),
 			},
 			output: {
 				entryFileNames: "[name].js",

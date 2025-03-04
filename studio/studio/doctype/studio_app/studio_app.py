@@ -4,8 +4,22 @@
 import frappe
 from frappe.model.document import Document
 from frappe.website.website_generator import WebsiteGenerator
+from frappe.website.page_renderers.document_page import DocumentPage
 
 from studio.utils import camel_case_to_kebab_case
+import os
+
+class StudioAppRenderer(DocumentPage):
+	def __init__(self, path, http_status_code=None):
+		super().__init__(path, http_status_code)
+		self.template_path = self.get_template_path()
+
+	def get_template_path(self):
+		return os.path.join(frappe.get_app_source_path("studio"), "frontend", "src", "app_renderer", "index.html")
+
+	def render(self):
+		with open(self.template_path, "r") as f:
+			return self.build_response(f.read())
 
 
 class StudioApp(WebsiteGenerator):
@@ -25,14 +39,14 @@ class StudioApp(WebsiteGenerator):
 	# end: auto-generated types
 
 	website = frappe._dict(
-		template="templates/generators/app_renderer.html",
+		template=os.path.join(frappe.get_app_source_path("studio"), "frontend", "src", "app_renderer", "index.html"),
 		page_title_field="app_title",
 		condition_field="published",
 	)
 
 	def get_context(self, context):
 		context.no_cache = 1
-
+		context.template = os.path.join(frappe.get_app_source_path("studio"), "frontend", "src", "app_renderer", "index.html")
 		context.app_name = self.name
 		context.app_route = self.route
 		context.app_title = self.app_title

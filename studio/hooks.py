@@ -54,6 +54,7 @@ app_license = "mit"
 
 # automatically create page for each record of this doctype
 website_generators = ["Studio App"]
+page_renderer = "studio.studio.doctype.studio_app.studio_app.StudioAppRenderer"
 
 # Jinja
 # ----------
