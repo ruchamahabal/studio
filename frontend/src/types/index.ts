@@ -92,6 +92,8 @@ export interface FrappeUIComponent {
 	initialState?: Record<string, any>,
 	props?: Array<Record<string, any>>,
 	emits?: Array<string> | Record<string, any>,
+	editModeState?: Record<string, any>,
+	rootElementSelector?: string,
 }
 
 export interface FrappeUIComponents {

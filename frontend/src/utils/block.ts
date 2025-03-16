@@ -192,6 +192,10 @@ class Block implements BlockOptions {
 		return this.blockName || this.originalElement
 	}
 
+	getComponentConfig() {
+		return components.get(this.componentName)
+	}
+
 	// styles
 	getStyles(): BlockStyleMap {
 		return { ...this.baseStyles }

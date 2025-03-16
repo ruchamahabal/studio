@@ -46,8 +46,8 @@
 				:class="isSlotSelected(slot.slotId) ? 'opacity-100' : 'opacity-65'"
 				:style="{
 					// set min height and width so that slots without content are visible
-					minWidth: `calc(${12}px * ${canvasProps.scale})`,
-					minHeight: `calc(${12}px * ${canvasProps.scale})`,
+					minWidth: `calc(${100}px * ${canvasProps.scale})`,
+					minHeight: `calc(${100}px * ${canvasProps.scale})`,
 				}"
 			>
 				<span

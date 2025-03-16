@@ -86,13 +86,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch, useAttrs, onMounted, inject } from "vue"
+import { computed, ref, watch, useAttrs, onMounted, inject, nextTick } from "vue"
 import type { ComponentPublicInstance } from "vue"
 import ComponentEditor from "@/components/ComponentEditor.vue"
 
 import Block from "@/utils/block"
 import useStudioStore from "@/stores/studioStore"
-import { getComponentRoot, isDynamicValue, getDynamicValue, isHTML } from "@/utils/helpers"
+import { getComponentRoot, isDynamicValue, getDynamicValue, isHTML, copyObject } from "@/utils/helpers"
 
 import { CanvasProps } from "@/types"
 
@@ -125,7 +125,7 @@ const styles = computed(() => {
 const getComponentProps = () => {
 	if (!props.block || props.block.isRoot()) return []
 
-	const componentProps = { ...props.block.componentProps }
+	const componentProps = copyObject(props.block.componentProps)
 
 	Object.entries(componentProps).forEach(([propName, config]) => {
 		if (isDynamicValue(config)) {
@@ -135,11 +135,24 @@ const getComponentProps = () => {
 	return componentProps
 }
 
+const componentConfig = computed(() => {
+	return props.block.getComponentConfig()
+})
+
+const editModeState = computed(() => {
+	if (isSelected.value && Object.keys(componentConfig.value?.editModeState || {}).length > 0) {
+		return componentConfig.value.editModeState
+	}
+	console.log("editModeState", props.block.componentId)
+	return {}
+})
+
 const attrs = useAttrs()
 const componentProps = computed(() => {
 	return {
 		...getComponentProps(),
 		...attrs,
+		...editModeState.value,
 	}
 })
 
@@ -150,7 +163,9 @@ const target = ref<HTMLElement | null>(null)
 const boundValue = computed({
 	get() {
 		const modelValue = props.block.componentProps.modelValue
-		if (modelValue?.$type === "variable") {
+		if (isSelected.value && editModeState.value?.modelValue) {
+			return editModeState.value.modelValue
+		} else if (modelValue?.$type === "variable") {
 			// Return the variable value from the store
 			return store.variables[modelValue.name]
 		}
@@ -176,7 +191,7 @@ const isSelected = computed(() => store.selectedBlockIds?.has(props.block.compon
 const loadEditor = computed(() => {
 	return (
 		target.value &&
-		isComponentReady.value &&
+		// isComponentReady.value &&
 		props.block.getStyle("display") !== "none" &&
 		((isSelected.value && props.breakpoint === store.activeBreakpoint) ||
 			(isHovered.value && store.hoveredBreakpoint === props.breakpoint)) &&
@@ -242,6 +257,19 @@ watch(
 		}
 	},
 	{ deep: true },
+)
+
+watch(
+	() => isSelected.value,
+	(newValue) => {
+		if (newValue) {
+			nextTick(() => {
+				target.value = document.querySelector(componentConfig.value?.rootElementSelector)
+				console.log("componentConfig.value", componentConfig.value?.rootElementSelector, target.value)
+			})
+			// set target value using componentConfig.value.rootElementSelector
+		}
+	},
 )
 
 onMounted(() => {

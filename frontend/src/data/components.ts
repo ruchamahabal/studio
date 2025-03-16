@@ -214,6 +214,7 @@ export const COMPONENTS: FrappeUIComponents = {
 		name: "Dialog",
 		title: "Dialog",
 		icon: "AppWindowMac",
+		rootElementSelector: "[id^='headlessui-dialog-panel']",
 		initialState: {
 			modelValue: true,
 			disableOutsideClickToClose: true,
@@ -229,6 +230,10 @@ export const COMPONENTS: FrappeUIComponents = {
 					},
 				],
 			},
+		},
+		editModeState: {
+			modelValue: true,
+			disableOutsideClickToClose: true,
 		},
 	},
 	Divider: {
