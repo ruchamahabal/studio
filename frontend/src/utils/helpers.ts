@@ -322,6 +322,44 @@ function getDynamicValue(value: string, context: ExpressionEvaluationContext) {
 	return result || undefined
 }
 
+function getTemplateBinding(value: string) {
+	if (!isDynamicValue(value)) {
+		// Return non-dynamic values as-is
+		return value;
+	}
+
+	// Check if the entire string is a single dynamic expression
+	const fullMatch = value.match(/^\{\{\s*(.*?)\s*\}\}$/);
+	if (fullMatch) {
+		// Return just the expression for direct binding
+		return fullMatch[1].trim();
+	}
+
+	// For mixed static and dynamic content, create a template string
+	let result = '`';
+	let lastIndex = 0;
+
+	// Find all dynamic expressions
+	const matches = value.matchAll(/\{\{(.*?)\}\}/g);
+
+	for (const match of matches) {
+		const expression = match[1].trim();
+
+		// Add preceding static content
+		result += value.slice(lastIndex, match.index);
+		// Add dynamic part
+		result += `\${${expression}}`;
+
+		lastIndex = match.index + match[0].length;
+	}
+
+	// Add remaining static content
+	result += value.slice(lastIndex);
+	result += '`';
+
+	return result;
+}
+
 function getEvaluatedFilters(filters: Filters | null = null, context: ExpressionEvaluationContext) {
 	if (typeof filters === "string") {
 		filters = JSON.parse(filters)
@@ -688,6 +726,7 @@ export {
 	getAutocompleteValues,
 	isDynamicValue,
 	getDynamicValue,
+	getTemplateBinding,
 	evaluateExpression,
 	executeUserScript,
 	getNewResource,

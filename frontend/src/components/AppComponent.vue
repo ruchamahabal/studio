@@ -1,4 +1,4 @@
-<template>
+<template v-slot="{ ...variablesAsRefs }">
 	<component
 		ref="componentRef"
 		v-show="showComponent"
@@ -24,18 +24,31 @@
 
 		<AppComponent v-for="child in block?.children" :key="child.componentId" :block="child" />
 	</component>
+
+	<!-- this works so directly binding the expression should also work -->
+	<TextBlock
+		v-bind="{
+			tag: 'span',
+			fontSize: 'text-base',
+			fontWeight: 'font-normal',
+			lineHeight: 'leading-normal',
+			textColor: 'text-gray-900',
+			text: `${testNewString}`,
+		}"
+	/>
 </template>
 
 <script setup lang="ts">
 import Block from "@/utils/block"
-import { computed, onMounted, ref, useAttrs } from "vue"
+import { computed, onMounted, ref, toRefs, useAttrs } from "vue"
 import { useRouter, useRoute } from "vue-router"
 import { createResource } from "frappe-ui"
 import components from "@/data/components"
-import { getComponentRoot, isDynamicValue, getDynamicValue, isHTML, executeUserScript } from "@/utils/helpers"
+import { getComponentRoot, isDynamicValue, getDynamicValue, isHTML, executeUserScript, getTemplateBinding } from "@/utils/helpers"
 
 import useAppStore from "@/stores/appStore"
 import { toast } from "vue-sonner"
+import { storeToRefs } from "pinia"
 
 const props = defineProps<{
 	block: Block
@@ -44,18 +57,35 @@ const props = defineProps<{
 const componentRef = ref(null)
 const styles = computed(() => props.block.getStyles())
 
+
+const num1 = ref(23)
+const num2 = ref(44)
+
+
 const store = useAppStore()
+// const { variables, resources } = storeToRefs(store)
+// // unpack all variables and resources as variables
+// const variablesAsRefs = toRefs(variables.value)
+// const resourcesAsRefs = toRefs(resources.value)
+
+// console.log(variablesAsRefs, resourcesAsRefs)
+
+// defineExpose({
+// 	...variablesAsRefs,
+// 	...resourcesAsRefs,
+// })
+
 const getComponentProps = () => {
 	if (!props.block || props.block.isRoot()) return []
 
 	const propValues = { ...props.block.componentProps }
-	delete propValues.modelValue
 
 	Object.entries(propValues).forEach(([propName, config]) => {
 		if (isDynamicValue(config)) {
-			propValues[propName] = getDynamicValue(config, { ...store.resources, ...store.variables })
+			propValues[propName] = getTemplateBinding(config)
 		}
 	})
+	console.log(propValues)
 	return propValues
 }
 
