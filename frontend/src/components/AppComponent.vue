@@ -31,7 +31,7 @@ import components from "@/data/components"
 import { getComponentRoot, isDynamicValue, getDynamicValue, isHTML, executeUserScript, getTemplateBinding } from "@/utils/helpers"
 import { toast } from "vue-sonner"
 import useAppStore from "@/stores/appStore"
-import { toRefs } from "vue"
+import { toRefs, reactive } from "vue"
 import { storeToRefs } from "pinia"
 
 export default {
@@ -50,11 +50,11 @@ export default {
 		}
 	},
 	data() {
-		const { variables } = storeToRefs(this.store)
+		const variables = toRefs(this.store.variables)
 		return {
 			componentRef: null,
 			// Expose variables directly to template
-			...toRefs(variables.value),
+			...variables,
 			components,
 		}
 	},
@@ -71,12 +71,25 @@ export default {
 				if (isDynamicValue(config)) {
 					const binding = getTemplateBinding(config)
 					if (binding.type === 'variable') {
-						propValues[propName] = this.$data[binding.value]
+						// Split the binding value to access nested properties.
+						const propertyPath = binding.value.split('.');
+						let value = this.$data;
+
+						for (const part of propertyPath) {
+							if (value && typeof value === 'object' && part in value) {
+								value = value[part];
+							} else {
+								// Handle cases where the path is invalid.
+								value = undefined;
+								break;
+							}
+						}
+						propValues[propName] = value;
 					}
 				}
 			})
 
-			console.log(propValues)
+			console.log(this.$data?.employee)
 
 			return {
 				...propValues,
