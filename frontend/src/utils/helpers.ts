@@ -322,6 +322,34 @@ function getDynamicValue(value: string, context: ExpressionEvaluationContext) {
 	return result || undefined
 }
 
+function getTemplateBinding(value: string) {
+	if (!isDynamicValue(value)) {
+	  return { type: 'static', value };
+	}
+
+	// Check for full dynamic expression
+	const fullMatch = value.match(/^\{\{\s*(.*?)\s*\}\}$/);
+	if (fullMatch) {
+	  return { type: 'variable', value: fullMatch[1].trim() };
+	}
+
+	// Handle template strings
+	let template = '`';
+	let lastIndex = 0;
+	const matches = value.matchAll(/\{\{(.*?)\}\}/g);
+
+	for (const match of matches) {
+	  template += value.slice(lastIndex, match.index);
+	  template += `\${${match[1].trim()}}`;
+	  lastIndex = match.index + match[0].length;
+	}
+
+	template += value.slice(lastIndex);
+	template += '`';
+
+	return { type: 'template', value: template };
+  }
+
 function getEvaluatedFilters(filters: Filters | null = null, context: ExpressionEvaluationContext) {
 	if (typeof filters === "string") {
 		filters = JSON.parse(filters)
@@ -688,6 +716,7 @@ export {
 	getAutocompleteValues,
 	isDynamicValue,
 	getDynamicValue,
+	getTemplateBinding,
 	evaluateExpression,
 	executeUserScript,
 	getNewResource,

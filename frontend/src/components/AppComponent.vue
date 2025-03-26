@@ -1,6 +1,5 @@
 <template>
 	<component
-		ref="componentRef"
 		v-show="showComponent"
 		:is="components.getComponent(block.componentName)"
 		v-bind="componentProps"
@@ -21,169 +20,185 @@
 				{{ slot.slotContent }}
 			</template>
 		</template>
-
 		<AppComponent v-for="child in block?.children" :key="child.componentId" :block="child" />
 	</component>
 </template>
 
-<script setup lang="ts">
+<script>
 import Block from "@/utils/block"
-import { computed, onMounted, ref, useAttrs } from "vue"
-import { useRouter, useRoute } from "vue-router"
 import { createResource } from "frappe-ui"
 import components from "@/data/components"
-import { getComponentRoot, isDynamicValue, getDynamicValue, isHTML, executeUserScript } from "@/utils/helpers"
-
-import useAppStore from "@/stores/appStore"
+import { getComponentRoot, isDynamicValue, getDynamicValue, isHTML, executeUserScript, getTemplateBinding } from "@/utils/helpers"
 import { toast } from "vue-sonner"
+import useAppStore from "@/stores/appStore"
+import { toRefs } from "vue"
+import { storeToRefs } from "pinia"
 
-const props = defineProps<{
-	block: Block
-}>()
+export default {
+	name: 'AppComponent',
+	setup() {
+		const store = useAppStore()
 
-const componentRef = ref(null)
-const styles = computed(() => props.block.getStyles())
-
-const store = useAppStore()
-const getComponentProps = () => {
-	if (!props.block || props.block.isRoot()) return []
-
-	const propValues = { ...props.block.componentProps }
-	delete propValues.modelValue
-
-	Object.entries(propValues).forEach(([propName, config]) => {
-		if (isDynamicValue(config)) {
-			propValues[propName] = getDynamicValue(config, { ...store.resources, ...store.variables })
-		}
-	})
-	return propValues
-}
-
-const attrs = useAttrs()
-const componentProps = computed(() => {
-	return {
-		...getComponentProps(),
-		...attrs,
-	}
-})
-
-// visibility
-const showComponent = computed(() => {
-	if (props.block.visibilityCondition) {
-		const value = getDynamicValue(props.block.visibilityCondition, { ...store.resources, ...store.variables })
-		return typeof value === "string" ? value === "true" : value
-	}
-	return true
-})
-
-// Computed property for v-model binding
-const boundValue = computed({
-	get() {
-		const modelValue = props.block.componentProps.modelValue
-		if (modelValue?.$type === "variable") {
-			return store.variables[modelValue.name]
-		} else if (isDynamicValue(modelValue)) {
-			return getDynamicValue(modelValue, { ...store.resources, ...store.variables })
-		}
-		return modelValue
-	},
-	set(newValue) {
-		const modelValue = props.block.componentProps.modelValue
-		if (modelValue?.$type === "variable") {
-			// Update the variable in the store
-			store.variables[modelValue.name] = newValue
-		} else {
-			// Update the prop directly if not bound to a variable
-			props.block.setProp("modelValue", newValue)
+		return {
+			store
 		}
 	},
-})
+	props: {
+		block: {
+			type: Block,
+			required: true
+		}
+	},
+	data() {
+		const { variables } = storeToRefs(this.store)
+		return {
+			componentRef: null,
+			// Expose variables directly to template
+			...toRefs(variables.value),
+			components,
+		}
+	},
+	computed: {
+		styles() {
+			return this.block.getStyles()
+		},
+		componentProps() {
+			if (!this.block || this.block.isRoot()) return {}
 
-const router = useRouter()
-const route = useRoute()
-const componentEvents = computed(() => {
-	const events: Record<string, Function | undefined> = {}
-	Object.entries(props.block.componentEvents).forEach(([eventName, event]) => {
-		const getEventFn = () => {
-			if (event.action === "Switch App Page") {
-				return () => {
-					router.push({
-						name: "AppContainer",
-						params: {
-							appRoute: route.params.appRoute,
-							pageRoute: getPageRoute(route.params.appRoute as string, event.page),
-						},
-					})
-				}
-			} else if (event.action === "Call API") {
-				return () => {
-					const path: string[] = event.api_endpoint.split(".")
-					// get resource
-					const resource = store.resources[path[0]]
+			const propValues = { ...this.block.componentProps }
 
-					if (resource) {
-						// access and call whitelisted method
-						resource[path[1]].submit()
-					} else {
-						createResource({
-							url: event.api_endpoint,
-							auto: true,
-						})
+			Object.entries(propValues).forEach(([propName, config]) => {
+				if (isDynamicValue(config)) {
+					const binding = getTemplateBinding(config)
+					if (binding.type === 'variable') {
+						propValues[propName] = this.$data[binding.value]
 					}
 				}
-			} else if (event.action === "Insert a Document") {
-				return () => {
-					const fields = {}
-					event.fields.forEach((field) => {
-						fields[field.field] = store.variables[field.value]
+			})
+
+			console.log(propValues)
+
+			return {
+				...propValues,
+				...this.$attrs
+			}
+		},
+		showComponent() {
+			if (this.block.visibilityCondition) {
+				const value = getDynamicValue(this.block.visibilityCondition, {
+					...this.store.resources,
+					...this.store.variables
+				})
+				return typeof value === "string" ? value === "true" : value
+			}
+			return true
+		},
+		boundValue: {
+			get() {
+				const modelValue = this.block.componentProps.modelValue
+				if (modelValue?.$type === "variable") {
+					return this.store.variables[modelValue.name]
+				} else if (isDynamicValue(modelValue)) {
+					return getDynamicValue(modelValue, {
+						...this.store.resources,
+						...this.store.variables
 					})
-					createResource({
-						url: "frappe.client.insert",
-						method: "POST",
-						params: {
-							doc: {
-								doctype: event.doctype,
-								...fields,
-							},
-						},
-						onSuccess() {
-							if (event.success_message) {
-								toast.success(event.success_message)
-							} else {
-								toast.success(`${event.doctype} saved successfully`)
-							}
-						},
-						onError() {
-							if (event.error_message) {
-								toast.error(event.error_message)
-							} else {
-								toast.error(`Error saving ${event.doctype}`)
-							}
-						},
-					}).submit()
 				}
-			} else if (event.action === "Run Script") {
-				return () => {
-					executeUserScript(event.script, store.variables, store.resources)
+				return modelValue
+			},
+			set(newValue) {
+				const modelValue = this.block.componentProps.modelValue
+				if (modelValue?.$type === "variable") {
+					// Update the variable in the store
+					this.store.variables[modelValue.name] = newValue
+				} else {
+					// Update the prop directly if not bound to a variable
+					this.block.setProp("modelValue", newValue)
 				}
 			}
+		},
+		componentEvents() {
+			const events = {}
+			Object.entries(this.block.componentEvents).forEach(([eventName, event]) => {
+				const getEventFn = () => {
+					if (event.action === "Switch App Page") {
+						return () => {
+							this.$router.push({
+								name: "AppContainer",
+								params: {
+									appRoute: this.$route.params.appRoute,
+									pageRoute: this.getPageRoute(this.$route.params.appRoute, event.page)
+								}
+							})
+						}
+					} else if (event.action === "Call API") {
+						return () => {
+							const path = event.api_endpoint.split(".")
+							// get resource
+							const resource = this.store.resources[path[0]]
+
+							if (resource) {
+								// access and call whitelisted method
+								resource[path[1]].submit()
+							} else {
+								createResource({
+									url: event.api_endpoint,
+									auto: true,
+								})
+							}
+						}
+					} else if (event.action === "Insert a Document") {
+						return () => {
+							const fields = {}
+							event.fields.forEach((field) => {
+								fields[field.field] = this.store.variables[field.value]
+							})
+							createResource({
+								url: "frappe.client.insert",
+								method: "POST",
+								params: {
+									doc: {
+										doctype: event.doctype,
+										...fields,
+									},
+								},
+								onSuccess: () => {
+									if (event.success_message) {
+										toast.success(event.success_message)
+									} else {
+										toast.success(`${event.doctype} saved successfully`)
+									}
+								},
+								onError: () => {
+									if (event.error_message) {
+										toast.error(event.error_message)
+									} else {
+										toast.error(`Error saving ${event.doctype}`)
+									}
+								},
+							}).submit()
+						}
+					} else if (event.action === "Run Script") {
+						return () => {
+							executeUserScript(
+								event.script,
+								this.store.variables,
+								this.store.resources
+							)
+						}
+					}
+				}
+				events[eventName] = getEventFn()
+			})
+
+			return events
 		}
-		events[eventName] = getEventFn()
-	})
-
-	return events
-})
-
-function getPageRoute(appRoute: string, page: string) {
-	// extract page route from full page route
-	return page.replace(`studio-app/${appRoute}/`, "")
+	},
+	methods: {
+		getPageRoute(appRoute, page) {
+			// extract page route from full page route
+			return page.replace(`studio-app/${appRoute}/`, "")
+		}
+	},
 }
-
-onMounted(() => {
-	// set data-component-id on mount since some frappeui components have inheritAttrs: false
-	const componentRoot = getComponentRoot(componentRef)
-	if (componentRoot) {
-		componentRoot.setAttribute("data-component-id", props.block.componentId)
-	}
-})
 </script>
