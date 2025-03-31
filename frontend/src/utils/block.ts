@@ -10,6 +10,7 @@ import { copyObject, generateId, getBlockCopy, isObjectEmpty, kebabToCamelCase, 
 
 import { StyleValue } from "@/types"
 import { ComponentEvent } from "@/types/ComponentEvent"
+import { clientScriptResource } from "@/data/studioScripts"
 
 export type styleProperty = keyof CSSProperties | `__${string}`;
 class Block implements BlockOptions {
@@ -548,6 +549,14 @@ class Block implements BlockOptions {
 			const store = useStudioStore()
 			event.page = store.getAppPageRoute(pageName)
 		}
+
+		// insert script
+		if (event.script) {
+			clientScriptResource.insert.submit({
+				"script": event.script,
+			})
+		}
+
 		this.componentEvents[event.event] = event
 	}
 
