@@ -10,7 +10,7 @@
 		:class="classes"
 		@mouseover="handleMouseOver"
 		@mouseleave="handleMouseLeave"
-		@click="handleClick"
+		@click.stop="handleClick"
 		ref="componentRef"
 	>
 		<!-- Dynamically render named slots -->
@@ -304,3 +304,18 @@ watch(
 	{ immediate: true },
 )
 </script>
+
+<style>
+/* Prevent interaction with actual components to avoid unintended clicks or navigation caused by app logic */
+.__studio_component__ * {
+	pointer-events: none !important;
+}
+
+.__studio_component__ {
+	pointer-events: auto !important;
+}
+
+.__studio_component_slot__ {
+	pointer-events: auto !important;
+}
+</style>
