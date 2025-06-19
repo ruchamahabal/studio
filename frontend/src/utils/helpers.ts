@@ -103,7 +103,9 @@ type BlockInfo = {
 	breakpoint: string
 }
 function getBlockInfo(e: MouseEvent) {
-	const target = (e.target as HTMLElement)?.closest(".__studio_component__") as HTMLElement
+	const target = (e.target as HTMLElement)?.closest(
+		"[data-component-id]:not(.editor)"
+	) as HTMLElement
 	return (target?.dataset || {}) as BlockInfo
 }
 
