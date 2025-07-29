@@ -3,7 +3,7 @@
 		v-model="showDialog"
 		:options="{
 			title: `Export ${store.activeApp?.app_title} App`,
-			dialog: 'sm',
+			size: 'xl',
 		}"
 		@after-leave="
 			() => {
@@ -13,27 +13,42 @@
 	>
 		<template #body-content>
 			<div class="flex flex-col space-y-4">
-				<FormControl
-					label="Frappe App"
-					:required="true"
-					type="autocomplete"
-					placeholder="Select the target Frappe App"
-					:modelValue="targetApp"
-					@update:modelValue="(v: SelectOption) => (targetApp = v.value || '')"
-					:options="targetAppOptions"
+				<div class="flex flex-col space-y-1.5">
+					<span class="text-base font-medium leading-normal text-ink-gray-8">Frappe App</span>
+					<FormControl
+						:required="true"
+						type="autocomplete"
+						placeholder="Select the target Frappe App"
+						:modelValue="targetApp"
+						@update:modelValue="(v: SelectOption) => (targetApp = v.value || '')"
+						:options="targetAppOptions"
+					/>
+				</div>
+				<Switch
+					v-if="store.activeApp?.is_standard"
+					size="sm"
+					label="Disable App Export"
+					:modelValue="!store.activeApp?.is_standard"
+					@update:modelValue="
+						(value: boolean) => {
+							if (value) {
+								disableAppExport()
+							}
+						}
+					"
 				/>
 			</div>
 		</template>
 
 		<template #actions>
-			<Button variant="solid" label="Export" @click="() => exportApp()" class="w-full" />
+			<Button variant="solid" label="Export" @click="exportApp" class="w-full" />
 		</template>
 	</Dialog>
 </template>
 
 <script setup lang="ts">
 import { ref } from "vue"
-import { FormControl, Button, call } from "frappe-ui"
+import { FormControl, Button, call, Switch } from "frappe-ui"
 import type { SelectOption } from "@/types"
 import { toast } from "vue-sonner"
 import useStudioStore from "@/stores/studioStore"
@@ -66,6 +81,27 @@ function exportApp() {
 			},
 			onError: (error: any) => {
 				toast.error("Failed to export app", {
+					description: error?.messages?.join(", "),
+					duration: Infinity,
+				})
+			},
+		},
+	)
+}
+
+function disableAppExport() {
+	return studioApps.runDocMethod.submit(
+		{
+			name: store.activeApp?.app_name,
+			method: "disable_app_export",
+		},
+		{
+			onSuccess: () => {
+				toast.success("App export disabled")
+				showDialog.value = false
+			},
+			onError: (error: any) => {
+				toast.error("Failed to disable app export", {
 					description: error?.messages?.join(", "),
 					duration: Infinity,
 				})

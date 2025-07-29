@@ -80,6 +80,13 @@
 			<Button
 				size="sm"
 				variant="subtle"
+				:icon="LucideArrowUpFromLine"
+				label="Export App"
+				@click="() => (showExportAppDialog = true)"
+			/>
+			<Button
+				size="sm"
+				variant="subtle"
 				:disabled="canvasStore.editingMode === 'fragment'"
 				@click="() => store.openPageInBrowser(store.activeApp!, store.activePage!, true)"
 			>
@@ -115,6 +122,7 @@ import ExportAppDialog from "@/components/ExportAppDialog.vue"
 
 import type { StudioMode } from "@/types"
 import session from "@/utils/session"
+import LucideArrowUpFromLine from "~icons/lucide/arrow-up-from-line"
 
 const store = useStudioStore()
 const canvasStore = useCanvasStore()
