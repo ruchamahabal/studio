@@ -1,5 +1,5 @@
 <template>
-	<StudioComponent v-if="studioComponent" :block="studioComponent" :breakpoint="props.breakpoint" />
+	<StudioComponent v-if="studioComponent" :block="studioComponent" :breakpoint="thisProps.breakpoint" />
 </template>
 
 <script setup lang="ts">
@@ -8,7 +8,7 @@ import StudioComponent from "@/components/StudioComponent.vue"
 import Block from "@/utils/block"
 import useComponentEditorStore from "@/stores/componentEditorStore"
 
-const props = defineProps<{
+const thisProps = defineProps<{
 	studioComponent: Block
 	breakpoint?: string
 }>()
@@ -18,12 +18,12 @@ const componentBlock = computed(() => componentEditorStore.studioComponentBlock!
 
 const componentContext = computed(() => {
 	const context = componentBlock.value.getPropsAndAttributes()
-	componentEditorStore.componentInputs.forEach((input) => {
-		if (!(input.input_name in context) && input.default !== undefined) {
-			context[input.input_name] = input.default
+	componentEditorStore.componentProps.forEach((item) => {
+		if (!(item.prop in context) && item.default !== undefined) {
+			context[item.prop] = item.default
 		}
 	})
-	return { inputs: context }
+	return { props: context }
 })
 
 provide("componentContext", componentContext)

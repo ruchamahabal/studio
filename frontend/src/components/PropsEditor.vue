@@ -90,7 +90,7 @@ import { getComponentProps } from "@/utils/components"
 import { isDynamicValue } from "@/utils/code"
 import useComponentEditorStore from "@/stores/componentEditorStore"
 import type { ComponentProps } from "@/types"
-import { ComponentInput } from "@/types/Studio/StudioComponent"
+import { ComponentPropUI } from "@/types/Studio/StudioComponent"
 import DynamicValueSelector from "@/components/DynamicValueSelector.vue"
 
 const props = defineProps<{
@@ -115,12 +115,12 @@ const componentProps = computed(() => {
 	let propConfig
 	if (props.isTestingComponent) {
 		const componentEditorStore = useComponentEditorStore()
-		propConfig = getStudioComponentProps(componentEditorStore.componentInputs)
+		propConfig = getStudioComponentProps(componentEditorStore.componentProps)
 	} else if (props.block.isStudioComponent) {
 		const componentStore = useComponentStore()
 		const componentDoc = componentStore.getComponentDoc(props.block.componentName)
-		if (componentDoc?.inputs) {
-			propConfig = getStudioComponentProps(componentDoc?.inputs)
+		if (componentDoc?.props) {
+			propConfig = getStudioComponentProps(componentDoc?.props)
 		}
 	} else {
 		propConfig = getComponentProps(props.block.componentName, componentInstance.value)
@@ -156,19 +156,19 @@ const componentProps = computed(() => {
 	return filteredProps
 })
 
-function getStudioComponentProps(componentInputs: ComponentInput[]): ComponentProps {
-	if (isObjectEmpty(componentInputs)) return {}
+function getStudioComponentProps(componentProps: ComponentPropUI[]): ComponentProps {
+	if (isObjectEmpty(componentProps)) return {}
 
 	const _props: ComponentProps = {}
-	componentInputs.forEach((input) => {
-		_props[input.input_name] = {
-			type: input.type,
-			default: input.default || undefined,
-			inputType: input.type,
-			required: !!input.required,
+	componentProps.forEach((item) => {
+		_props[item.prop] = {
+			type: item.type,
+			default: item.default || undefined,
+			inputType: item.type,
+			required: !!item.required,
 			options:
-				input.type === "select"
-					? input.options?.split("\n").map((opt: string) => ({ value: opt, label: opt }))
+				item.type === "select"
+					? item.options?.split("\n").map((opt: string) => ({ value: opt, label: opt }))
 					: undefined,
 		}
 	})

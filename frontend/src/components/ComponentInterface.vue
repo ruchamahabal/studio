@@ -1,12 +1,12 @@
 <template>
 	<div class="flex select-none flex-col pb-16">
 		<div class="flex flex-col gap-3">
-			<!-- inputs -->
-			<SectionContainer title="Inputs">
+			<!-- Props -->
+			<SectionContainer title="Props">
 				<template #actions>
 					<Autocomplete
 						:options="fieldTypeOptions"
-						@update:modelValue="(option: SelectOption) => showAddInputPopover(option.value)"
+						@update:modelValue="(option: SelectOption) => showAddPropPopover(option.value)"
 						class="!w-auto"
 					>
 						<template #target="{ togglePopover }">
@@ -15,10 +15,10 @@
 					</Autocomplete>
 				</template>
 
-				<div class="flex flex-col gap-1" v-if="componentInputs.length > 0">
+				<div class="flex flex-col gap-1" v-if="componentProps.length > 0">
 					<Popover
-						v-for="(input, index) in componentInputs"
-						:key="input.input_name"
+						v-for="(prop, index) in componentProps"
+						:key="prop.prop"
 						:show="showEditPopover && editingIndex === index"
 						@update:show="
 							(show: boolean) => {
@@ -30,15 +30,15 @@
 						<template #target>
 							<div
 								class="group flex flex-1 cursor-pointer justify-between rounded border border-gray-300 px-2 py-1 hover:bg-gray-50"
-								@click="editInput(input, index)"
+								@click="editProp(prop, index)"
 							>
 								<div class="flex items-center gap-2">
-									<FeatherIcon :name="getFieldTypeIcon(input.type)" class="h-4 w-4 text-gray-500" />
-									<span class="text-sm text-gray-800">{{ input.input_name }}</span>
+									<FeatherIcon :name="getFieldTypeIcon(prop.type)" class="h-4 w-4 text-gray-500" />
+									<span class="text-sm text-gray-800">{{ prop.prop }}</span>
 								</div>
 								<button
 									class="flex cursor-pointer items-center rounded-sm p-1 text-gray-700 opacity-0 transition-opacity hover:text-gray-900 group-hover:opacity-100"
-									@click.stop="componentEditorStore.removeComponentInput(index)"
+									@click.stop="componentEditorStore.removeComponentProp(index)"
 								>
 									<FeatherIcon name="x" class="h-4 w-4" />
 								</button>
@@ -47,13 +47,13 @@
 						<template #body-main>
 							<div
 								class="w-64 space-y-4 p-4"
-								v-if="editingInput && editingIndex === index"
+								v-if="editingProp && editingIndex === index"
 								@keydown="handleInputKeydown"
 							>
 								<FormControl
 									type="text"
 									label="Name"
-									v-model="editingInput.input_name"
+									v-model="editingProp.prop"
 									placeholder="e.g. user_name"
 									autocomplete="off"
 									:required="true"
@@ -63,13 +63,13 @@
 									label="Type"
 									:options="fieldTypeOptions"
 									:modelValue="
-										editingInput ? fieldTypeOptions.find((opt) => opt.value === editingInput!.type) : null
+										editingProp ? fieldTypeOptions.find((opt) => opt.value === editingProp!.type) : null
 									"
 									@update:modelValue="
 										(option: SelectOption) => {
-											if (editingInput) {
-												editingInput.type = option.value
-												setInputControl()
+											if (editingProp) {
+												editingProp.type = option.value
+												setPropControl()
 											}
 										}
 									"
@@ -77,7 +77,7 @@
 								>
 									<template #prefix>
 										<FeatherIcon
-											:name="editingInput ? getFieldTypeIcon(editingInput.type) : 'help-circle'"
+											:name="editingProp ? getFieldTypeIcon(editingProp.type) : 'help-circle'"
 											class="mr-1 h-3 w-3 text-gray-500"
 										/>
 									</template>
@@ -86,36 +86,36 @@
 									</template>
 								</FormControl>
 								<FormControl
-									v-if="editingInput.type === 'select'"
+									v-if="editingProp.type === 'select'"
 									type="textarea"
 									label="Options"
-									v-model="editingInput.options"
+									v-model="editingProp.options"
 									:required="true"
 									placeholder="Enter list of options, each on a new line"
 								/>
 
 								<!-- Default value -->
 								<component
-									:is="editingInput.inputControl"
-									:type="editingInput.inputType"
+									:is="editingProp.inputControl"
+									:type="editingProp.inputType"
 									label="Default Value"
-									v-model="editingInput.default"
+									v-model="editingProp.default"
 								/>
 								<FormControl
 									type="textarea"
 									label="Description"
-									v-model="editingInput.description"
+									v-model="editingProp.description"
 									placeholder="Enter description (optional)"
 								/>
 								<FormControl
 									type="checkbox"
 									label="Is Required"
 									size="sm"
-									v-model="editingInput.required"
+									v-model="editingProp.required"
 									class="[&>label]:text-sm [&>label]:text-ink-gray-5"
 								/>
 								<div class="flex gap-2">
-									<Button variant="solid" @click="saveInput">Save</Button>
+									<Button variant="solid" @click="saveProp">Save</Button>
 									<Button variant="outline" @click="cancelEdit">Cancel</Button>
 								</div>
 								<div class="text-xs text-gray-500">
@@ -130,11 +130,11 @@
 					</Popover>
 				</div>
 
-				<EmptyState v-else message="No inputs added" />
+				<EmptyState v-else message="No props added" />
 			</SectionContainer>
 
-			<!-- Test Inputs -->
-			<SectionContainer title="Test Inputs">
+			<!-- Test Props -->
+			<SectionContainer title="Test Props">
 				<PropsEditor
 					v-if="componentEditorStore.studioComponentBlock"
 					:block="componentEditorStore.studioComponentBlock"
@@ -150,7 +150,7 @@ import { ref, markRaw, computed } from "vue"
 import { Autocomplete, Popover, FormControl } from "frappe-ui"
 import EmptyState from "@/components/EmptyState.vue"
 import type { SelectOption } from "@/types"
-import type { ComponentInput } from "@/types/Studio/StudioComponent"
+import type { ComponentPropUI } from "@/types/Studio/StudioComponent"
 import Code from "@/components/Code.vue"
 import ColorPicker from "@/components/ColorPicker.vue"
 import PropsEditor from "@/components/PropsEditor.vue"
@@ -158,9 +158,9 @@ import useComponentEditorStore from "@/stores/componentEditorStore"
 import { isCtrlOrCmd } from "@/utils/helpers"
 
 const componentEditorStore = useComponentEditorStore()
-const componentInputs = computed(() => componentEditorStore.componentInputs)
+const componentProps = computed(() => componentEditorStore.componentProps)
 const showEditPopover = ref(false)
-const editingInput = ref<ComponentInput | null>(null)
+const editingProp = ref<ComponentPropUI | null>(null)
 const editingIndex = ref<number>(-1)
 
 const fieldTypeOptions = [
@@ -186,59 +186,59 @@ const getFieldTypeIcon = (type: string) => {
 	return iconMap[type] || "type"
 }
 
-const editInput = (input: ComponentInput, index: number) => {
-	editingInput.value = { ...input }
+const editProp = (input: ComponentPropUI, index: number) => {
+	editingProp.value = { ...input }
 	editingIndex.value = index
-	setInputControl()
+	setPropControl()
 	showEditPopover.value = true
 }
 
-const saveInput = () => {
-	if (editingInput.value && editingIndex.value >= 0) {
-		componentEditorStore.updateComponentInput(editingIndex.value, editingInput.value)
+const saveProp = () => {
+	if (editingProp.value && editingIndex.value >= 0) {
+		componentEditorStore.updateComponentProp(editingIndex.value, editingProp.value)
 	}
 	showEditPopover.value = false
-	editingInput.value = null
+	editingProp.value = null
 	editingIndex.value = -1
 }
 
 const cancelEdit = () => {
 	showEditPopover.value = false
-	editingInput.value = null
+	editingProp.value = null
 	editingIndex.value = -1
 }
 
-const showAddInputPopover = (fieldType: string) => {
+const showAddPropPopover = (fieldType: string) => {
 	const fieldTypeLabel = fieldTypeOptions.find((opt) => opt.value === fieldType)?.label || fieldType
-	const newInputData: ComponentInput = {
-		input_name: fieldTypeLabel,
+	const newPropData: ComponentPropUI = {
+		prop: fieldTypeLabel,
 		type: fieldType,
 		description: "",
 		default: "",
 	}
-	componentEditorStore.addComponentInput(newInputData)
-	const newIndex = componentInputs.value.length - 1
+	componentEditorStore.addComponentProp(newPropData)
+	const newIndex = componentProps.value.length - 1
 	setTimeout(() => {
-		editInput(newInputData, newIndex)
+		editProp(newPropData, newIndex)
 	}, 10) // Small delay to ensure DOM is updated
 }
 
-const setInputControl = () => {
-	if (!editingInput.value) return
-	if (editingInput.value.type === "code") {
-		editingInput.value.inputControl = markRaw(Code)
-	} else if (editingInput.value.type === "color") {
-		editingInput.value.inputControl = markRaw(ColorPicker)
+const setPropControl = () => {
+	if (!editingProp.value) return
+	if (editingProp.value.type === "code") {
+		editingProp.value.inputControl = markRaw(Code)
+	} else if (editingProp.value.type === "color") {
+		editingProp.value.inputControl = markRaw(ColorPicker)
 	} else {
-		editingInput.value.inputControl = "FormControl"
-		editingInput.value.inputType = editingInput.value?.type === "textarea" ? "textarea" : "text"
+		editingProp.value.inputControl = "FormControl"
+		editingProp.value.inputType = editingProp.value?.type === "textarea" ? "textarea" : "text"
 	}
 }
 
 const handleInputKeydown = (e: KeyboardEvent) => {
 	if (isCtrlOrCmd(e) && e.key === "s") {
 		e.preventDefault()
-		saveInput()
+		saveProp()
 	}
 }
 </script>

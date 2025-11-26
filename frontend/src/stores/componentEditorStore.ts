@@ -6,14 +6,14 @@ import getBlockTemplate from "@/utils/blockTemplate"
 import Block from "@/utils/block"
 import useCanvasStore from "@/stores/canvasStore"
 import { toast } from "vue-sonner"
-import type { StudioComponent, ComponentInput } from "@/types/Studio/StudioComponent"
+import type { StudioComponent, ComponentPropUI } from "@/types/Studio/StudioComponent"
 import useComponentStore from "@/stores/componentStore"
 import useStudioStore from "./studioStore"
 
 const useComponentEditorStore = defineStore("componentEditorStore", () => {
 	const selectedComponent = ref<string | null>(null)
 	const studioComponentBlock = ref<Block | null>(null)
-	const componentInputs = ref<ComponentInput[]>([])
+	const componentProps = ref<ComponentPropUI[]>([])
 	const componentStore = useComponentStore()
 
 	async function createComponent(componentName: string, block?: Block | null) {
@@ -46,13 +46,13 @@ const useComponentEditorStore = defineStore("componentEditorStore", () => {
 			block: getBlockObject(block),
 		}
 
-		payload.inputs = componentInputs.value.map((input) => ({
-			input_name: input.input_name,
-			type: input.type,
-			description: input.description || "",
-			default: input.default || "",
+		payload.props = componentProps.value.map((item) => ({
+			prop: item.prop,
+			type: item.type,
+			description: item.description || "",
+			default: item.default || "",
 			required: 0,
-			options: input.options,
+			options: item.options,
 		}))
 
 		studioComponents.setValue.submit(payload, {
@@ -75,17 +75,17 @@ const useComponentEditorStore = defineStore("componentEditorStore", () => {
 		const block = componentBlock || getBlockInstance(getBlockTemplate("empty-component"))
 		studioComponentBlock.value = getComponentBlock(componentId, true)
 
-		// Load existing inputs from the component doc
-		if (componentDoc && componentDoc.inputs) {
-			componentInputs.value = componentDoc.inputs.map((input: any) => ({
-				input_name: input.input_name,
-				type: input.type,
-				description: input.description,
-				default: input.default,
-				options: input.options,
+		// Load existing props from the component doc
+		if (componentDoc && componentDoc.props) {
+			componentProps.value = componentDoc.props.map((item: any) => ({
+				prop: item.prop,
+				type: item.type,
+				description: item.description,
+				default: item.default,
+				options: item.options,
 			}))
 		} else {
-			componentInputs.value = []
+			componentProps.value = []
 		}
 
 		const canvasStore = useCanvasStore()
@@ -154,39 +154,39 @@ const useComponentEditorStore = defineStore("componentEditorStore", () => {
 		studioComponentBlock.value = null
 	}
 
-	// component inputs
-	function addComponentInput(input: ComponentInput) {
-		componentInputs.value.push(input)
+	// component props
+	function addComponentProp(prop: ComponentPropUI) {
+		componentProps.value.push(prop)
 	}
 
-	function updateComponentInput(index: number, input: ComponentInput) {
-		if (index >= 0 && index < componentInputs.value.length) {
-			componentInputs.value[index] = input
+	function updateComponentProp(index: number, prop: ComponentPropUI) {
+		if (index >= 0 && index < componentProps.value.length) {
+			componentProps.value[index] = prop
 		}
 	}
 
-	function removeComponentInput(index: number) {
-		if (index >= 0 && index < componentInputs.value.length) {
-			componentInputs.value.splice(index, 1)
+	function removeComponentProp(index: number) {
+		if (index >= 0 && index < componentProps.value.length) {
+			componentProps.value.splice(index, 1)
 		}
 	}
 
-	function clearComponentInputs() {
-		componentInputs.value = []
+	function clearComponentProps() {
+		componentProps.value = []
 	}
 
 	return {
 		selectedComponent,
 		studioComponentBlock,
-		componentInputs,
+		componentProps,
 		createComponent,
 		editComponent,
 		deleteComponent,
-		// inputs
-		addComponentInput,
-		updateComponentInput,
-		removeComponentInput,
-		clearComponentInputs,
+		// props
+		addComponentProp,
+		updateComponentProp,
+		removeComponentProp,
+		clearComponentProps,
 	}
 })
 

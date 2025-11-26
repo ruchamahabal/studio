@@ -19,13 +19,13 @@ class StudioComponent(Document):
 	if TYPE_CHECKING:
 		from frappe.types import DF
 
-		from studio.studio.doctype.studio_component_input.studio_component_input import StudioComponentInput
+		from studio.studio.doctype.studio_component_prop.studio_component_prop import StudioComponentProp
 
 		block: DF.JSON | None
 		component_id: DF.Data | None
 		component_name: DF.Data | None
-		inputs: DF.Table[StudioComponentInput]
 		is_disabled: DF.Check
+		props: DF.Table[StudioComponentProp]
 	# end: auto-generated types
 
 	def before_insert(self):

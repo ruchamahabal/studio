@@ -4,13 +4,13 @@ export interface StudioComponent {
 	component_name: string
 	/**	Block : JSON	*/
 	block?: any
-	inputs?: StudioComponentInput[]
+	props?: StudioComponentProp[]
 	creation?: string
 	modified?: string
 }
 
-export interface StudioComponentInput {
-	input_name: string
+export interface StudioComponentProp {
+	prop: string
 	type: string
 	description?: string
 	default?: string
@@ -19,8 +19,8 @@ export interface StudioComponentInput {
 }
 
 // for UI
-export interface ComponentInput {
-	input_name: string
+export interface ComponentPropUI {
+	prop: string
 	type: string
 	description?: string
 	default?: string

@@ -11,7 +11,7 @@ import useComponentStore from "@/stores/componentStore"
 import useCodeStore from "@/stores/codeStore"
 import { isDynamicValue } from "@/utils/code"
 
-const props = defineProps<{
+const thisProps = defineProps<{
 	studioComponent: Block
 	evaluationContext: Object
 }>()
@@ -19,24 +19,24 @@ const componentStore = useComponentStore()
 const codeStore = useCodeStore()
 
 const componentContext = computed(() => {
-	const context = props.studioComponent.getPropsAndAttributes()
-	const componentDoc = componentStore.getComponentDoc(props.studioComponent.componentName)
-	if (componentDoc?.inputs) {
-		componentDoc.inputs.forEach((input: any) => {
-			if (!(input.input_name in context) && input.default !== undefined) {
-				context[input.input_name] = input.default
+	const context = thisProps.studioComponent.getPropsAndAttributes()
+	const componentDoc = componentStore.getComponentDoc(thisProps.studioComponent.componentName)
+	if (componentDoc?.props) {
+		componentDoc.props.forEach((item: any) => {
+			if (!(item.prop in context) && item.default !== undefined) {
+				context[item.prop] = item.default
 			}
 
-			Object.entries(context).forEach(([inputName, value]) => {
+			Object.entries(context).forEach(([propName, value]) => {
 				if (isDynamicValue(value)) {
-					context[inputName] = codeStore.getDynamicValue(value, props.evaluationContext)
+					context[propName] = codeStore.getDynamicValue(value, thisProps.evaluationContext)
 				}
 			})
 		})
 	}
-	return { inputs: context }
+	return { props: context }
 })
 provide("componentContext", componentContext)
 
-const block = computed(() => componentStore.getNewStudioComponentInstance(props.studioComponent))
+const block = computed(() => componentStore.getNewStudioComponentInstance(thisProps.studioComponent))
 </script>

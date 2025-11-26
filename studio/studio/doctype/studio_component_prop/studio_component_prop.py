@@ -5,7 +5,7 @@
 from frappe.model.document import Document
 
 
-class StudioComponentInput(Document):
+class StudioComponentProp(Document):
 	# begin: auto-generated types
 	# This code is auto-generated. Do not modify anything in this block.
 
@@ -16,11 +16,11 @@ class StudioComponentInput(Document):
 
 		default: DF.Code | None
 		description: DF.SmallText | None
-		input_name: DF.Data
 		options: DF.SmallText | None
 		parent: DF.Data
 		parentfield: DF.Data
 		parenttype: DF.Data
+		prop: DF.Data
 		required: DF.Check
 		type: DF.Data
 	# end: auto-generated types

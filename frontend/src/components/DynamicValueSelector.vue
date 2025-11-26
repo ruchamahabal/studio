@@ -32,7 +32,7 @@ import useCanvasStore from "@/stores/canvasStore"
 import useComponentEditorStore from "@/stores/componentEditorStore"
 import Block from "@/utils/block"
 import type { VariableOption } from "@/types/Studio/StudioPageVariable"
-import type { ComponentInput } from "@/types/Studio/StudioComponent"
+import type { ComponentPropUI } from "@/types/Studio/StudioComponent"
 import { isObjectEmpty } from "@/utils/helpers"
 import useCodeStore from "@/stores/codeStore"
 
@@ -58,18 +58,18 @@ const dynamicValueOptions = computed(() => {
 
 	if (canvasStore.editingMode === "component") {
 		// Component context
-		const componentInputs = useComponentEditorStore().componentInputs
-		if (!isObjectEmpty(componentInputs)) {
+		const componentProps = useComponentEditorStore().componentProps
+		if (!isObjectEmpty(componentProps)) {
 			const componentContext: VariableOption[] = []
-			componentInputs.map?.((input: ComponentInput) => {
+			componentProps.map?.((item: ComponentPropUI) => {
 				componentContext.push({
-					value: formatValue(`inputs.${input.input_name}`),
-					label: `inputs.${input.input_name}`,
-					type: input.type,
+					value: formatValue(`props.${item.prop}`),
+					label: `props.${item.prop}`,
+					type: item.type,
 				})
 			})
 			groups.push({
-				group: "Component Inputs",
+				group: "Component Props",
 				items: componentContext,
 			})
 		}

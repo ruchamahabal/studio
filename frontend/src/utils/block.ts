@@ -1,6 +1,6 @@
 import type { BlockOptions, BlockStyleMap, CompletionSource, Slot } from "@/types"
 import { clamp } from "@vueuse/core"
-import { reactive, CSSProperties, nextTick, computed } from 'vue'
+import { reactive, CSSProperties, nextTick } from 'vue'
 
 import useCanvasStore from "@/stores/canvasStore"
 import useComponentStore from "@/stores/componentStore"
@@ -696,9 +696,9 @@ class Block implements BlockOptions {
 		if (this.componentContext) {
 			completions.push(
 				{
-					item: this.componentContext.inputs || {},
+					item: this.componentContext.props || {},
 					completion: {
-						label: "inputs",
+						label: "props",
 						type: "data",
 						detail: "Component Context",
 					}

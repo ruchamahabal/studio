@@ -1,11 +1,11 @@
 {
  "actions": [],
  "allow_rename": 1,
- "creation": "2025-08-26 09:45:40.642818",
+ "creation": "2025-11-26 19:30:52.595004",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
-  "input_name",
+  "prop",
   "type",
   "required",
   "default",
@@ -15,18 +15,24 @@
  ],
  "fields": [
   {
-   "fieldname": "input_name",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "label": "Input Name",
-   "reqd": 1
-  },
-  {
    "fieldname": "type",
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Type",
    "reqd": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "required",
+   "fieldtype": "Check",
+   "label": "Required"
+  },
+  {
+   "fieldname": "default",
+   "fieldtype": "Code",
+   "in_list_view": 1,
+   "label": "Default Value",
+   "max_height": "100px"
   },
   {
    "fieldname": "column_break_lmzs",
@@ -43,27 +49,21 @@
    "label": "Options"
   },
   {
-   "default": "0",
-   "fieldname": "required",
-   "fieldtype": "Check",
-   "label": "Required"
-  },
-  {
-   "fieldname": "default",
-   "fieldtype": "Code",
+   "fieldname": "prop",
+   "fieldtype": "Data",
    "in_list_view": 1,
-   "label": "Default Value",
-   "max_height": "100px"
+   "label": "Prop",
+   "reqd": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-08-28 14:35:13.249113",
+ "modified": "2025-11-26 19:31:46.428425",
  "modified_by": "Administrator",
  "module": "Studio",
- "name": "Studio Component Input",
+ "name": "Studio Component Prop",
  "owner": "Administrator",
  "permissions": [],
  "row_format": "Dynamic",
