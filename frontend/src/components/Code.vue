@@ -34,7 +34,13 @@ import { EditorView, keymap } from "@codemirror/view"
 import { indentationMarkers } from "@replit/codemirror-indentation-markers"
 import { tomorrow } from "thememirror"
 import JSON5 from "json5"
-import { jsonToJs, isPrivateKey } from "@/utils/helpers"
+import {
+	jsonToJs,
+	isPrivateKey,
+	jsonReplacer,
+	stringifyWithFunctions,
+	parseJsWithFunctions,
+} from "@/utils/helpers"
 
 import InputLabel from "@/components/InputLabel.vue"
 
@@ -71,8 +77,21 @@ const code = ref<string>("")
 const setEditorValue = () => {
 	let value = props.modelValue ?? ""
 	try {
-		if (props.language === "json" || typeof value === "object") {
-			value = JSON5.stringify(value, { replacer: null, space: 2, quote: '"' })
+		if (typeof value === "object") {
+			if (props.language === "javascript") {
+				// Use custom stringify that preserves function syntax
+				value = stringifyWithFunctions(value)
+			} else {
+				value = JSON5.stringify(value, { replacer: jsonReplacer, space: 2, quote: '"' })
+			}
+		} else if (props.language === "json" && typeof value === "string") {
+			// Try to parse and re-stringify for proper formatting
+			try {
+				const parsed = JSON5.parse(value)
+				value = JSON5.stringify(parsed, { replacer: jsonReplacer, space: 2, quote: '"' })
+			} catch (e) {
+				// Keep original value if parsing fails
+			}
 		}
 		code.value = value
 	} catch (e) {
@@ -96,17 +115,22 @@ const errorMessage = ref("")
 const emitEditorValue = () => {
 	try {
 		errorMessage.value = ""
-		let value = code.value || ""
+		let value: any = code.value || ""
 		if (value && !value.startsWith("{{")) {
 			if (props.language === "json") {
 				value = jsonToJs(value)
 			} else if (props.language === "javascript" && isValidObjectString(value)) {
 				try {
-					// forgiving single-quoted/unquoted keys; trailing commas
-					value = JSON5.parse(value)
+					// Use custom parser that handles functions
+					value = parseJsWithFunctions(value)
 				} catch (e) {
-					// fallback to JSON parsing
-					value = jsonToJs(value)
+					try {
+						// fallback to JSON5 for simpler objects
+						value = JSON5.parse(value)
+					} catch (e2) {
+						// fallback to JSON parsing
+						value = jsonToJs(value)
+					}
 				}
 			}
 		}
@@ -114,7 +138,7 @@ const emitEditorValue = () => {
 		if (!props.showSaveButton && !props.readonly) {
 			emit("update:modelValue", value)
 		}
-	} catch (e) {
+	} catch (e: any) {
 		console.error("Error while parsing JSON for editor", e)
 		errorMessage.value = `Invalid object/JSON: ${e.message}`
 	}

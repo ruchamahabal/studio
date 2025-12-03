@@ -239,38 +239,94 @@ function isJSONString(str: string) {
 	return true
 }
 
-function jsToJson(obj: ObjectLiteral): string {
-	const replacer = (_key: string, value: any) => {
-		// Preserve functions by converting them to strings
-		if (typeof value === "function") {
-			return value.toString()
-		}
-		// Handle circular references
-		if (typeof value === "object" && value !== null) {
-			if (value instanceof Set) {
-			return [...value]
-			}
-			if (value instanceof Map) {
-			return Object.fromEntries(value.entries())
-			}
-		}
-		return value
+const jsonReplacer = (_key: string, value: any) => {
+	// Preserve functions by converting them to strings
+	if (typeof value === "function") {
+		return value.toString()
 	}
-	return JSON.stringify(obj, replacer, 2)
+	// Handle circular references
+	if (typeof value === "object" && value !== null) {
+		if (value instanceof Set) {
+		return [...value]
+		}
+		if (value instanceof Map) {
+		return Object.fromEntries(value.entries())
+		}
+	}
+	return value
+}
+
+function stringifyWithFunctions(obj: any, indent: number = 0): string {
+	const spaces = "  ".repeat(indent)
+	const nextSpaces = "  ".repeat(indent + 1)
+
+	if (obj === null) return "null"
+	if (obj === undefined) return "undefined"
+
+	if (typeof obj === "function") {
+		// Return function as-is without quotes
+		return obj.toString()
+	}
+
+	if (typeof obj === "string") {
+		// Escape quotes and return as quoted string
+		return JSON.stringify(obj)
+	}
+
+	if (typeof obj === "number" || typeof obj === "boolean") {
+		return String(obj)
+	}
+
+	if (Array.isArray(obj)) {
+		if (obj.length === 0) return "[]"
+		const items = obj.map((item) => nextSpaces + stringifyWithFunctions(item, indent + 1))
+		return `[\n${items.join(",\n")}\n${spaces}]`
+	}
+
+	if (typeof obj === "object") {
+		const keys = Object.keys(obj)
+		if (keys.length === 0) return "{}"
+		const items = keys.map((key) => {
+			const value = stringifyWithFunctions(obj[key], indent + 1)
+			// Use unquoted key if it's a valid identifier, otherwise quote it
+			const formattedKey = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(key) ? key : JSON.stringify(key)
+			return `${nextSpaces}${formattedKey}: ${value}`
+		})
+		return `{\n${items.join(",\n")}\n${spaces}}`
+	}
+
+	return String(obj)
+}
+
+function jsToJson(obj: ObjectLiteral): string {
+	return JSON.stringify(obj, jsonReplacer, 2)
+}
+
+const jsonReviver = (_key: string, value: any) => {
+	const registeredComponents = window.__APP_COMPONENTS__ || {}
+	// Convert functions back to functions
+	if (typeof value === "string" && value.startsWith("function")) {
+		// provide access to render function & frappeUI lib for editing props
+		const newFunc = new Function("scope", `with(scope) { return ${value}; }`)
+		return newFunc({"h": h, ...registeredComponents})
+	}
+	return value
 }
 
 function jsonToJs(json: string): any {
+	return JSON.parse(json, jsonReviver)
+}
+
+function parseJsWithFunctions(jsString: string): any {
 	const registeredComponents = window.__APP_COMPONENTS__ || {}
-	const reviver = (_key: string, value: any) => {
-		// Convert functions back to functions
-		if (typeof value === "string" && value.startsWith("function")) {
-			// provide access to render function & frappeUI lib for editing props
-			const newFunc = new Function("scope", `with(scope) { return ${value}; }`)
-			return newFunc({"h": h, ...registeredComponents})
-		}
-		return value
+	try {
+		// Wrap the string in parentheses to make it a valid expression
+		// and use Function constructor to evaluate it safely with access to h and components
+		const fn = new Function("h", ...Object.keys(registeredComponents), `return (${jsString})`)
+		return fn(h, ...Object.values(registeredComponents))
+	} catch (e) {
+		throw e
 	}
-	return JSON.parse(json, reviver)
 }
 
 const mapToObject = (map: Map<any, any>) => Object.fromEntries(map.entries());
@@ -582,8 +638,12 @@ export {
 	setValueInObject,
 	isPrivateKey,
 	isJSONString,
+	jsonReplacer,
 	jsToJson,
+	jsonReviver,
 	jsonToJs,
+	parseJsWithFunctions,
+	stringifyWithFunctions,
 	mapToObject,
 	replaceMapKey,
 	isTargetEditable,
