@@ -18,7 +18,9 @@ export const useStudioCompletions = (canEditValues: boolean = false) => {
 					type: "variable",
 					detail: "Variable",
 					apply(view, completion, from, to) {
-						let insertText = canEditValues ? `${completion.label}.value` : `${completion.label}`
+						let line = view.state.doc.lineAt(from)
+						const isDynamicProperty = line.text.trim().includes("{{") || line.text.trim().includes("}}")
+						let insertText = canEditValues && !isDynamicProperty ? `${completion.label}.value` : `${completion.label}`
 						view.dispatch({
 							changes: { from, to, insert: insertText },
 						})

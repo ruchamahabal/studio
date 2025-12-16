@@ -45,7 +45,7 @@
 				:modelValue="config.modelValue"
 				@update:modelValue="(newValue) => props.block?.setProp(propName, newValue)"
 				:required="config.required"
-				:completions="(context: CompletionContext) => getCompletions(context, block?.getCompletions())"
+				:completions="(context: CompletionContext) => getEditorCompletions(context, block?.getCompletions())"
 				:showLineNumbers="false"
 				class="overflow-hidden"
 			/>
@@ -98,7 +98,7 @@ const props = defineProps<{
 	isTestingComponent?: boolean
 }>()
 
-const getCompletions = useStudioCompletions()
+const getEditorCompletions = useStudioCompletions(true)
 
 const componentInstance = computed(() => {
 	if (!props.block?.componentName || props.block.isStudioComponent) return {}
