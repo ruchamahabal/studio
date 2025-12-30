@@ -44,7 +44,7 @@ const isCommentNode = (el: Element) => {
 	return el.nodeType === Node.COMMENT_NODE
 }
 
-function getComponentRoot(componentRef: Ref) {
+function getComponentRoot(componentRef: Ref, componentId: string | null = null, breakpoint: string) {
 	if (!componentRef.value) return null
 	if (componentRef.value instanceof HTMLElement || componentRef.value instanceof SVGElement) {
 		return componentRef.value
@@ -55,11 +55,16 @@ function getComponentRoot(componentRef: Ref) {
 			if (typeof rootRef === "function") {
 				// options API exposes ref as a function
 				return rootRef().$el
-			} else {
+			} else if (rootRef) {
+				// composition API directly exposes ref
 				return rootRef
 			}
+			// directly query DOM
+			const rootElement = document.querySelector(`.__studio_component__[data-component-id="${componentId}"][data-breakpoint="${breakpoint}"]`)
+			return rootElement
+		} else if (componentRef.value?.$el) {
+			return componentRef.value.$el
 		}
-		return componentRef.value?.$el
 	}
 }
 

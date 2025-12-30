@@ -101,7 +101,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch, useAttrs, inject, ComputedRef } from "vue"
+import { computed, ref, watch, useAttrs, inject, ComputedRef, useTemplateRef } from "vue"
 import type { ComponentPublicInstance } from "vue"
 import StudioComponentWrapper from "@/components/StudioComponentWrapper.vue"
 import ComponentEditor from "@/components/ComponentEditor.vue"
@@ -191,7 +191,8 @@ const componentProps = computed(() => {
 	}
 })
 
-const componentRef = ref<ComponentPublicInstance | null>(null)
+// const componentRef = ref<ComponentPublicInstance | null>(null)
+const componentRef = useTemplateRef<ComponentPublicInstance>("componentRef")
 
 // visibility
 const showComponent = computed(() => {
@@ -230,7 +231,7 @@ const isSelected = computed(() => canvasStore.activeCanvas?.selectedBlockIds?.ha
 
 const target = computed<HTMLElement | null>(() => {
 	if (!componentRef.value) return null
-	return getComponentRoot(componentRef)
+	return getComponentRoot(componentRef, props.block.componentId, props.breakpoint)
 })
 
 const loadEditor = computed(() => {
