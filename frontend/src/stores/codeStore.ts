@@ -20,6 +20,106 @@ const useCodeStore = defineStore("codeStore", () => {
 	const activeWatchers = ref<Record<string, WatchStopHandle>>({})
 	const routeObject = ref<ComputedRef>()
 
+	// Function caches
+	const expressionCache = new Map<string, Function>()
+	const scriptCache = new Map<string, Function>()
+	const functionStringCache = new Map<string, Function>()
+	const transformCache = new Map<string, Function>()
+
+	// Cache size limit to prevent memory leaks
+	const MAX_CACHE_SIZE = 500
+
+	function clearCacheIfNeeded(cache: Map<string, Function>) {
+		if (cache.size > MAX_CACHE_SIZE) {
+			// Clear oldest half of entries
+			const entries = Array.from(cache.keys())
+			entries.slice(0, Math.floor(MAX_CACHE_SIZE / 2)).forEach(key => cache.delete(key))
+		}
+	}
+
+	function getCompiledExpression(expression: string): Function {
+		let fn = expressionCache.get(expression)
+		if (!fn) {
+			clearCacheIfNeeded(expressionCache)
+			// Replace dot notation with optional chaining
+			const safeExpression = expression.replace(/(\w+)(?:\.(\w+))+/g, (match) => {
+				return match.split('.').join('?.')
+			})
+			fn = new Function('context', `
+				with (context || {}) {
+					try {
+						return ${safeExpression};
+					} catch (e) {
+						return undefined;
+					}
+				}
+			`)
+			expressionCache.set(expression, fn)
+		}
+		return fn
+	}
+
+	function getCompiledScript(script: string): Function {
+		let fn = scriptCache.get(script)
+		if (!fn) {
+			clearCacheIfNeeded(scriptCache)
+			const scriptToExecute = `
+				with (context) {
+					${script}
+				}
+			`
+			fn = new Function("context", scriptToExecute)
+			scriptCache.set(script, fn)
+		}
+		return fn
+	}
+
+	function getCompiledSuccessHandler(script: string): Function {
+		const cacheKey = `success:${script}`
+		let fn = scriptCache.get(cacheKey)
+		if (!fn) {
+			clearCacheIfNeeded(scriptCache)
+			fn = new Function(
+				"ctx",
+				`with(ctx) {
+					${script}
+					return onSuccess(data);
+				}`,
+			)
+			scriptCache.set(cacheKey, fn)
+		}
+		return fn
+	}
+
+	function getCompiledErrorHandler(script: string): Function {
+		const cacheKey = `error:${script}`
+		let fn = scriptCache.get(cacheKey)
+		if (!fn) {
+			clearCacheIfNeeded(scriptCache)
+			fn = new Function(
+				"ctx",
+				`with(ctx) {
+					${script}
+					return onError(error);
+				}`,
+			)
+			scriptCache.set(cacheKey, fn)
+		}
+		return fn
+	}
+
+	function getCompiledTransform(transformCode: string, isDocument: boolean): Function {
+		const cacheKey = `${isDocument ? 'doc' : 'data'}:${transformCode}`
+		let fn = transformCache.get(cacheKey)
+		if (!fn) {
+			clearCacheIfNeeded(transformCache)
+			const transformFn = new Function(transformCode + "\nreturn transform")()
+			fn = (input: any) => transformFn.call(null, input)
+			transformCache.set(cacheKey, fn)
+		}
+		return fn
+	}
+
 	function setRouteObject(route: ComputedRef) {
 		routeObject.value = route
 	}
@@ -209,23 +309,8 @@ const useCodeStore = defineStore("codeStore", () => {
 	function evaluateExpression(expression: string, localContext: ExpressionEvaluationContext) {
 		try {
 			const context = { ...globalContext.value, ...localContext }
-			// Replace dot notation with optional chaining
-			const safeExpression = expression.replace(/(\w+)(?:\.(\w+))+/g, (match) => {
-				return match.split('.').join('?.')
-			})
-
-			// Create a function that takes the context as an argument
-			const func = new Function('context', `
-				with (context || {}) {
-					try {
-						return ${safeExpression};
-					} catch (e) {
-						return undefined;
-					}
-				}
-			`)
-
-			return func(context)
+			const fn = getCompiledExpression(expression)
+			return fn(context)
 		} catch (error) {
 			console.error(`Error evaluating expression: ${expression}`, error)
 			return undefined
@@ -239,14 +324,8 @@ const useCodeStore = defineStore("codeStore", () => {
 	) {
 		try {
 			const context = { ...globalExecutionContext.value, ...repeaterContext, ...componentContext }
-
-			const scriptToExecute = `
-				with (context) {
-				${script}
-				}
-			`;
-			const scriptFunction = new Function("context", scriptToExecute);
-			scriptFunction(context, resources);
+			const scriptFunction = getCompiledScript(script)
+			scriptFunction(context)
 		} catch (error) {
 			console.error(`Error executing the script: ${script}`, error)
 		}
@@ -265,13 +344,7 @@ const useCodeStore = defineStore("codeStore", () => {
 				...componentContext,
 				data,
 			}
-			const successFn = new Function(
-				"ctx",
-				`with(ctx) {
-					${script}
-					return onSuccess(data);
-				}`,
-			)
+			const successFn = getCompiledSuccessHandler(script)
 			return successFn(context)
 		} catch (error) {
 			console.error(`Error executing success script: ${script}`, error)
@@ -291,13 +364,7 @@ const useCodeStore = defineStore("codeStore", () => {
 				...componentContext,
 				error,
 			}
-			const errorFn = new Function(
-				"ctx",
-				`with(ctx) {
-					${script}
-					return onError(error);
-				}`,
-			)
+			const errorFn = getCompiledErrorHandler(script)
 			return errorFn(context)
 		} catch (err) {
 			console.error(`Error executing error script: ${script}`, err)
@@ -396,26 +463,10 @@ const useCodeStore = defineStore("codeStore", () => {
 	}
 
 	const getTransforms = (resource: Resource) => {
-		/**
-		 * Create a function that includes the user's transform function
-		 * Invoke the transform function with data/doc
-		 */
 		if (resource.transform) {
-			if (resource.resource_type === "Document") {
-				return {
-					transform: (doc: any) => {
-						const transformFn = new Function(resource.transform + "\nreturn transform")()
-						return transformFn.call(null, doc);
-					}
-				}
-			} else {
-				return {
-					transform: (data: any) => {
-						const transformFn = new Function(resource.transform + "\nreturn transform")()
-						return transformFn.call(null, data);
-					}
-				}
-			}
+			const isDocument = resource.resource_type === "Document"
+			const transformFn = getCompiledTransform(resource.transform, isDocument)
+			return { transform: transformFn }
 		}
 		return {}
 	}
@@ -449,24 +500,46 @@ const useCodeStore = defineStore("codeStore", () => {
 	}
 
 	function stringToFunction(value: string, localContext: Record<string, any>): Function | string {
-		/**
-		 * Convert a function string to an actual function
-		 * Used for component props that have function values
-		 */
 		const registeredComponents = window.__APP_COMPONENTS__ || {}
 
+		// Create a cache key based on the function string only
+		// Context values change but the compiled function structure remains the same
+		let fn = functionStringCache.get(value)
+
+		if (!fn) {
+			clearCacheIfNeeded(functionStringCache)
+			try {
+				fn = new Function(
+					"h",
+					"components",
+					"globalCtx",
+					"localCtx",
+					`
+					const allCtx = {...globalCtx, ...localCtx, ...components};
+					with(allCtx) {
+						return (${value})
+					}
+					`
+				)
+				functionStringCache.set(value, fn)
+			} catch (e) {
+				return value
+			}
+		}
+
 		try {
-			const fn = new Function(
-				"h",
-				...Object.keys(registeredComponents),
-				...Object.keys(globalExecutionContext.value),
-				...Object.keys(localContext),
-				`return (${value})`
-			)
-			return fn(h, ...Object.values(registeredComponents), ...Object.values(globalExecutionContext.value), ...Object.values(localContext))
+			return fn(h, registeredComponents, globalExecutionContext.value, localContext)
 		} catch (e) {
 			return value
 		}
+	}
+
+	// Function to clear all caches (useful when page changes)
+	function clearCaches() {
+		expressionCache.clear()
+		scriptCache.clear()
+		functionStringCache.clear()
+		transformCache.clear()
 	}
 
 	return {
@@ -493,6 +566,8 @@ const useCodeStore = defineStore("codeStore", () => {
 		handleError,
 		getAPIParams,
 		stringToFunction,
+		// cache management
+		clearCaches,
 	}
 })
 
