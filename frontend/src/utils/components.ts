@@ -164,6 +164,11 @@ const frappeUIModules: Record<string, string> = import.meta.glob(
 	{ query: "?raw", eager: true, import: "default" }
 )
 
+const frappeUITypeModules: Record<string, string> = import.meta.glob(
+	"../../../node_modules/frappe-ui/src/components/**/types.ts",
+	{ query: "?raw", eager: true, import: "default" }
+)
+
 const studioModules: Record<string, string> = import.meta.glob(
 	"@/components/AppLayout/*.vue",
 	{ query: "?raw", eager: true, import: "default" }
@@ -238,4 +243,56 @@ function getComponentSlots(componentName: string) {
 	return slots
 }
 
-export { getComponentProps, getComponentTemplate, getComponentSlots }
+function getComponentEmits(componentName: string): Record<string, string[]> {
+	if (!components.isFrappeUIComponent(componentName)) {
+		return {}
+	}
+
+	try {
+		const folderName = componentFolders[componentName] || componentName
+		const modulePath = `../../../node_modules/frappe-ui/src/components/${folderName}/types.ts`
+
+		if (!frappeUITypeModules[modulePath]) {
+			return {}
+		}
+
+		const typeContent = frappeUITypeModules[modulePath]
+		const emitsInterfaceName = `${componentName}Emits`
+
+		// Match the interface definition: interface ComponentNameEmits { ... }
+		const interfaceRegex = new RegExp(
+			`interface\\s+${emitsInterfaceName}\\s*\\{([^}]*)\\}`,
+			's'
+		)
+		const match = interfaceRegex.exec(typeContent)
+
+		if (!match || !match[1]) {
+			return {}
+		}
+
+		const interfaceBody = match[1]
+		// Extract full event definitions like: eventName: [param1: type1, param2: type2]
+		const eventRegex = /(\w+):\s*\[([^\]]*)\]/g
+		const events: Record<string, string[]> = {}
+		let eventMatch
+
+		while ((eventMatch = eventRegex.exec(interfaceBody)) !== null) {
+			const eventName = eventMatch[1]
+			const paramsString = eventMatch[2].trim()
+
+			// Parse parameters: "content: string" or "event: FocusEvent" etc.
+			const params = paramsString
+				? paramsString.split(',').map(p => p.trim()).filter(Boolean)
+				: []
+
+			events[eventName] = params
+		}
+
+		return events
+	} catch (error) {
+		console.error(`Error extracting emits for ${componentName}:`, error)
+		return {}
+	}
+}
+
+export { getComponentProps, getComponentTemplate, getComponentSlots, getComponentEmits }

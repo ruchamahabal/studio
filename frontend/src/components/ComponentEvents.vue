@@ -163,6 +163,7 @@ import type { DocTypeField } from "@/types"
 import { toast } from "vue-sonner"
 import type { CompletionContext } from "@codemirror/autocomplete"
 import useCodeStore from "@/stores/codeStore"
+import { getComponentEmits } from "@/utils/components"
 
 const props = defineProps<{
 	block?: Block
@@ -196,6 +197,7 @@ const newEvent = ref<ComponentEvent>({ ...emptyEvent })
 
 const eventOptions = computed(() => {
 	if (!props.block || props.block.isRoot()) return []
+	console.log(getComponentEmits(props.block?.componentName))
 	return [
 		...getComponentEvents(props.block?.componentName),
 		"click",
