@@ -95,5 +95,6 @@ declare module 'vue' {
     StudioRightPanel: typeof import('./src/components/StudioRightPanel.vue')['default']
     StudioToolbar: typeof import('./src/components/StudioToolbar.vue')['default']
     TextBlock: typeof import('./src/components/AppLayout/TextBlock.vue')['default']
+    TextBlockEditor: typeof import('./src/components/ProxyComponents/TextBlockEditor.vue')['default']
   }
 }

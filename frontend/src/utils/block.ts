@@ -13,6 +13,7 @@ import { copyObject, getBlockCopy, getComponentBlock } from "@/utils/serializer"
 
 import type { StyleValue, FrappeUIComponents } from "@/types"
 import type { ComponentEvent } from "@/types/ComponentEvent"
+import { Editor } from "@tiptap/vue-3"
 
 export type styleProperty = keyof CSSProperties | `__${string}`;
 class Block implements BlockOptions {
@@ -25,6 +26,7 @@ class Block implements BlockOptions {
 	blockName: string
 	children: Block[]
 	parentBlock: Block | null
+	innerHTML?: string
 	baseStyles: BlockStyleMap
 	rawStyles: BlockStyleMap
 	mobileStyles: BlockStyleMap
@@ -49,6 +51,7 @@ class Block implements BlockOptions {
 		this.componentName = options.componentName
 		this.blockName = options.blockName || this.componentName
 		this.originalElement = options.originalElement
+		this.innerHTML = options.innerHTML || undefined
 		this.baseStyles = reactive(options.baseStyles || {})
 		this.rawStyles = reactive(options.rawStyles || {});
 		this.mobileStyles = reactive(options.mobileStyles || {})
@@ -388,6 +391,11 @@ class Block implements BlockOptions {
 
 	isVisible() {
 		return this.getStyle("display") !== "none"
+	}
+
+	getEditor(): null | Editor {
+		// @ts-ignore
+		return this.__proto__.editor || null
 	}
 
 	isHTML() {

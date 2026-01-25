@@ -48,6 +48,7 @@
 					v-for="mode in [
 						{ mode: 'select', icon: 'mouse-pointer', description: 'Select (v)' },
 						{ mode: 'container', icon: 'square', description: 'Container (c)' },
+						{ mode: 'text', icon: 'type', description: 'Text (t)' },
 					]"
 				>
 					<Button

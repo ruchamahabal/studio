@@ -9,8 +9,10 @@ import { clamp, useEventListener } from "@vueuse/core";
 import { Ref } from "vue";
 import type { CanvasProps, CanvasHistory } from "@/types/StudioCanvas"
 import type { Slot } from "@/types";
+import useCanvasStore from "@/stores/canvasStore"
 
 const store = useStudioStore();
+const canvasStore = useCanvasStore();
 
 export function useCanvasEvents(
 	container: Ref<HTMLElement>,
@@ -93,6 +95,13 @@ export function useCanvasEvents(
 					setTimeout(() => {
 						store.mode = "select";
 					}, 50);
+
+					if (store.mode === "text") {
+						pauseId && canvasHistory.value?.resume(pauseId, true);
+						canvasStore.editableBlock = childBlock;
+						return;
+					}
+
 					if (parentBlock.isGrid()) {
 						childBlock.setStyle("width", "auto");
 						childBlock.setStyle("height", "100%");

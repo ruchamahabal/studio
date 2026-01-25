@@ -232,6 +232,10 @@ function selectBlock(block: Block, e: MouseEvent | null, multiSelect = false, se
 	}
 }
 
+function isSelected(block: Block) {
+	return selectedBlockIds.value.has(block.componentId)
+}
+
 function selectBlockById(blockId: string, e: MouseEvent | null, multiSelect = false) {
 	if (multiSelect) {
 		selectedBlockIds.value.add(blockId)
@@ -339,6 +343,7 @@ defineExpose({
 	selectedBlockIds,
 	selectedBlocks,
 	selectBlock,
+	isSelected,
 	scrollBlockIntoView,
 	selectBlockById,
 	clearSelection,

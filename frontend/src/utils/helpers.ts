@@ -23,6 +23,7 @@ function deepCloneObject(obj: any, skipKeys: string[] | null = null): any {
 
 	const clonedObj: any = {}
 	for (const key in obj) {
+		if (!obj.hasOwnProperty(key)) continue
 		if (skipKeys?.includes(key)) continue
 		clonedObj[key] = deepCloneObject(obj[key], skipKeys)
 	}

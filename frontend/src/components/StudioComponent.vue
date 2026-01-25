@@ -79,7 +79,7 @@
 	<template v-else>
 		<component
 			v-if="showComponent"
-			:is="block.componentName"
+			:is="componentName"
 			v-bind="componentProps"
 			v-on="vModelListeners"
 			:data-component-id="block.componentId"
@@ -121,6 +121,7 @@ import type { CanvasProps } from "@/types/StudioCanvas"
 import type { RepeaterContext } from "@/types"
 import type HTML from "@/components/AppLayout/HTML.vue"
 import useCodeStore from "@/stores/codeStore"
+import TextBlockEditor from "@/components/ProxyComponents/TextBlockEditor.vue"
 
 const props = withDefaults(
 	defineProps<{
@@ -164,6 +165,7 @@ const styles = computed(() => {
 
 const componentName = computed(() => {
 	if (props.block.isContainer()) return "div"
+	if (props.block.componentName === "TextBlock") return TextBlockEditor
 	if (canvasStore.editingMode === "page") return props.block.componentName
 	const proxyComponent = props.block.getProxyComponent()
 	return proxyComponent ? proxyComponent : props.block.componentName
@@ -180,6 +182,12 @@ const evaluationContext = computed(() => {
 
 const getComponentProps = () => {
 	if (!props.block || props.block.isRoot()) return []
+	if (props.block.componentName === "TextBlock") {
+		return {
+			block: props.block,
+			breakpoint: props.breakpoint,
+		}
+	}
 
 	const propValues = props.block.getPropsAndAttributes()
 	Object.entries(propValues).forEach(([propName, propValue]) => {

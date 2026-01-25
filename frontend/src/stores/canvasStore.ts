@@ -15,7 +15,8 @@ const useCanvasStore = defineStore("canvasStore", () => {
 		y: 0,
 	})
 
-	// dialogs
+	// dialogs & flags
+	const preventClick = ref(false)
 	const showHTMLDialog = ref(false)
 	const editableBlock = ref<Block | null>(null)
 
@@ -161,6 +162,7 @@ const useCanvasStore = defineStore("canvasStore", () => {
 		activeCanvas,
 		guides,
 		// dialogs
+		preventClick,
 		showHTMLDialog,
 		editableBlock,
 		editHTML,

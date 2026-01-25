@@ -25,6 +25,7 @@ export interface BlockOptions {
 	tabletStyles?: BlockStyleMap
 	blockName?: string
 	parentBlock?: Block | null
+	innerHTML?: string
 	classes?: string[]
 	parentSlotName?: string // for top-level blocks inside a slot
 	visibilityCondition?: string
@@ -35,7 +36,7 @@ export interface BlockOptions {
 }
 
 export type EditingMode = "page" | "fragment" | "component"
-export type StudioMode = "select" | "container"
+export type StudioMode = "select" | "container" | "text"
 
 // slot
 export interface Slot {

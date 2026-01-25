@@ -5,6 +5,7 @@ function getBlockTemplate(
 		| "body"
 		| "container"
 		| "fit-container"
+		| "text"
 		| "fallback-component"
 		| "empty-component"
 		| "missing-component"
@@ -51,6 +52,20 @@ function getBlockTemplate(
 					flexShrink: 0,
 					height: "fit-content",
 					width: "fit-content",
+				} as BlockStyleMap,
+			};
+
+		case "text":
+			return {
+				componentName: "Text",
+				originalElement: "p",
+				innerHTML: "Text",
+				baseStyles: {
+					fontSize: "16px",
+					width: "fit-content",
+					height: "fit-content",
+					lineHeight: "1.4",
+					minWidth: "10px",
 				} as BlockStyleMap,
 			};
 
