@@ -1,4 +1,4 @@
-import { ref, reactive, nextTick, computed, toRaw } from "vue"
+import { ref, reactive, nextTick, computed, toRaw, watch } from "vue"
 import router from "@/router/studio_router"
 import { defineStore } from "pinia"
 
@@ -152,6 +152,7 @@ const useStudioStore = defineStore("store", () => {
 		settingPage.value = true
 		const page = await fetchPage(pageName)
 		activePage.value = page
+		resetRouteParams()
 		await setPageData(page)
 		await codeStore.setPageWatchers(page)
 
@@ -289,22 +290,44 @@ const useStudioStore = defineStore("store", () => {
 	const propertyFilter = ref<string | null>(null)
 
 	// data
+	const routeParams = ref<Record<string, string>>({})
+
+	function resetRouteParams() {
+		if (!activePage.value) {
+			routeParams.value = {}
+			return
+		}
+		const paramNames = (activePage.value.route.match(/:\w+/g) || []).map((p) => p.slice(1))
+		const newParams: Record<string, string> = {}
+		paramNames.forEach((name) => {
+			newParams[name] = routeParams.value[name] ?? ""
+		})
+		routeParams.value = newParams
+	}
+
 	const routeObject = computed(() => {
 		if (!activePage.value) return ""
 
 		const newRoute = toRaw(router.currentRoute.value)
 		// Extract param names from active page's route (e.g., ["employee", "id"] from "/hr/:employee/:id")
-		const paramNames = (activePage.value.route.match(/:\w+/g) || []).map(param => param.slice(1))
-		newRoute.params = paramNames.reduce((params, name) => {
-			params[name] = ""
-			return params
-		}, {} as Record<string, string>)
+		const paramNames = (activePage.value.route.match(/:\w+/g) || []).map((param) => param.slice(1))
+		newRoute.params = paramNames.reduce(
+			(params, name) => {
+				params[name] = routeParams.value[name] ?? ""
+				return params
+			},
+			{} as Record<string, string>,
+		)
 
 		return newRoute
 	})
 
 	const codeStore = useCodeStore()
 	codeStore.setRouteObject(routeObject)
+
+	watch(routeParams, () => {
+		codeStore.reloadResources()
+	}, { deep: true })
 
 	async function setPageData(page: StudioPage) {
 		await codeStore.setPageVariables(page)
@@ -376,6 +399,8 @@ const useStudioStore = defineStore("store", () => {
 		publishPage,
 		openPageInBrowser,
 		routeObject,
+		routeParams,
+		resetRouteParams,
 		// app build
 		generateAppBuild,
 		// styles

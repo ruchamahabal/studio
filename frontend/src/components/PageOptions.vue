@@ -18,6 +18,7 @@
 						type="text"
 						variant="outline"
 						class="w-full"
+						description="For variables, use colon (e.g. /item/:id)"
 						:hideClearButton="true"
 						:modelValue="pageRoute"
 						@update:modelValue="
@@ -30,7 +31,7 @@
 					<!-- App Route Prefix -->
 					<div
 						ref="prefixElement"
-						class="absolute bottom-[1px] left-[1px] flex items-center rounded-l-[0.4rem] bg-gray-100 text-gray-700"
+						class="absolute left-[1px] top-[1px] flex items-center rounded-l-[0.4rem] bg-gray-100 text-gray-700"
 					>
 						<span class="flex h-[1.6rem] items-center text-nowrap px-2 py-0 text-base">
 							{{ `${app?.route}/` }}
@@ -38,6 +39,24 @@
 					</div>
 				</div>
 			</div>
+
+			<!-- Route Param Inputs -->
+			<CollapsibleSection
+				sectionName="Route Variables"
+				v-if="routeParamNames.length > 0"
+				class="w-full [&>div>h3]:!text-xs [&>div>h3]:!text-ink-gray-5"
+			>
+				<div v-for="param in routeParamNames" :key="param" class="flex w-full flex-col gap-1">
+					<Input
+						:label="param"
+						type="text"
+						variant="outline"
+						class="w-full"
+						:modelValue="store.routeParams[param]"
+						@update:modelValue="(val: string) => (store.routeParams[param] = val)"
+					/>
+				</div>
+			</CollapsibleSection>
 		</div>
 	</div>
 </template>
@@ -48,6 +67,7 @@ import useStudioStore from "@/stores/studioStore"
 import type { StudioPage } from "@/types/Studio/StudioPage"
 import type { StudioApp } from "@/types/Studio/StudioApp"
 import Input from "@/components/Input.vue"
+import CollapsibleSection from "@/components/CollapsibleSection.vue"
 
 const store = useStudioStore()
 const props = defineProps<{
@@ -79,6 +99,11 @@ const applyDynamicPadding = () => {
 		}
 	}
 }
+
+// Extract param names from route (e.g. ["id", "type"] from "/item/:id/:type")
+const routeParamNames = computed(() => {
+	return (props.page.route.match(/:\w+/g) || []).map((p) => p.slice(1))
+})
 
 watch(
 	() => props.isOpen,

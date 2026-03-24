@@ -1,7 +1,7 @@
 import { defineStore } from "pinia"
 import { ref, computed, watch, type WatchStopHandle, ComputedRef, toRefs, unref, h } from "vue"
 import { watchDebounced } from "@vueuse/core"
-import { createDocumentResource, createListResource, createResource, call } from "frappe-ui"
+import { createDocumentResource, createListResource, createResource } from "frappe-ui"
 import { studioPageResources } from "@/data/studioResources"
 import { studioVariables } from "@/data/studioVariables"
 import { studioWatchers } from "@/data/studioWatchers"
@@ -20,6 +20,9 @@ const useCodeStore = defineStore("codeStore", () => {
 	const variables = ref<Record<string, any>>({})
 	const activeWatchers = ref<Record<string, WatchStopHandle>>({})
 	const routeObject = ref<ComputedRef>()
+	// Tracks document resources that have a dynamic document_name (e.g. {{ route.params.id }})
+	// Maps resource_name -> raw template string, so we can re-evaluate on route change
+	const dynamicDocNames = ref<Record<string, string>>({})
 
 	function setRouteObject(route: ComputedRef) {
 		routeObject.value = route
@@ -29,6 +32,7 @@ const useCodeStore = defineStore("codeStore", () => {
 		studioPageResources.filters = { parent: page.name }
 		await studioPageResources.reload()
 		resources.value = {}
+		dynamicDocNames.value = {}
 
 		const resourcePromises = studioPageResources.data.map(async (resource: Resource) => {
 			const newResource = await getNewResource(resource, {
@@ -52,6 +56,25 @@ const useCodeStore = defineStore("codeStore", () => {
 				resources.value[item.resource_name].resource_id = item.resource_id
 				resources.value[item.resource_name].resource_type = item.resource_type
 			}
+		})
+	}
+
+	function reloadResources() {
+		Object.entries(resources.value).forEach(([resourceName, resource]) => {
+			// createDocumentResource returns undefined when name is empty — skip those
+			if (!resource) return
+
+			// For document resources with a dynamic name template, re-evaluate it and
+			// update resource.name before reloading so we fetch the correct document.
+			const rawName = dynamicDocNames.value[resourceName]
+			if (rawName) {
+				const newName = getDynamicValue(rawName, {
+					...variables.value,
+					route: unref(routeObject.value),
+				}) ?? ""
+				resource.name = newName
+			}
+			resource.reload()
 		})
 	}
 
@@ -362,24 +385,29 @@ const useCodeStore = defineStore("codeStore", () => {
 		return params
 	}
 
-	const getDocumentResource = async (resource: DocumentResource, context: ExpressionEvaluationContext) => {
-		let docname = resource.document_name
-		if (resource.fetch_document_using_filters && resource.filters) {
-			// fetch the docname based on filters
-			docname = await call(
-				"studio.api.get_docname",
-				{ doctype: resource.document_type, filters: getEvaluatedFilters(resource.filters, context) }
-			)
-		}
+	const getDocumentResource = (resource: DocumentResource, context: ExpressionEvaluationContext) => {
+		const rawName = resource.document_name || ""
+		// Evaluate the name immediately as a plain string (frappe-ui can't handle a ComputedRef)
+		const resolvedName = isDynamicValue(rawName)
+			? (getDynamicValue(rawName, context) ?? "")
+			: rawName
 
-		return createDocumentResource({
+		const docResource = createDocumentResource({
 			doctype: resource.document_type,
-			name: docname,
+			name: resolvedName,
 			auto: resource.auto,
 			...getTransforms(resource),
 			...getSuccessErrorHandlers(resource),
 			...getWhitelistedMethods(resource),
 		})
+
+		// If the name is a dynamic template, register it so reloadResources can
+		// re-evaluate and update resource.name on every route/variable change.
+		if (isDynamicValue(rawName)) {
+			dynamicDocNames.value[resource.resource_name] = rawName
+		}
+
+		return docResource
 	}
 
 	const getEvaluatedFilters = (filters: Filters | null = null, context: ExpressionEvaluationContext) => {
@@ -483,6 +511,7 @@ const useCodeStore = defineStore("codeStore", () => {
 		// resources
 		resources,
 		setPageResources,
+		reloadResources,
 		// variables
 		variables,
 		setPageVariables,

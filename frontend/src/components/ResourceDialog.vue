@@ -108,23 +108,12 @@
 
 				<!-- Document -->
 				<template v-if="newResource.resource_type === 'Document' && newResource.document_type">
-					<Link
+					<FormControl
 						label="Document Name"
-						v-if="!newResource.fetch_document_using_filters"
 						:required="true"
-						:doctype="newResource.document_type"
 						v-model="newResource.document_name"
-					/>
-
-					<div class="flex w-full flex-row items-center gap-1.5">
-						<FormControl size="sm" type="checkbox" v-model="newResource.fetch_document_using_filters" />
-						<InputLabel class="max-w-full">Dynamically fetch document using filters</InputLabel>
-					</div>
-
-					<Filters
-						v-if="newResource.fetch_document_using_filters"
-						v-model="newResource.filters"
-						:docfields="filterFields"
+						placeholder="e.g. HR-EMP-00001 or {{ route.params.id }}"
+						description="Enter a static name or a dynamic expression like {{ route.params.id }}"
 					/>
 
 					<FormControl
@@ -224,7 +213,6 @@ const emptyResource: Resource = {
 	params: [],
 	document_type: "",
 	document_name: "",
-	fetch_document_using_filters: false,
 	fields: [],
 	filters: {},
 	limit: null,
@@ -371,12 +359,8 @@ const requiredFields = computed(() => {
 		reqd["document_type"] = "Document Type"
 		if (newResource.value.resource_type === "Document List") {
 			reqd["fields"] = "Fields"
-		} else {
-			if (newResource.value.fetch_document_using_filters) {
-				reqd["filters"] = "Filters"
-			} else {
-				reqd["document_name"] = "Document Name"
-			}
+		} else if (newResource.value.resource_type === "Document") {
+			reqd["document_name"] = "Document Name"
 		}
 	}
 	return reqd
