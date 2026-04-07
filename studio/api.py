@@ -14,7 +14,7 @@ def get_docname(doctype: str, filters: dict | str) -> dict:
 	if "name" in filters and (filters["name"].startswith(":") or not filters["name"]):
 		del filters["name"]
 
-	document = frappe.get_list(doctype, filters=filters, pluck="name", limit=1)
+	document = frappe.get_list(doctype, filters=filters, pluck="name", limit=1, order_by="creation desc")
 	return document[0] if document else None
 
 	return None

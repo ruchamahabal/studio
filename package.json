@@ -9,7 +9,8 @@
         "postinstall": "cd frontend && yarn install",
         "dev": "cd frontend && yarn dev",
         "build": "cd frontend && yarn build",
-        "build-studio-app": "cd frontend && yarn build-studio-app"
+        "build-studio-app": "cd frontend && yarn build-studio-app",
+        "build-standard-apps": "cd frontend && yarn build-standard-apps"
     },
     "version": "0.0.0"
 }

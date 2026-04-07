@@ -9,6 +9,22 @@ def after_migrate():
 	_patch_mode(True)
 	sync_studio_apps()
 	_patch_mode(False)
+	rebuild_custom_studio_apps()
+
+
+def rebuild_custom_studio_apps():
+	"""Rebuild all custom (non-standard) studio apps for the current site after migrate."""
+	apps = frappe.get_all("Studio App", filters={"is_standard": 0, "published": 1}, pluck="name")
+	if not apps:
+		return
+
+	for app_name in apps:
+		try:
+			app = frappe.get_doc("Studio App", app_name)
+			app.generate_app_build()
+			print(f"Rebuilt custom Studio App: {app_name}")
+		except Exception as e:
+			print(f"Failed to rebuild Studio App {app_name}: {e}")
 
 
 def after_app_install(app_name):

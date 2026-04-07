@@ -15,29 +15,47 @@ if (!fs.existsSync(TEMP_DIR)) {
 	fs.mkdirSync(TEMP_DIR, { recursive: true })
 }
 
-const args = process.argv.slice(2)
-const appName = args[0]
-const components = args[2]
+function parseFlags(args) {
+	const flags = {}
+	for (let i = 0; i < args.length; i++) {
+		if (args[i] === "--components" && args[i + 1]) {
+			flags.components = args[++i]
+		} else if (args[i] === "--out-dir" && args[i + 1]) {
+			flags.outDir = args[++i]
+		} else if (args[i] === "--base" && args[i + 1]) {
+			flags.basePath = args[++i]
+		} else if (!args[i].startsWith("--")) {
+			flags.appName = flags.appName || args[i]
+		}
+	}
+	return flags
+}
+
+const flags = parseFlags(process.argv.slice(2))
+const appName = flags.appName
 
 if (!appName) {
 	console.error("App name is required")
 	process.exit(1)
 }
 
-await generateAppBuild(appName, components)
+await generateAppBuild(appName, flags.components, {
+	outDir: flags.outDir,
+	basePath: flags.basePath,
+})
 
-export async function generateAppBuild(appName, components) {
+export async function generateAppBuild(appName, components, options = {}) {
 	if (!appName) return
 
 	const componentList = components ? components.split(",") : []
 	const componentSources = findComponentSources(componentList)
 	const rendererContent = getRendererContent(componentSources)
 	const tempRendererPath = writeRendererFile(appName, rendererContent)
-	await buildWithVite(appName, tempRendererPath)
+	await buildWithVite(appName, tempRendererPath, options)
 	deleteRendererFile(tempRendererPath)
 }
 
-function findComponentSources(appComponents) {
+export function findComponentSources(appComponents) {
 	const frappeUIComponents = []
 	const frappeComponents = []
 	const studioComponents = []
@@ -111,11 +129,20 @@ function writeRendererFile(appName, content) {
 	return rendererPath
 }
 
-async function buildWithVite(appName, entryFilePath) {
+async function buildWithVite(appName, entryFilePath, options = {}) {
+	const defaultOutDir = path.resolve(__dirname, `../../../studio/public/app_builds/${appName}`)
+	const defaultBasePath = `/assets/studio/app_builds/${appName}/`
+
+	const outDir = options.outDir || defaultOutDir
+	const basePath = options.basePath || defaultBasePath
+
 	console.log(`Building ${appName} with Vite`)
+	console.log(`  Output: ${outDir}`)
+	console.log(`  Base:   ${basePath}`)
+
 	await build({
 		root: path.resolve(__dirname, "../"),
-		base: "/assets/studio/app_builds/",
+		base: basePath,
 		server: {
 			// explicitly set origin of generated assets (images, fonts, etc) during development.
 			// Required for the app renderer running on webserver port
@@ -143,7 +170,7 @@ async function buildWithVite(appName, entryFilePath) {
 					studioRenderer: path.resolve(__dirname, entryFilePath),
 				},
 			},
-			outDir: path.resolve(__dirname, `../../../studio/public/app_builds/${appName}`),
+			outDir: outDir,
 			emptyOutDir: true,
 			target: "es2015",
 			sourcemap: true,
