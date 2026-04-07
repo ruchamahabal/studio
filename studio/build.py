@@ -65,16 +65,16 @@ def _run_vite_build(app_name: str, components: set[str], out_dir: str, base: str
 	popen(command, cwd=studio_app_path, env=get_node_env(), raise_err=True)
 
 
-def build_all_standard_apps(app_filter: str | None = None) -> None:
+def build_standard_apps(app: str | None = None) -> None:
 	"""Scan all apps on the bench for studio/ folders and build each exported app.
 
 	This function works without DB access — it reads component data from
 	exported JSON files on disk.
 
 	Args:
-	        app_filter: Only build studio apps exported to this specific frappe app
+	        app: Only build studio apps exported to this specific frappe app
 	"""
-	apps = [app_filter] if app_filter else frappe.get_all_apps()
+	apps = [app] if app else frappe.get_all_apps()
 
 	for app in apps:
 		studio_folder = frappe.get_app_source_path(app, "studio")
@@ -246,12 +246,8 @@ def _add_block_components(
 				_add_block_components(slot_child, components, studio_component_blocks, non_vue_components)
 
 
-def after_build(app_name: str | None = None) -> None:
-	"""Hook called after `bench build`. Builds all standard studio apps.
-
-	This runs without site context (no DB), so it only handles
-	standard (exported) apps by reading from disk.
-	"""
-	click.echo(click.style("\n⚡ Building Studio Apps...", fg="cyan"))
-	build_all_standard_apps(app_filter=app_name)
-	click.echo(click.style("✔ Studio Apps built", fg="green"))
+def after_build() -> None:
+	"""Hook called after `bench build`. Builds all standard studio apps"""
+	click.echo(click.style("\nBuilding Studio Apps...", fg="cyan"))
+	build_standard_apps()
+	click.echo(click.style("Studio Apps built", fg="green"))
