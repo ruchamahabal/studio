@@ -19,6 +19,7 @@ import click
 import frappe
 from frappe.build import get_node_env
 from frappe.commands import popen
+from frappe.utils import get_files_path
 
 
 def build_standard_app(app_name: str, frappe_app: str, components: set[str]) -> None:
@@ -38,7 +39,7 @@ def build_custom_app(app_name: str, components: set[str]) -> None:
 	Output goes to: sites/{site}/public/files/app_builds/{app_name}/
 	Served at:      /files/app_builds/{app_name}/
 	"""
-	out_dir = frappe.get_site_path("public", "files", "app_builds", app_name)
+	out_dir = os.path.abspath(get_files_path("app_builds", app_name))
 	base = f"/files/app_builds/{app_name}/"
 	_run_vite_build(app_name, components, out_dir, base)
 
