@@ -46,8 +46,48 @@
 		</template>
 
 		<template v-else>
-			<EmptyState v-if="!componentList?.length" message="No components found" />
-			<div v-else class="flex flex-col" ref="componentContainer">
+			<!-- Custom Vue Components Section -->
+			<div v-if="customVueComponents.length" class="mb-3">
+				<div class="mb-2 flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-gray-400">
+					<FeatherIcon name="code" class="h-3 w-3" />
+					Vue Components
+				</div>
+				<div class="flex flex-col" ref="vueComponentContainer">
+					<div
+						v-for="component in filteredCustomVueComponents"
+						:key="component.component_name"
+						class="group/component vue-component flex select-none items-center justify-between rounded px-2 py-1.5 hover:bg-gray-50"
+						draggable="true"
+						:data-component-name="component.component_name"
+						@dragstart="(ev) => handleVueComponentDragStart(ev, component.component_name)"
+						@dragend="() => canvasStore.handleDragEnd()"
+					>
+						<div class="flex items-center gap-2 text-ink-gray-7">
+							<div class="flex h-6 w-6 items-center justify-center rounded bg-green-50 text-green-600">
+								<FeatherIcon name="code" class="h-3.5 w-3.5" />
+							</div>
+							<div class="flex flex-col">
+								<p class="text-sm leading-snug">{{ component.component_name }}</p>
+								<p class="text-[10px] text-gray-400">{{ component.frappe_app }}</p>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<!-- Existing Studio Components Section -->
+			<div
+				v-if="customVueComponents.length && componentList?.length"
+				class="mb-2 flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-gray-400"
+			>
+				<FeatherIcon name="box" class="h-3 w-3" />
+				Studio Components
+			</div>
+			<EmptyState
+				v-if="!componentList?.length && !customVueComponents.length"
+				message="No components found"
+			/>
+			<div v-if="componentList?.length" class="flex flex-col" ref="componentContainer">
 				<div
 					v-for="component in componentList"
 					:key="component.component_id"
@@ -106,6 +146,7 @@ import useStudioStore from "@/stores/studioStore"
 import useComponentEditorStore from "@/stores/componentEditorStore"
 import type { leftPanelComponentTabOptions } from "@/types"
 import type { StudioComponent } from "@/types/Studio/StudioComponent"
+import type { CustomVueComponentMeta } from "@/globals"
 
 const canvasStore = useCanvasStore()
 const store = useStudioStore()
@@ -136,6 +177,23 @@ const componentList = computed(() => {
 })
 
 const activeTab = computed(() => store.studioLayout.leftPanelComponentTab)
+
+// Custom Vue Components
+const customVueComponents = computed<CustomVueComponentMeta[]>(() => {
+	return window.__CUSTOM_VUE_COMPONENTS__ || []
+})
+
+const filteredCustomVueComponents = computed(() => {
+	if (!componentFilter.value) return customVueComponents.value
+	return customVueComponents.value.filter((comp) =>
+		comp.component_name.toLowerCase().includes(componentFilter.value.toLowerCase()),
+	)
+})
+
+function handleVueComponentDragStart(ev: DragEvent, componentName: string) {
+	ev?.dataTransfer?.setData("isCustomVueComponent", "true")
+	canvasStore.handleDragStart(ev, componentName)
+}
 
 const showNewComponentDialog = ref(false)
 

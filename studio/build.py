@@ -20,6 +20,7 @@ class StudioAppBuilder:
 		self.frappe_app = frappe_app
 		self.components = set(DEFAULT_COMPONENTS)
 		self.studio_component_blocks = {}
+		self.custom_vue_components: dict[str, str] = {}  # {ComponentName: absolute_path}
 
 		if self.is_standard:
 			"""Build a standard (exported) studio app.
@@ -41,6 +42,7 @@ class StudioAppBuilder:
 			self.get_app_components_from_files()
 		else:
 			self.get_app_components()
+		self._discover_custom_vue_components()
 		self._run_vite_build()
 
 	def _run_vite_build(self) -> None:
@@ -59,6 +61,10 @@ class StudioAppBuilder:
 			f" --out-dir {self.out_dir}"
 			f" --base {self.base}"
 		)
+
+		if self.custom_vue_components:
+			custom_json = json.dumps(self.custom_vue_components)
+			command += f" --custom-components '{custom_json}'"
 
 		studio_app_path = frappe.get_app_source_path("studio")
 		popen(command, cwd=studio_app_path, env=get_node_env(), raise_err=True)
@@ -175,6 +181,28 @@ class StudioAppBuilder:
 					self.studio_component_blocks[component_name] = block
 			except (json.JSONDecodeError, OSError):
 				continue
+
+	def _discover_custom_vue_components(self):
+		"""Discover custom .vue component files from the app's components/ folder."""
+		if not self.frappe_app:
+			return
+
+		studio_folder = get_studio_folder(self.frappe_app)
+		if not studio_folder:
+			return
+
+		components_dir = os.path.join(studio_folder, self.app_name, "components")
+		if not os.path.isdir(components_dir):
+			return
+
+		for filename in sorted(os.listdir(components_dir)):
+			if not filename.endswith(".vue"):
+				continue
+
+			component_name = filename[:-4]  # remove .vue
+			file_path = os.path.join(components_dir, filename)
+			self.custom_vue_components[component_name] = file_path
+			click.echo(f"  Found custom Vue component: {component_name}")
 
 
 def build_standard_apps(app: str | None = None) -> None:

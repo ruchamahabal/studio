@@ -7,7 +7,7 @@ import app_router from "@/router/app_router"
 import AppRenderer from "./AppRenderer.vue"
 import { resourcesPlugin } from "frappe-ui"
 import { spritePlugin } from "frappe-ui/icons"
-import { registerGlobalComponents } from "./globals"
+import { registerGlobalComponents, registerCustomVueComponents } from "./globals"
 import "./utils/appUtils"
 
 // For rendering apps built by studio
@@ -21,4 +21,7 @@ app.use(spritePlugin)
 registerGlobalComponents(app)
 window.__APP_COMPONENTS__ = app._context.components
 
-app.mount("#app")
+// Register custom Vue components before mounting
+registerCustomVueComponents(app).then(() => {
+	app.mount("#app")
+})

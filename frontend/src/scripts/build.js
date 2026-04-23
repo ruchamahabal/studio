@@ -10,6 +10,27 @@ import frappeui from "frappe-ui/vite"
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url))
 
+/**
+ * Vite plugin to redirect frappe-ui imports from custom Vue components
+ * (files outside the Studio project) to Studio's own frappe-ui installation.
+ */
+function studioDepsResolver(studioRoot) {
+	return {
+		name: "studio-deps-resolver",
+		enforce: "pre",
+		async resolveId(source, importer, options) {
+			if (!source.startsWith("frappe-ui")) return null
+			if (!importer || importer.startsWith(studioRoot)) return null
+
+			const resolved = await this.resolve(source, path.join(studioRoot, "frontend", "_virtual.js"), {
+				...options,
+				skipSelf: true,
+			})
+			return resolved
+		},
+	}
+}
+
 // create a temp directory for app renderers in studio app folder
 const TEMP_DIR = path.resolve(__dirname, "../../../.temp-app-renderers")
 if (!fs.existsSync(TEMP_DIR)) {
@@ -22,6 +43,7 @@ const { values: argv } = parseArgs({
 		components: { type: "string" },
 		"out-dir": { type: "string" },
 		base: { type: "string" },
+		"custom-components": { type: "string" },
 	},
 	strict: false,
 })
@@ -31,20 +53,21 @@ if (!argv.app) {
 	process.exit(1)
 }
 
-await generateAppBuild(argv.app, argv.components, argv["out-dir"], argv.base)
+await generateAppBuild(argv.app, argv.components, argv["out-dir"], argv.base, argv["custom-components"])
 
-export async function generateAppBuild(appName, components, outDir, base) {
+export async function generateAppBuild(appName, components, outDir, base, customComponentsJson) {
 	if (!appName) return
 
 	const componentList = components ? components.split(",") : []
-	const componentSources = findComponentSources(componentList)
+	const customComponents = customComponentsJson ? JSON.parse(customComponentsJson) : {}
+	const componentSources = findComponentSources(componentList, customComponents)
 	const rendererContent = getRendererContent(componentSources)
 	const tempRendererPath = writeRendererFile(appName, rendererContent)
-	await buildWithVite(appName, tempRendererPath, outDir, base)
+	await buildWithVite(appName, tempRendererPath, outDir, base, customComponents)
 	deleteRendererFile(tempRendererPath)
 }
 
-function findComponentSources(appComponents) {
+function findComponentSources(appComponents, customComponents = {}) {
 	const frappeUIComponents = []
 	const frappeComponents = []
 	const studioComponents = []
@@ -59,14 +82,15 @@ function findComponentSources(appComponents) {
 		}
 	})
 	return {
-		frappeUIComponents: frappeUIComponents,
-		frappeComponents: frappeComponents,
-		studioComponents: studioComponents,
+		frappeUIComponents,
+		frappeComponents,
+		studioComponents,
+		customComponents,
 	}
 }
 
 function getRendererContent(componentSources) {
-	const { frappeUIComponents, frappeComponents, studioComponents } = componentSources
+	const { frappeUIComponents, frappeComponents, studioComponents, customComponents } = componentSources
 	const frappeUIImports =
 		frappeUIComponents.length > 0 ? `import { ${frappeUIComponents.join(",\n ")} } from "frappe-ui";` : ""
 	const frappeImports =
@@ -75,10 +99,17 @@ function getRendererContent(componentSources) {
 		.map((comp) => `import ${comp} from "@/components/AppLayout/${comp}.vue"`)
 		.join("\n")
 
+	// Custom Vue component imports use absolute paths
+	const customComponentNames = Object.keys(customComponents)
+	const customImports = customComponentNames
+		.map((name) => `import ${name} from "${customComponents[name]}"`)
+		.join("\n")
+
 	const componentRegistrations = [
 		...frappeUIComponents.map((comp) => `app.component("${comp}", ${comp})`),
 		...frappeComponents.map((comp) => `app.component("${comp}", ${comp})`),
 		...studioComponents.map((comp) => `app.component("${comp}", ${comp})`),
+		...customComponentNames.map((comp) => `app.component("${comp}", ${comp})`),
 	].join("\n")
 
 	const rendererContent = `import "@/index.css"
@@ -94,6 +125,7 @@ import "@/utils/appUtils"
 ${frappeUIImports}
 ${frappeImports}
 ${studioImports}
+${customImports}
 
 const app = createApp(AppRenderer)
 const pinia = createPinia()
@@ -118,9 +150,15 @@ function writeRendererFile(appName, content) {
 	return rendererPath
 }
 
-async function buildWithVite(appName, entryFilePath, outDir, basePath) {
+async function buildWithVite(appName, entryFilePath, outDir, basePath, customComponents = {}) {
 	outDir = outDir || path.resolve(__dirname, `../../../studio/public/app_builds/${appName}`)
 	basePath = basePath || `/assets/studio/app_builds/${appName}/`
+
+	// Build resolve aliases for custom Vue components
+	const customAliases = {}
+	for (const [name, filePath] of Object.entries(customComponents)) {
+		customAliases[`@custom/${name}`] = filePath
+	}
 
 	console.log(`Building ${appName} with Vite`)
 	await build({
@@ -141,11 +179,13 @@ async function buildWithVite(appName, entryFilePath, outDir, basePath) {
 				buildConfig: false,
 				jinjaBootData: false,
 			}),
+			studioDepsResolver(path.resolve(__dirname, "../../")),
 		],
 		resolve: {
 			alias: {
 				vue: "vue/dist/vue.esm-bundler.js",
 				"@": path.resolve(__dirname, "../"),
+				...customAliases,
 			},
 		},
 		build: {
