@@ -11,15 +11,17 @@ import frappeui from "frappe-ui/vite"
 const __dirname = fileURLToPath(new URL(".", import.meta.url))
 
 /**
- * Vite plugin to redirect frappe-ui imports from custom Vue components
- * (files outside the Studio project) to Studio's own frappe-ui installation.
+ * Vite plugin to redirect shared dependency imports from custom Vue components
+ * (files outside the Studio project) to Studio's own installations.
  */
+const STUDIO_SHARED_DEPS = ["vue", "vue-router", "frappe-ui"]
+
 function studioDepsResolver(studioRoot) {
 	return {
 		name: "studio-deps-resolver",
 		enforce: "pre",
 		async resolveId(source, importer, options) {
-			if (!source.startsWith("frappe-ui")) return null
+			if (!STUDIO_SHARED_DEPS.some((dep) => source === dep || source.startsWith(dep + "/"))) return null
 			if (!importer || importer.startsWith(studioRoot)) return null
 
 			const resolved = await this.resolve(source, path.join(studioRoot, "frontend", "_virtual.js"), {

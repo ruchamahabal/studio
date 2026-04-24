@@ -6,19 +6,22 @@ import { defineConfig } from "vite"
 const STUDIO_ROOT = path.resolve(__dirname, "..")
 
 /**
- * Vite plugin to redirect frappe-ui imports from custom Vue components
- * (files outside the Studio project) to Studio's own frappe-ui installation.
+ * Vite plugin to redirect shared dependency imports from custom Vue components
+ * (files outside the Studio project) to Studio's own installations.
  *
- * Without this, Vite walks up the filesystem from the importing file and may
- * find a different/incomplete frappe-ui at e.g. ~/node_modules/frappe-ui.
+ * These are singleton deps (vue, vue-router, frappe-ui) that must resolve from
+ * Studio to avoid duplicate instances. App-specific deps (e.g. vue-sonner)
+ * resolve normally from the app's own node_modules.
  */
+const STUDIO_SHARED_DEPS = ["vue", "vue-router", "frappe-ui"]
+
 function studioDepsResolver() {
 	return {
 		name: "studio-deps-resolver",
 		enforce: "pre",
 		async resolveId(source, importer, options) {
-			// Only handle frappe-ui imports
-			if (!source.startsWith("frappe-ui")) return null
+			// Only intercept shared deps
+			if (!STUDIO_SHARED_DEPS.some((dep) => source === dep || source.startsWith(dep + "/"))) return null
 			// Only intercept if the importer is outside Studio's project
 			if (!importer || importer.startsWith(STUDIO_ROOT)) return null
 
