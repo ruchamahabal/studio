@@ -20,6 +20,7 @@ class StudioAppBuilder:
 		self.frappe_app = frappe_app
 		self.components = set(DEFAULT_COMPONENTS)
 		self.studio_component_blocks = {}
+		self.custom_vue_components: dict[str, str] = {}  # {ComponentName: absolute_path}
 
 		if self.is_standard:
 			"""Build a standard (exported) studio app.
@@ -41,6 +42,7 @@ class StudioAppBuilder:
 			self.get_app_components_from_files()
 		else:
 			self.get_app_components()
+		self._discover_custom_vue_components()
 		self._run_vite_build()
 
 	def _run_vite_build(self) -> None:
@@ -59,6 +61,10 @@ class StudioAppBuilder:
 			f" --out-dir {self.out_dir}"
 			f" --base {self.base}"
 		)
+
+		if self.custom_vue_components:
+			custom_json = json.dumps(self.custom_vue_components)
+			command += f" --custom-components '{custom_json}'"
 
 		studio_app_path = frappe.get_app_source_path("studio")
 		popen(command, cwd=studio_app_path, env=get_node_env(), raise_err=True)
@@ -175,6 +181,41 @@ class StudioAppBuilder:
 					self.studio_component_blocks[component_name] = block
 			except (json.JSONDecodeError, OSError):
 				continue
+
+	def _discover_custom_vue_components(self):
+		"""Discover custom Vue components via barrel files (components.js/.ts) in the studio app folder."""
+		if not self.frappe_app:
+			return
+
+		studio_folder = get_studio_folder(self.frappe_app)
+		if not studio_folder:
+			return
+
+		app_folder = os.path.join(studio_folder, self.app_name)
+		if not os.path.isdir(app_folder):
+			return
+
+		# Look for components.js or components.ts barrel file
+		barrel_path = None
+		for ext in (".js", ".ts"):
+			candidate = os.path.join(app_folder, f"components{ext}")
+			if os.path.isfile(candidate):
+				barrel_path = candidate
+				break
+
+		if not barrel_path:
+			return
+
+		# Parse named exports from the barrel file to get component names
+		# Matches: export { default as ComponentName } from "..."
+		with open(barrel_path) as f:
+			content = f.read()
+
+		import_pattern = re.compile(r"export\s*\{\s*default\s+as\s+(\w+)\s*\}")
+		for match in import_pattern.finditer(content):
+			component_name = match.group(1)
+			self.custom_vue_components[component_name] = barrel_path
+			click.echo(f"  Found custom Vue component: {component_name}")
 
 
 def build_standard_apps(app: str | None = None) -> None:

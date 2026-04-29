@@ -92,6 +92,7 @@ class StudioApp(WebsiteGenerator):
 		context.app_name = self.app_name
 		context.app_route = self.route
 		context.app_title = self.app_title
+		context.frappe_app = self.frappe_app or ""
 		context.base_url = frappe.utils.get_url(self.route)
 		context.app_pages = self.get_studio_pages()
 		context.is_developer_mode = frappe.utils.cint(frappe.conf.developer_mode)

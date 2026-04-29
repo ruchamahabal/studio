@@ -68,6 +68,7 @@ import MarkdownEditor from "@/components/AppLayout/MarkdownEditor.vue"
 import { vueComponents } from "@/data/vueComponents"
 import { default as componentRegistry } from "@/data/components"
 import { default as Block } from "@/utils/block"
+import componentBarrels from "virtual:custom-components"
 
 export function registerGlobalComponents(app: App) {
 	app.component("Alert", Alert)
@@ -157,9 +158,40 @@ export async function registerCustomVueComponents(app: App, frappeApp: string): 
 		if (!frappeApp) return []
 		const components: CustomVueComponentMeta[] = await vueComponents.reload({ frappe_app: frappeApp })
 
+		// Load all barrel modules upfront — each barrel is keyed by "{appName}/{studioApp}"
+		const loadedModules: Record<string, Record<string, any>> = {}
+		for (const [barrelKey, loader] of Object.entries(componentBarrels)) {
+			// Only load barrels belonging to the active frappe app
+			if (!barrelKey.startsWith(`${frappeApp}/`)) continue
+			try {
+				loadedModules[barrelKey] = await loader()
+			} catch (err) {
+				console.error(`Failed to load component barrel "${barrelKey}":`, err)
+			}
+		}
+
 		for (const comp of components) {
 			try {
-				app.component(comp.component_name, defineAsyncComponent(() => import(/* @vite-ignore */ comp.file_path)))
+				// Look up the component in loaded barrel modules
+				const barrelKey = `${comp.frappe_app}/${comp.studio_app}`
+				const barrelModule = loadedModules[barrelKey]
+				const componentDef = barrelModule?.[comp.component_name]
+
+				if (componentDef) {
+					app.component(comp.component_name, componentDef)
+				} else if (import.meta.env.DEV) {
+					// Dev-only fallback for components not yet in a barrel file
+					app.component(
+						comp.component_name,
+						defineAsyncComponent(() => import(/* @vite-ignore */ comp.file_path)),
+					)
+				} else {
+					console.warn(
+						`Custom component "${comp.component_name}" was not found in the build. ` +
+							`Ensure it is exported from a components.js barrel file and run \`bench build\`.`,
+					)
+					continue
+				}
 
 				// Register in the component data registry for Block metadata access
 				componentRegistry.registerCustomVueComponent(comp.component_name, comp.frappe_app)
