@@ -107,8 +107,31 @@ def check_app_permission() -> bool:
 
 
 @frappe.whitelist()
-def get_custom_vue_components(frappe_app: str) -> list[dict]:
-	"""Discover custom Vue SFC components"""
+def get_custom_vue_components(frappe_app: str, production: bool = False) -> list[dict] | dict:
+	"""Discover custom Vue SFC components.
+
+	In dev mode: returns a list of component metadata with filesystem paths
+	  (for Vite dev server to transform on-the-fly).
+	In production: returns bundle URLs from pre-built studio-assets.json
+	  + component metadata without file paths.
+	"""
+	components = _discover_custom_vue_components(frappe_app)
+
+	if frappe.conf.developer_mode and not production:
+		return components
+
+	# Production: return bundle URLs + component metadata (without file_path)
+	bundle_urls = _get_studio_bundle_urls(frappe_app)
+	return {
+		"bundles": bundle_urls,
+		"components": [
+			{"component_name": c["component_name"], "studio_app": c["studio_app"]} for c in components
+		],
+	}
+
+
+def _discover_custom_vue_components(frappe_app: str) -> list[dict]:
+	"""Scan the studio/ folder for .vue component files."""
 	components = []
 	seen_names = set()
 
@@ -157,3 +180,19 @@ def get_custom_vue_components(frappe_app: str) -> list[dict]:
 			)
 
 	return components
+
+
+def _get_studio_bundle_urls(frappe_app: str) -> list[str]:
+	"""Read studio-assets.json manifest and return bundle URLs for the given app."""
+	import json as _json
+
+	manifest_path = os.path.join(
+		frappe.get_app_path(frappe_app, "public", "dist", "studio", "studio-assets.json")
+	)
+	if not os.path.exists(manifest_path):
+		return []
+
+	with open(manifest_path) as f:
+		manifest = _json.load(f)
+
+	return [f"/assets/{frappe_app}/dist/studio/{v}" for v in manifest.values()]

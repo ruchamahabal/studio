@@ -69,6 +69,29 @@ import { vueComponents } from "@/data/vueComponents"
 import { default as componentRegistry } from "@/data/components"
 import { default as Block } from "@/utils/block"
 
+/**
+ * Expose shared dependencies on window so pre-built studio bundles
+ * (*.studio.js) can reference them at runtime without bundling their own copies.
+ * The build script replaces `import { ref } from "vue"` with
+ * `const { ref } = window.__studio_shared__["vue"]`.
+ *
+ * Subpath exports (e.g. frappe-ui/frappe) are registered separately
+ * to match frappe-ui's package.json "exports" field.
+ */
+import * as Vue from "vue"
+import * as FrappeUI from "frappe-ui"
+import * as FrappeUIFrappe from "frappe-ui/frappe"
+import * as FrappeUIIcons from "frappe-ui/icons"
+import * as VueRouter from "vue-router"
+
+;(window as any).__studio_shared__ = {
+	vue: Vue,
+	"frappe-ui": FrappeUI,
+	"frappe-ui/frappe": FrappeUIFrappe,
+	"frappe-ui/icons": FrappeUIIcons,
+	"vue-router": VueRouter,
+}
+
 export function registerGlobalComponents(app: App) {
 	app.component("Alert", Alert)
 	app.component("Autocomplete", Autocomplete)
@@ -141,7 +164,12 @@ export interface CustomVueComponentMeta {
 	component_name: string
 	frappe_app: string
 	studio_app: string
-	file_path: string
+	file_path?: string
+}
+
+interface CustomVueComponentProdResponse {
+	bundles: string[]
+	components: CustomVueComponentMeta[]
 }
 
 /**
@@ -149,21 +177,46 @@ export interface CustomVueComponentMeta {
  * Also registers them in the component data registry so Block class can access their metadata.
  * Returns the list of registered component metadata for use in the ComponentPanel.
  *
+ * In dev mode: dynamically imports .vue files via Vite dev server (filesystem paths).
+ * In production: imports pre-built bundles from static asset URLs.
+ *
  * @param app - The Vue app instance
  * @param frappeApp - The Frappe app name to fetch components for
  */
 export async function registerCustomVueComponents(app: App, frappeApp: string): Promise<CustomVueComponentMeta[]> {
 	try {
 		if (!frappeApp) return []
-		const components: CustomVueComponentMeta[] = await vueComponents.reload({ frappe_app: frappeApp })
+		const response = await vueComponents.reload({ frappe_app: frappeApp })
 
-		for (const comp of components) {
-			try {
-				app.component(comp.component_name, defineAsyncComponent(() => import(/* @vite-ignore */ comp.file_path)))
-				// Register in the component data registry for Block metadata access
-				componentRegistry.registerCustomVueComponent(comp.component_name)
-			} catch (err) {
-				console.error(`Failed to load custom component ${comp.component_name}:`, err)
+		let components: CustomVueComponentMeta[] = []
+
+		if (import.meta.env.DEV) {
+			// Dev mode: response is a list of component metadata with filesystem paths
+			components = response as CustomVueComponentMeta[]
+			for (const comp of components) {
+				try {
+					app.component(comp.component_name, defineAsyncComponent(() => import(/* @vite-ignore */ comp.file_path!)))
+					componentRegistry.registerCustomVueComponent(comp.component_name)
+				} catch (err) {
+					console.error(`Failed to load custom component ${comp.component_name}:`, err)
+				}
+			}
+		} else {
+			// Production: response has bundle URLs + component metadata
+			const prodResponse = response as CustomVueComponentProdResponse
+			components = prodResponse.components || []
+
+			for (const bundleUrl of prodResponse.bundles || []) {
+				try {
+					const module = await import(/* @vite-ignore */ bundleUrl)
+					const exported = module.default || module
+					for (const [name, comp] of Object.entries(exported)) {
+						app.component(name, comp as any)
+						componentRegistry.registerCustomVueComponent(name)
+					}
+				} catch (err) {
+					console.error(`Failed to load studio bundle ${bundleUrl}:`, err)
+				}
 			}
 		}
 
