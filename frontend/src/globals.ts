@@ -69,6 +69,8 @@ import { vueComponents } from "@/data/vueComponents"
 import { default as componentRegistry } from "@/data/components"
 import { default as Block } from "@/utils/block"
 
+
+
 export function registerGlobalComponents(app: App) {
 	app.component("Alert", Alert)
 	app.component("Autocomplete", Autocomplete)
@@ -141,7 +143,12 @@ export interface CustomVueComponentMeta {
 	component_name: string
 	frappe_app: string
 	studio_app: string
-	file_path: string
+	file_path?: string
+}
+
+interface CustomVueComponentProdResponse {
+	bundles: string[]
+	components: CustomVueComponentMeta[]
 }
 
 /**
@@ -149,21 +156,47 @@ export interface CustomVueComponentMeta {
  * Also registers them in the component data registry so Block class can access their metadata.
  * Returns the list of registered component metadata for use in the ComponentPanel.
  *
+ * In dev mode: dynamically imports .vue files via Vite dev server (filesystem paths).
+ * In production: imports pre-built bundles from static asset URLs.
+ *
  * @param app - The Vue app instance
  * @param frappeApp - The Frappe app name to fetch components for
  */
 export async function registerCustomVueComponents(app: App, frappeApp: string): Promise<CustomVueComponentMeta[]> {
 	try {
 		if (!frappeApp) return []
-		const components: CustomVueComponentMeta[] = await vueComponents.reload({ frappe_app: frappeApp })
+		const response = await vueComponents.reload({ frappe_app: frappeApp })
 
-		for (const comp of components) {
-			try {
-				app.component(comp.component_name, defineAsyncComponent(() => import(/* @vite-ignore */ comp.file_path)))
-				// Register in the component data registry for Block metadata access
-				componentRegistry.registerCustomVueComponent(comp.component_name)
-			} catch (err) {
-				console.error(`Failed to load custom component ${comp.component_name}:`, err)
+		let components: CustomVueComponentMeta[] = []
+
+		if (import.meta.env.DEV) {
+			// Dev mode: response is a list of component metadata with filesystem paths
+			components = response as CustomVueComponentMeta[]
+			for (const comp of components) {
+				try {
+					app.component(comp.component_name, defineAsyncComponent(() => import(/* @vite-ignore */ comp.file_path!)))
+					componentRegistry.registerCustomVueComponent(comp.component_name)
+				} catch (err) {
+					console.error(`Failed to load custom component ${comp.component_name}:`, err)
+				}
+			}
+		} else {
+			// Production: response has bundle URLs + component metadata
+			const prodResponse = response as CustomVueComponentProdResponse
+			components = prodResponse.components || []
+
+			for (const bundleUrl of prodResponse.bundles || []) {
+				try {
+					const module = await import(/* @vite-ignore */ bundleUrl)
+					const exported = module.default || module
+					for (const [name, comp] of Object.entries(exported)) {
+						app.component(name, comp as any)
+						console.log(`Registered custom component from bundle: ${name}`)
+						componentRegistry.registerCustomVueComponent(name)
+					}
+				} catch (err) {
+					console.error(`Failed to load studio bundle ${bundleUrl}:`, err)
+				}
 			}
 		}
 

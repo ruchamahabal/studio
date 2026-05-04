@@ -7,6 +7,7 @@
 		"dev": "vite",
 		"build": "vite build --base=/assets/studio/frontend/ && yarn copy-html-entry && yarn copy-studio-renderer",
 		"build-studio-app": "node src/scripts/build.js",
+		"build-studio-bundles": "node src/scripts/build-studio-bundles.js",
 		"copy-html-entry": "cp ../studio/public/frontend/index.html ../studio/www/studio.html",
 		"copy-studio-renderer": "cp ../studio/public/frontend/renderer.html ../studio/templates/generators/studio_renderer.html",
 		"serve": "vite preview",

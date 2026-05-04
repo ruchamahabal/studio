@@ -8,10 +8,13 @@ const STUDIO_SHARED_DEPS = ["vue", "vue-router", "frappe-ui"]
  * These are singleton deps (vue, vue-router, frappe-ui) that must resolve from
  * Studio to avoid duplicate instances. App-specific deps
  * resolve normally from the app's own node_modules.
+ *
+ * Only active during `vite dev` (apply: 'serve').
  */
 function sharedDependencyResolver(STUDIO_ROOT) {
 	return {
 		name: "shared-dependency-resolver",
+		// apply: "serve",
 		enforce: "pre",
 		async resolveId(source, importer, options) {
 			// Only intercept shared deps
