@@ -1,6 +1,6 @@
 import path from "path"
 
-const STUDIO_SHARED_DEPS = ["vue", "vue-router", "frappe-ui"]
+const STUDIO_SHARED_DEPS = ["vue", "vue-router", /^frappe-ui/]
 /**
  * Vite plugin to redirect shared dependency imports from custom Vue components
  * (files outside the Studio project) to Studio's own installations.
@@ -15,7 +15,12 @@ function sharedDependencyResolver(STUDIO_ROOT) {
 		enforce: "pre",
 		async resolveId(source, importer, options) {
 			// Only intercept shared deps
-			if (!STUDIO_SHARED_DEPS.some((dep) => source === dep || source.startsWith(dep + "/"))) return null
+			if (
+				!STUDIO_SHARED_DEPS.some((dep) =>
+					typeof dep === "string" ? source === dep || source.startsWith(dep + "/") : dep.test(source),
+				)
+			)
+				return null
 			// Only intercept if the importer is outside Studio's project
 			if (!importer || importer.startsWith(STUDIO_ROOT)) return null
 

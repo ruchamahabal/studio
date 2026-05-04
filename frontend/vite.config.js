@@ -2,10 +2,12 @@ import vue from "@vitejs/plugin-vue"
 import frappeui from "frappe-ui/vite"
 import path from "path"
 import { defineConfig } from "vite"
+import { esmExternalRequirePlugin } from "rolldown/plugins"
 import { getViteDevServerPort } from "./vite/utils"
 import sharedDependencyResolver from "./vite/sharedDependencyResolver"
 
 const viteDevServerPort = getViteDevServerPort()
+const SHARED_DEPS = ["vue", "vue-router", "frappe-ui", "frappe-ui/frappe", "frappe-ui/icons"]
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -39,6 +41,7 @@ export default defineConfig({
 		}),
 		vue(),
 		sharedDependencyResolver(path.resolve(__dirname, "..")),
+		esmExternalRequirePlugin({ external: SHARED_DEPS }),
 	],
 	resolve: {
 		alias: {

@@ -270,7 +270,24 @@ def get_studio_folder(frappe_app: str) -> str | None:
 	return frappe.get_app_source_path(frappe_app, "studio")
 
 
+def build_studio_bundles() -> None:
+	"""Build all *.studio.js bundles across all apps using Vite.
+
+	Scans each app's studio/ directory for *.studio.js entry files,
+	builds them in parallel with Vite, and writes studio-assets.json
+	manifests. These bundles make custom Vue components available in
+	the Studio editor and renderer in production (without Vite dev server).
+	"""
+	studio_app_path = frappe.get_app_source_path("studio")
+	try:
+		popen("yarn build-studio-bundles", cwd=studio_app_path, env=get_node_env(), raise_err=True)
+	except Exception as e:
+		click.secho(f"Studio bundle build failed: {e}", fg="red")
+
+
 def after_build() -> None:
-	"""Hook called after `bench build`. Builds all standard studio apps"""
+	"""Hook called after `bench build`. Builds all standard studio apps and studio bundles."""
 	click.secho("\nBuilding Studio Apps...", fg="cyan")
 	build_standard_apps()
+	click.secho("\nBuilding Studio Bundles...", fg="cyan")
+	build_studio_bundles()

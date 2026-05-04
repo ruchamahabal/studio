@@ -17,6 +17,17 @@
 			window.site_url = "{{ site_url }}"
 			window.is_developer_mode = "{{ is_developer_mode }}"
 		</script>
+		<script type="importmap">
+			{
+				"imports": {
+					"vue": "/assets/studio/dist/shared/vue.js",
+					"vue-router": "/assets/studio/dist/shared/vue-router.js",
+					"frappe-ui": "/assets/studio/dist/shared/frappe-ui.js",
+					"frappe-ui/frappe": "/assets/studio/dist/shared/frappe-ui-frappe.js",
+					"frappe-ui/icons": "/assets/studio/dist/shared/frappe-ui-icons.js"
+				}
+			}
+		</script>
 		<script type="module" src="/src/main.ts"></script>
 	</body>
 </html>
