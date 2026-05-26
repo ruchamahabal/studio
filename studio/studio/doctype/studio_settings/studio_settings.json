@@ -1,0 +1,59 @@
+{
+ "actions": [],
+ "creation": "2025-01-01 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "ai_section",
+  "ai_model",
+  "column_break_ai",
+  "openrouter_api_key"
+ ],
+ "fields": [
+  {
+   "fieldname": "ai_section",
+   "fieldtype": "Section Break",
+   "label": "AI Settings"
+  },
+  {
+   "default": "openrouter/google/gemini-2.5-flash-preview",
+   "description": "LiteLLM model string, e.g. openrouter/google/gemini-2.5-flash-preview or openrouter/anthropic/claude-sonnet-4-5",
+   "fieldname": "ai_model",
+   "fieldtype": "Data",
+   "label": "AI Model"
+  },
+  {
+   "fieldname": "column_break_ai",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "API key from openrouter.ai — supports 200+ models",
+   "fieldname": "openrouter_api_key",
+   "fieldtype": "Password",
+   "label": "OpenRouter API Key"
+  }
+ ],
+ "issingle": 1,
+ "links": [],
+ "modified": "2025-01-01 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Studio",
+ "name": "Studio Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 0
+}

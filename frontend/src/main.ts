@@ -13,6 +13,8 @@ import { registerGlobalComponents } from "./globals"
 import { COMPONENTS } from "@/data/components"
 import Block from "@/utils/block"
 import "@/utils/appUtilsRenderer"
+// @ts-ignore
+import { initSocket } from "@/socket"
 
 Block.setComponents(COMPONENTS)
 
@@ -40,6 +42,7 @@ if (window.is_developer_mode && typeof window.is_developer_mode === "string") {
 	window.is_developer_mode = window.is_developer_mode === "1" || window.is_developer_mode === "True"
 }
 
+let socket
 studio_router.isReady().then(async () => {
 	if (import.meta.env.DEV) {
 		await frappeRequest({
@@ -48,8 +51,13 @@ studio_router.isReady().then(async () => {
 			for (let key in values) {
 				window[key] = values[key]
 			}
+			socket = initSocket()
+			studio.provide("socket", socket)
+			studio.mount("#studio")
 		})
+	} else {
+		socket = initSocket()
+		studio.provide("socket", socket)
+		studio.mount("#studio")
 	}
-
-	studio.mount("#studio")
 })
