@@ -45,7 +45,7 @@
 		<div class="shrink-0 border-t border-outline-gray-1 bg-surface-white p-4">
 			<ErrorMessage v-if="error" :message="error" class="mb-2" />
 
-			<div v-if="isModifyMode" class="mb-2 flex items-center gap-1.5 rounded py-1">
+			<div v-if="mode === 'modify'" class="mb-2 flex items-center gap-1.5 rounded py-1">
 				<span class="truncate text-xs text-ink-gray-5">Editing:</span>
 				<Badge variant="subtle" size="sm">
 					{{ selectedBlock?.blockName || selectedBlock?.componentName }}
@@ -57,9 +57,7 @@
 					v-model="prompt"
 					rows="4"
 					class="w-full resize-none rounded border border-[--surface-gray-2] bg-surface-gray-2 px-2 py-1.5 text-sm text-ink-gray-8 placeholder-ink-gray-4 transition-colors hover:border-[--outline-gray-modals] hover:bg-surface-gray-3 focus:border-outline-gray-4 focus:bg-surface-white focus:shadow-sm focus:ring-0 focus-visible:ring-2 focus-visible:ring-outline-gray-3 disabled:cursor-not-allowed disabled:bg-surface-gray-1 disabled:text-ink-gray-5"
-					:placeholder="
-						isModifyMode ? 'Describe what to change in this block...' : 'Ask to create or edit this page...'
-					"
+					:placeholder="promptPlaceholder"
 					:disabled="loading"
 					@keydown.meta.enter="generate"
 					@keydown.ctrl.enter="generate"
@@ -99,7 +97,7 @@
 
 				<Button
 					variant="solid"
-					:label="isModifyMode ? 'Edit' : 'Generate'"
+					:label="mode === 'generate' ? 'Generate' : 'Edit'"
 					icon="arrow-up"
 					:loading="loading"
 					:disabled="!prompt.trim()"
@@ -118,11 +116,13 @@ import useStudioStore from "@/stores/studioStore"
 import useCanvasStore from "@/stores/canvasStore"
 import { getBlockInstance, getBlockString } from "@/utils/serializer"
 import { tryParseYamlBlock } from "@/utils/blockCodec"
+import { useAIChatController, type AgentOperation } from "@/components/AIChatController"
 import type Block from "@/utils/block"
 
 const store = useStudioStore()
 const canvasStore = useCanvasStore()
 const socket = inject<any>("socket")
+const { mode, selectedBlock, applyOperation } = useAIChatController()
 
 const prompt = ref("")
 const loading = ref(false)
@@ -136,13 +136,11 @@ const messagesEl = ref<HTMLElement | null>(null)
 
 const pageId = computed(() => store.activePage?.name ?? "")
 
-const selectedBlock = computed(() => {
-	const block = canvasStore.activeCanvas?.selectedBlocks?.[0] ?? null
-	if (!block || block.isRoot()) return null
-	return block
+const promptPlaceholder = computed(() => {
+	if (mode.value === "modify") return "Describe what to change in this block..."
+	if (mode.value === "agent") return "Describe what to add or change on this page..."
+	return "Ask to create a new page..."
 })
-
-const isModifyMode = computed(() => !!selectedBlock.value)
 
 const aiModels = createResource({
 	url: "studio.ai.models.get_ai_models",
@@ -175,10 +173,7 @@ const sessionResource = createResource({
 function scrollToBottom() {
 	nextTick(() => {
 		if (messagesEl.value) {
-			messagesEl.value.scrollTo({
-				top: messagesEl.value.scrollHeight,
-				behavior: "smooth",
-			})
+			messagesEl.value.scrollTo({ top: messagesEl.value.scrollHeight, behavior: "smooth" })
 		}
 	})
 }
@@ -189,6 +184,7 @@ function reloadSession() {
 	}
 }
 
+// — Generation handlers —
 function onProgress(data: any) {
 	statusMessage.value = data.message || "Generating…"
 }
@@ -207,17 +203,14 @@ async function onComplete(data: any) {
 	loading.value = false
 	statusMessage.value = ""
 	streamBuffer.value = ""
-
 	const block: Block = data.block
 	if (!block) {
 		error.value = "No block was generated. Try a more descriptive prompt."
 		return
 	}
-
 	const rootBlock = getBlockInstance(block)
 	store.pageBlocks = [rootBlock]
 	canvasStore.activeCanvas?.setRootBlock(rootBlock, false)
-
 	toast.success("Page generated successfully")
 	prompt.value = ""
 	reloadSession()
@@ -230,6 +223,7 @@ function onError(data: any) {
 	error.value = data.message || "Generation failed. Please check your Studio Settings and try again."
 }
 
+// — Modify handlers —
 function onModifyProgress(data: any) {
 	statusMessage.value = data.message || "Updating…"
 }
@@ -237,22 +231,18 @@ function onModifyProgress(data: any) {
 function onModifyStream(data: any) {
 	modifyStreamBuffer.value += data.chunk || ""
 	const block = tryParseYamlBlock(modifyStreamBuffer.value)
-	if (block) {
-		replaceBlockInTree(data.component_id, getBlockInstance(block))
-	}
+	if (block) replaceBlockInTree(data.component_id, getBlockInstance(block))
 }
 
 async function onModifyComplete(data: any) {
 	loading.value = false
 	statusMessage.value = ""
 	modifyStreamBuffer.value = ""
-
 	const block: Block = data.block
 	if (!block) {
 		error.value = "No block was returned. Try a more specific request."
 		return
 	}
-
 	replaceBlockInTree(data.component_id, getBlockInstance(block))
 	toast.success("Block updated")
 	prompt.value = ""
@@ -266,14 +256,41 @@ function onModifyError(data: any) {
 	error.value = data.message || "Update failed. Please try again."
 }
 
+// — Agent handlers —
+function onAgentProgress(data: any) {
+	statusMessage.value = data.message || "Thinking…"
+}
+
+function onAgentToolBatch(data: any) {
+	const ops: AgentOperation[] = data.operations ?? []
+	ops.forEach((op) => applyOperation(op))
+}
+
+function onAgentStream(data: any) {
+	statusMessage.value = data.chunk || ""
+}
+
+async function onAgentComplete() {
+	loading.value = false
+	statusMessage.value = ""
+	toast.success("Changes applied")
+	prompt.value = ""
+	reloadSession()
+}
+
+function onAgentError(data: any) {
+	loading.value = false
+	statusMessage.value = ""
+	error.value = data.message || "Agent failed. Please try again."
+}
+
+// — Tree helpers —
 function replaceBlockInTree(componentId: string, newBlock: Block) {
 	const canvas = canvasStore.activeCanvas
 	if (!canvas) return
 	const oldBlock = canvas.findBlock(componentId)
 	if (!oldBlock) return
-	const parent = oldBlock.getParentBlock()
-	if (!parent) return
-	parent.replaceChild(oldBlock, newBlock)
+	oldBlock.getParentBlock()?.replaceChild(oldBlock, newBlock)
 }
 
 function setupListeners() {
@@ -287,6 +304,11 @@ function setupListeners() {
 	socket.on(`ai_modify_stream_${id}`, onModifyStream)
 	socket.on(`ai_modify_complete_${id}`, onModifyComplete)
 	socket.on(`ai_modify_error_${id}`, onModifyError)
+	socket.on(`ai_agent_progress_${id}`, onAgentProgress)
+	socket.on(`ai_agent_tool_batch_${id}`, onAgentToolBatch)
+	socket.on(`ai_agent_stream_${id}`, onAgentStream)
+	socket.on(`ai_agent_complete_${id}`, onAgentComplete)
+	socket.on(`ai_agent_error_${id}`, onAgentError)
 }
 
 function detachListeners() {
@@ -300,6 +322,11 @@ function detachListeners() {
 	socket.off(`ai_modify_stream_${id}`, onModifyStream)
 	socket.off(`ai_modify_complete_${id}`, onModifyComplete)
 	socket.off(`ai_modify_error_${id}`, onModifyError)
+	socket.off(`ai_agent_progress_${id}`, onAgentProgress)
+	socket.off(`ai_agent_tool_batch_${id}`, onAgentToolBatch)
+	socket.off(`ai_agent_stream_${id}`, onAgentStream)
+	socket.off(`ai_agent_complete_${id}`, onAgentComplete)
+	socket.off(`ai_agent_error_${id}`, onAgentError)
 }
 
 watch(
@@ -324,13 +351,21 @@ async function generate() {
 	scrollToBottom()
 
 	try {
-		if (isModifyMode.value && selectedBlock.value) {
+		if (mode.value === "modify" && selectedBlock.value) {
 			await call("studio.ai.page_generator.modify_block_from_prompt", {
 				prompt: prompt.value,
 				block_context: getBlockString(selectedBlock.value),
 				model: selectedModel.value,
 				page_id: pageId.value,
 				component_id: selectedBlock.value.componentId,
+			})
+		} else if (mode.value === "agent") {
+			const rootBlock = canvasStore.activeCanvas?.getRootBlock()
+			await call("studio.ai.agent.run_agent_from_prompt", {
+				prompt: prompt.value,
+				page_context: rootBlock ? getBlockString(rootBlock) : "{}",
+				model: selectedModel.value,
+				page_id: pageId.value,
 			})
 		} else {
 			await call("studio.ai.page_generator.generate_page_from_prompt", {

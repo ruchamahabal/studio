@@ -52,6 +52,24 @@ def _strip_fences(text: str) -> str:
 	return re.sub(r"\n?```\s*$", "", text).strip()
 
 
+def _load_yaml_with_fallback(text: str):
+	"""Try yaml.safe_load; on failure walk backwards dropping the last line until it parses.
+	Mirrors getValidPartialYAML in blockCodec.ts — handles trailing junk injected by the LLM."""
+	try:
+		return yaml.safe_load(text)
+	except yaml.YAMLError:
+		pass
+	lines = text.split("\n")
+	for i in range(len(lines) - 1, 0, -1):
+		try:
+			result = yaml.safe_load("\n".join(lines[:i]))
+			if result:
+				return result
+		except yaml.YAMLError:
+			continue
+	return None
+
+
 class BlockCodec:
 	@staticmethod
 	def compress(block: dict, depth: int = 0) -> dict:
@@ -129,7 +147,7 @@ class BlockCodec:
 	@staticmethod
 	def parse_blocks(content: str) -> dict:
 		cleaned = _strip_fences(content)
-		parsed = yaml.safe_load(cleaned)
+		parsed = _load_yaml_with_fallback(cleaned)
 
 		if isinstance(parsed, list):
 			node = parsed[0] if parsed else {}
@@ -148,22 +166,17 @@ class BlockCodec:
 		"""Best-effort parse of a partial YAML stream. Returns None on failure."""
 		if not content or not content.strip():
 			return None
-		try:
-			cleaned = _strip_fences(content)
-			parsed = yaml.safe_load(cleaned)
-			if isinstance(parsed, list):
-				node = parsed[0] if parsed else None
-			elif isinstance(parsed, dict):
-				node = parsed
-			else:
-				return None
-			if not node or not isinstance(node, dict):
-				return None
-			if "name" not in node:
-				return None
-			return BlockCodec.expand(node)
-		except yaml.YAMLError:
+		cleaned = _strip_fences(content)
+		parsed = _load_yaml_with_fallback(cleaned)
+		if isinstance(parsed, list):
+			node = parsed[0] if parsed else None
+		elif isinstance(parsed, dict):
+			node = parsed
+		else:
 			return None
+		if not node or not isinstance(node, dict) or "name" not in node:
+			return None
+		return BlockCodec.expand(node)
 
 	@staticmethod
 	def strip_context(block_json: str, task_type: str = "full") -> str:
