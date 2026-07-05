@@ -4,6 +4,7 @@ import { type AIChatHandlers, attachAIChatListeners, detachAIChatListeners } fro
 import { ToolDispatcher } from "@/components/ai/toolDispatch"
 import type { BlockOptions } from "@/types"
 import { tryParseJsonBlock } from "@/utils/blockCodec"
+import { captureRenderedPage, getImageWidth } from "@/utils/captureCanvas"
 import { throttle } from "@/utils/helpers"
 
 /** Everything the controller needs from the panel: the shared chat state it mutates
@@ -37,6 +38,9 @@ export class AIChatController {
 	imageData = ref<string | null>(null)
 	imagePreviewUrl = ref<string | null>(null)
 	imageFileName = ref("")
+	// The last design submitted with a prompt — kept after submit so "Refine to match design"
+	// can re-send it alongside a fresh capture of the current render.
+	designReference = ref<string | null>(null)
 	private readonly dispatcher: ToolDispatcher
 	private pendingAssistantId: number | null = null
 	private summary = ""
@@ -74,24 +78,61 @@ export class AIChatController {
 	}
 
 	async submit(promptText: string, model: string) {
+		this.beginTurn()
+		const image = this.imageData.value
+		if (image) this.designReference.value = image
+		this.pushMessage("user", promptText, image ? { attachedImageUrl: image } : undefined)
+		this.clearImage()
+		this.pendingAssistantId = this.pushMessage("assistant", "Thinking…")
+		this.ctx.scrollToBottom()
+		await this.dispatchRun({ prompt: promptText, model, image_data: image ?? undefined })
+	}
+
+	/** Visual feedback loop: capture the current render at the design's resolution and send
+	 * both images so the model lists the discrepancies and fixes them with targeted edits. */
+	refineToMatchDesign = async (model: string) => {
+		const design = this.designReference.value
+		if (!design || this.ctx.loading.value) return
+		this.beginTurn()
+		this.ctx.statusMessage.value = "Capturing the current render…"
+		const render = await captureRenderedPage((await getImageWidth(design)) ?? undefined)
+		if (!render) {
+			this.ctx.loading.value = false
+			this.ctx.statusMessage.value = ""
+			this.ctx.error.value = "Could not capture the current render."
+			return
+		}
+		const promptText = "Refine the page to match the attached target design."
+		this.pushMessage("user", promptText)
+		this.pendingAssistantId = this.pushMessage("assistant", "Comparing the render against the design…")
+		this.ctx.scrollToBottom()
+		await this.dispatchRun({
+			prompt: promptText,
+			model,
+			// A refine turn compares whole pages — a lingering block selection must not scope it.
+			selected_block_ids: [],
+			images: [
+				{ label: "TARGET DESIGN", data: design },
+				{ label: "CURRENT RENDER", data: render },
+			],
+		})
+	}
+
+	private beginTurn() {
 		this.summary = ""
 		this.pageBuffer = ""
 		this.ctx.error.value = ""
 		this.ctx.loading.value = true
 		this.ctx.statusMessage.value = ""
-		const image = this.imageData.value
-		this.pushMessage("user", promptText, image ? { attachedImageUrl: image } : undefined)
-		this.clearImage()
-		this.pendingAssistantId = this.pushMessage("assistant", "Thinking…")
-		this.ctx.scrollToBottom()
+	}
+
+	private async dispatchRun(params: Record<string, any>) {
 		try {
 			const res: any = await call("studio.ai.api.run", {
-				prompt: promptText,
 				page_id: this.ctx.pageId(),
 				page_context: this.ctx.getPageContext(),
-				model,
 				selected_block_ids: this.ctx.getSelectedBlockIds(),
-				image_data: image ?? undefined,
+				...params,
 			})
 			if (res?.session_id) this.sessionId = res.session_id
 			if (res?.status === "busy") {

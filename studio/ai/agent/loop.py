@@ -61,7 +61,7 @@ class AgentRunner:
 		page_id: str | None = None,
 		session_id: str | None = None,
 		selected_block_ids: list[str] | None = None,
-		image_url: str | None = None,
+		images: list[dict] | None = None,
 	):
 		self.prompt = prompt
 		self.page_context_json = page_context_json
@@ -73,7 +73,7 @@ class AgentRunner:
 		self.selected_block_ids = selected_block_ids or []
 		# An optional screenshot/design (base64 data URL) to reproduce; attached to this turn's
 		# user message so the model can see it (see build_messages).
-		self.image_url = image_url
+		self.images = images or []
 		is_standard = self.is_standard()
 		self.registry = get_tool_registry_for_mode(is_standard)
 		self.system_prompt = get_system_prompt_for_mode(is_standard)
@@ -159,20 +159,25 @@ class AgentRunner:
 		user_text = self.prompt
 		if self.selected_block_ids:
 			user_text += f"\n\n(User has selected: {', '.join(self.selected_block_ids)})"
-		if self.image_url and ModelRegistry.is_vision_capable(self.model):
-			# Multimodal message: the model sees the attached screenshot alongside the prompt.
-			messages.append(
-				{
-					"role": "user",
-					"content": [
-						{"type": "text", "text": user_text},
-						{"type": "image_url", "image_url": {"url": self.image_url}},
-					],
-				}
-			)
+		if parts := self.image_content_parts():
+			# Multimodal message: the model sees the attached image(s) alongside the prompt.
+			messages.append({"role": "user", "content": [{"type": "text", "text": user_text}, *parts]})
 		else:
 			messages.append({"role": "user", "content": user_text})
 		return messages
+
+	def image_content_parts(self) -> list[dict]:
+		"""Multimodal content parts for this turn's attached images, each preceded by its label
+		(e.g. TARGET DESIGN / CURRENT RENDER on a refine turn) so the model can tell them apart.
+		Empty when there are no images or the model can't read them."""
+		if not self.images or not ModelRegistry.is_vision_capable(self.model):
+			return []
+		parts: list[dict] = []
+		for image in self.images:
+			if label := image.get("label"):
+				parts.append({"type": "text", "text": label})
+			parts.append({"type": "image_url", "image_url": {"url": image["url"]}})
+		return parts
 
 	# --- LLM call ---------------------------------------------------------
 

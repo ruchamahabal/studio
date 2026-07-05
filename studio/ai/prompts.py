@@ -294,6 +294,9 @@ For add_block, pass the new block under "block" using the BLOCK SCHEMA below (na
 # Reproducing an attached screenshot / design
 When the user attaches an image (a screenshot or design mock), treat it as the source of truth for the LAYOUT. Read it top-to-bottom and map each region to the closest catalog component (top bar → Sidebar/Breadcrumbs, cards → container, lists/tables → ListView/Repeater, forms → FormControl/Input, stats → NumberChart, etc.). Match the structure, spacing, alignment, and hierarchy; approximate its colors with espresso tokens (never hardcode hex). Because the page is built from the brief you pass to generate_page, that BRIEF must encode what you see — the section order, each section's components and real copy, the palette, and the type scale. Don't add extra elements/components that do not exist in the screenshot. Do not invent data sources; bind only to ones that already exist.
 
+# Refining to match a design (visual feedback)
+When a turn carries BOTH a "TARGET DESIGN" image and a "CURRENT RENDER" image, the page is already built and you are closing the gap between the two. First LIST the concrete discrepancies you can see (section order, missing/extra elements, spacing, alignment, sizes, colors/tokens, typography), then fix EACH one with targeted update_block / update_blocks / move_block / add_block / remove_block edits on the existing blocks. Do NOT call generate_page — a refine turn edits in place and must not disturb working data sources, variables, scripts, or bindings. Ignore differences that come from live data (row counts, record text from data sources): match structure and style, not sample content. If the render already matches, say so and change nothing.
+
 {data_and_code_wiring}
 
 {SCRIPTING_RULES}

@@ -32,9 +32,12 @@ def run(
 	model: str | None = None,
 	selected_block_ids: list | str | None = None,
 	image_data: str | None = None,
+	images: list | str | None = None,
 ):
 	"""Single entry point: run the agent for one user turn. `image_data` is an optional base64
-	image data URL (a screenshot/design) the model should reproduce as a layout."""
+	image data URL (a screenshot/design) the model should reproduce as a layout. `images` is an
+	optional labeled list [{label, data}] for multi-image turns — e.g. a refine turn sends the
+	TARGET DESIGN alongside a CURRENT RENDER capture of the canvas."""
 	logger.info(f"run: page_id={page_id}, model={model}")
 
 	try:
@@ -47,7 +50,7 @@ def run(
 	if not api_key:
 		frappe.throw(_("OpenRouter API key is not configured. Please set it in Studio Settings."))
 
-	image_url = BlockCodec.validate_image_data(image_data) if image_data else None
+	image_parts = _resolve_images(image_data, images)
 
 	session = AISession.get_or_create(page_id, resolved_model)
 	if AISession.is_session_running(session.name):
@@ -55,7 +58,8 @@ def run(
 		return {"status": "busy", "message": _("Another AI request is still processing. Please wait.")}
 
 	# Store the image on the user message so the chat thread can show a thumbnail on reload.
-	msg_meta = {"attachedImageUrl": image_url} if image_url else None
+	# Only for a single attached design — a refine turn's design+render pair isn't a thumbnail.
+	msg_meta = {"attachedImageUrl": image_parts[0]["url"]} if len(image_parts) == 1 else None
 	session.append_message("user", prompt, message_type="chat", task_type="agent", metadata=msg_meta)
 
 	# Background queue (not now=True): a streaming turn can run for tens of seconds, and
@@ -73,7 +77,7 @@ def run(
 		page_id=page_id,
 		session_id=session.name,
 		selected_block_ids=_parse_block_ids(selected_block_ids),
-		image_url=image_url,
+		images=image_parts or None,
 	)
 	frappe.local.response.http_status_code = 202
 	return {"status": "accepted", "session_id": session.name}
@@ -109,6 +113,26 @@ def clear_ai_session(page_id: str) -> dict:
 	session = AISession.get_or_create(page_id)
 	session.clear()
 	return {"status": "ok"}
+
+
+def _resolve_images(image_data: str | None, images: list | str | None) -> list[dict]:
+	"""Normalize the two image inputs into [{label, url}] parts, validating each data URL
+	(image type + size cap). `image_data` is the single attached design; `images` is the
+	labeled multi-image list (JSON string or list of {label, data})."""
+	parts: list[dict] = []
+	if image_data:
+		parts.append({"label": None, "url": BlockCodec.validate_image_data(image_data)})
+	if isinstance(images, str):
+		try:
+			images = json.loads(images)
+		except (json.JSONDecodeError, TypeError):
+			images = None
+	for item in images or []:
+		if isinstance(item, dict) and item.get("data"):
+			parts.append(
+				{"label": item.get("label") or None, "url": BlockCodec.validate_image_data(item["data"])}
+			)
+	return parts
 
 
 def _parse_block_ids(selected_block_ids: list | str | None) -> list[str]:
