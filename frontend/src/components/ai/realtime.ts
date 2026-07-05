@@ -11,6 +11,7 @@ export interface AIChatHandlers {
 	onComplete: Handler
 	onError: Handler
 	onReload: Handler
+	onCaptureRequest: Handler
 }
 
 interface Realtime {
@@ -27,6 +28,7 @@ function listenerMap(h: AIChatHandlers): Record<string, Handler> {
 		ai_chat_complete: h.onComplete,
 		ai_chat_error: h.onError,
 		ai_chat_reload: h.onReload,
+		ai_chat_capture_request: h.onCaptureRequest,
 	}
 }
 

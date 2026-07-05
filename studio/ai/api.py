@@ -96,6 +96,20 @@ def cancel(session_id: str):
 
 @frappe.whitelist()
 @has_page_write_perm()
+def submit_capture(session_id: str, image_data: str | None = None):
+	"""The editor's answer to a `capture_request` realtime event: stash the canvas capture in
+	the cache where the waiting agent worker (capture_page_render) is polling for it."""
+	from studio.ai.agent.tools.capture import capture_cache_key
+
+	if session_id and image_data:
+		frappe.cache.set_value(
+			capture_cache_key(session_id), BlockCodec.validate_image_data(image_data), expires_in_sec=120
+		)
+	return {"status": "ok"}
+
+
+@frappe.whitelist()
+@has_page_write_perm()
 def get_ai_session(page_id: str, model: str | None = None) -> dict:
 	session = AISession.get_or_create(page_id, model)
 	# Return the session id so the client can cancel a turn it didn't start itself — e.g. when a

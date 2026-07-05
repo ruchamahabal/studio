@@ -66,6 +66,7 @@ export class AIChatController {
 			onComplete: this.onComplete,
 			onError: this.onError,
 			onReload: this.onReload,
+			onCaptureRequest: this.onCaptureRequest,
 		}
 	}
 
@@ -86,36 +87,6 @@ export class AIChatController {
 		this.pendingAssistantId = this.pushMessage("assistant", "Thinking…")
 		this.ctx.scrollToBottom()
 		await this.dispatchRun({ prompt: promptText, model, image_data: image ?? undefined })
-	}
-
-	/** Visual feedback loop: capture the current render at the design's resolution and send
-	 * both images so the model lists the discrepancies and fixes them with targeted edits. */
-	refineToMatchDesign = async (model: string) => {
-		const design = this.designReference.value
-		if (!design || this.ctx.loading.value) return
-		this.beginTurn()
-		this.ctx.statusMessage.value = "Capturing the current render…"
-		const render = await captureRenderedPage((await getImageWidth(design)) ?? undefined)
-		if (!render) {
-			this.ctx.loading.value = false
-			this.ctx.statusMessage.value = ""
-			this.ctx.error.value = "Could not capture the current render."
-			return
-		}
-		const promptText = "Refine the page to match the attached target design."
-		this.pushMessage("user", promptText)
-		this.pendingAssistantId = this.pushMessage("assistant", "Comparing the render against the design…")
-		this.ctx.scrollToBottom()
-		await this.dispatchRun({
-			prompt: promptText,
-			model,
-			// A refine turn compares whole pages — a lingering block selection must not scope it.
-			selected_block_ids: [],
-			images: [
-				{ label: "TARGET DESIGN", data: design },
-				{ label: "CURRENT RENDER", data: render },
-			],
-		})
 	}
 
 	private beginTurn() {
@@ -207,6 +178,23 @@ export class AIChatController {
 			variables: !!data.variables,
 			script: !!data.script,
 		})
+	}
+
+	onCaptureRequest = async (data: any) => {
+		// The agent asked to SEE the page (capture_page_render): screenshot the canvas — at the
+		// attached design's resolution when one exists — and hand it back to the waiting worker.
+		const design = this.designReference.value
+		const width = design ? await getImageWidth(design) : null
+		const render = await captureRenderedPage(width ?? undefined)
+		if (!render) return // the worker times out and tells the model the capture failed
+		try {
+			await call("studio.ai.api.submit_capture", {
+				session_id: data.session_id || this.sessionId,
+				image_data: render,
+			})
+		} catch (e) {
+			console.warn("[AI agent] failed to submit the canvas capture:", e)
+		}
 	}
 
 	onClarify = (data: any) => {

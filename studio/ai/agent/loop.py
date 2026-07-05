@@ -74,6 +74,9 @@ class AgentRunner:
 		# An optional screenshot/design (base64 data URL) to reproduce; attached to this turn's
 		# user message so the model can see it (see build_messages).
 		self.images = images or []
+		# Images a tool queued mid-turn (capture_page_render) — attached to the next user
+		# message after that round's tool results, then cleared.
+		self.pending_images: list[dict] = []
 		is_standard = self.is_standard()
 		self.registry = get_tool_registry_for_mode(is_standard)
 		self.system_prompt = get_system_prompt_for_mode(is_standard)
@@ -166,14 +169,15 @@ class AgentRunner:
 			messages.append({"role": "user", "content": user_text})
 		return messages
 
-	def image_content_parts(self) -> list[dict]:
-		"""Multimodal content parts for this turn's attached images, each preceded by its label
-		(e.g. TARGET DESIGN / CURRENT RENDER on a refine turn) so the model can tell them apart.
+	def image_content_parts(self, images: list[dict] | None = None) -> list[dict]:
+		"""Multimodal content parts for attached images (this turn's by default), each preceded
+		by its label (e.g. TARGET DESIGN / CURRENT RENDER) so the model can tell them apart.
 		Empty when there are no images or the model can't read them."""
-		if not self.images or not ModelRegistry.is_vision_capable(self.model):
+		images = self.images if images is None else images
+		if not images or not ModelRegistry.is_vision_capable(self.model):
 			return []
 		parts: list[dict] = []
-		for image in self.images:
+		for image in images:
 			if label := image.get("label"):
 				parts.append({"type": "text", "text": label})
 			parts.append({"type": "image_url", "image_url": {"url": image["url"]}})
@@ -407,6 +411,21 @@ class AgentRunner:
 						if "FAILED" in content or "NOT FOUND" in content:
 							logger.warning("Client op rejected — %s: %s", op["tool_name"], content)
 					messages.append({"role": "tool", "tool_call_id": tc_dict["id"], "content": content})
+
+				# A tool queued images this round (capture_page_render) — providers don't accept
+				# image content in tool results, so hand them over as a user message instead.
+				if self.pending_images:
+					if parts := self.image_content_parts(self.pending_images):
+						messages.append(
+							{
+								"role": "user",
+								"content": [
+									{"type": "text", "text": "Here are the images you requested:"},
+									*parts,
+								],
+							}
+						)
+					self.pending_images = []
 
 		except CancelledError:
 			self._emit_cancelled()

@@ -88,6 +88,7 @@ def _build_shared_registry() -> ToolRegistry:
 	from studio.ai.agent.tools import (
 		bindings,
 		blocks,
+		capture,
 		conversation,
 		data,
 		generate,
@@ -105,6 +106,7 @@ def _build_shared_registry() -> ToolRegistry:
 	registry.extend(data.TOOLS)
 	registry.extend(bindings.TOOLS)
 	registry.extend(interactivity.TOOLS)
+	registry.extend(capture.TOOLS)
 	return registry
 
 

@@ -212,17 +212,6 @@
 						<FeatherIcon name="image" class="h-3.5 w-3.5 shrink-0" />
 					</button>
 					<input ref="imageInput" type="file" accept="image/*" class="hidden" @change="onImageSelected" />
-
-					<button
-						v-if="designReference && isVisionModel"
-						class="flex h-7 items-center gap-1.5 rounded px-1.5 text-ink-gray-5 transition-colors hover:bg-surface-gray-2 hover:text-ink-gray-8 disabled:cursor-not-allowed disabled:opacity-50"
-						title="Compare the canvas against the attached design and refine it to match"
-						:disabled="loading"
-						@click="controller.refineToMatchDesign(selectedModel)"
-					>
-						<FeatherIcon name="refresh-cw" class="h-3.5 w-3.5 shrink-0" />
-						<span class="text-xs">Refine</span>
-					</button>
 				</div>
 
 				<Button v-if="loading" variant="subtle" label="Stop" icon="square" @click="stop" />
@@ -380,7 +369,6 @@ watch(isVisionModel, (vision) => {
 // Attached-image state + input (exposed so the template auto-unwraps the refs).
 const imagePreviewUrl = controller.imagePreviewUrl
 const imageFileName = controller.imageFileName
-const designReference = controller.designReference
 const imageInput = ref<HTMLInputElement | null>(null)
 
 function onImageSelected(e: Event) {
