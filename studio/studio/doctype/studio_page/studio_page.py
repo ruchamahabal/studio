@@ -7,6 +7,7 @@ import frappe
 from frappe import _
 from frappe.model.document import Document
 from frappe.model.naming import append_number_if_name_exists
+from frappe.utils import cstr
 
 from studio.export import (
 	can_export,
@@ -270,6 +271,27 @@ class StudioPage(Document):
 
 	def get_export_docname(self):
 		return frappe.scrub(self.page_title)
+
+	@frappe.whitelist()
+	def save_draft(self, draft_blocks: str, modified: str | None = None):
+		"""Autosave the editor's canvas into draft_blocks.
+
+		The editor holds the page open and autosaves on every canvas change. `run_doc_method`
+		loads a fresh copy from the DB, so we can't rely on the framework's own timestamp check —
+		compare the client's loaded `modified` against the current one and refuse to clobber a page
+		that changed underneath it (an external migrate, another session, a code-mode edit).
+		"""
+		if modified and cstr(self.modified) != cstr(modified):
+			frappe.throw(
+				_("This page was changed outside the editor. Please reload to get the latest version."),
+				exc=frappe.TimestampMismatchError,
+			)
+		self.draft_blocks = draft_blocks
+		# variables & resources are validated only on publish; skip here to keep autosaves cheap
+		self._skip_validate = True
+		self.save()
+		# return the new timestamp so the editor stays in sync for the next autosave
+		return self.modified
 
 	@frappe.whitelist()
 	def publish(self, **kwargs):

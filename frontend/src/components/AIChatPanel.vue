@@ -353,6 +353,8 @@ const controller = new AIChatController({
 		if (resources) codeStore.setPageResources(page)
 		if (variables) codeStore.setPageVariables(page)
 		if (script) store.reloadActivePageScript()
+		// resources/variables writes bump the page's `modified`; script refetches it already
+		if (resources || variables) store.refreshActivePageTimestamp()
 	},
 })
 

@@ -33,7 +33,7 @@ import type { LeftPanelOptions, RightPanelOptions, leftPanelComponentTabOptions,
 import ComponentContextMenu from "@/components/ComponentContextMenu.vue"
 import type { Variable, VariableOption } from "@/types/Studio/StudioPageVariable"
 import { toast } from "frappe-ui"
-import { createResource } from "frappe-ui"
+import { createResource, dialog } from "frappe-ui"
 
 const useStudioStore = defineStore("store", () => {
 	const studioLayout = reactive({
@@ -179,6 +179,7 @@ const useStudioStore = defineStore("store", () => {
 	const selectedPage = ref<string | null>(null)
 	const savingPage = ref(false)
 	const settingPage = ref(false)
+	const isPageOutdated = ref(false)
 
 	// design-time test values for dynamic route variables (e.g. { category: "tech" }), persists in localStorage
 	const routeVariables = ref<Record<string, string>>({})
@@ -224,26 +225,57 @@ const useStudioStore = defineStore("store", () => {
 		}
 		const pageData = jsToJson(pageBlocks.value.map((block) => getBlockCopyWithoutParent(block)))
 
-		const args = {
-			name: selectedPage.value,
-			draft_blocks: pageData,
-			_skip_validate: true,
-		}
-		return studioPages.setValue.submit(args)
-			.then((page: StudioPage) => {
-				activePage.value = page
+		return studioPages.runDocMethod
+			.submit({
+				name: selectedPage.value,
+				method: "save_draft",
+				draft_blocks: pageData,
+				// round-trip the loaded timestamp so the server can reject a stale overwrite
+				modified: activePage.value?.modified,
+			})
+			.then((data: { message: string }) => {
+				// keep our timestamp in sync so the next autosave isn't wrongly rejected
+				if (activePage.value && data?.message) activePage.value.modified = data.message
+			})
+			.catch((error: any) => {
+				if (error?.exc_type === "TimestampMismatchError") {
+					handleOutdatedPage()
+				} else {
+					throw error
+				}
 			})
 			.finally(() => {
 				savingPage.value = false
 			})
 	}
 
+	function handleOutdatedPage() {
+		if (isPageOutdated.value || !selectedPage.value) return
+		isPageOutdated.value = true
+		dialog.confirm({
+			title: "Page changed outside the editor",
+			message: "This page was changed outside the editor. Reloading will apply the latest changes and discard your current edits.",
+			confirmLabel: "Reload",
+			cancelLabel: "Keep Editing",
+			theme: "yellow",
+			onConfirm: async () => {
+				await setPage(selectedPage.value!)
+				isPageOutdated.value = false
+			},
+			onCancel: () => {
+				isPageOutdated.value = false
+			},
+		})
+	}
+
 	function updateActivePage(key: string, value: string) {
 		return studioPages.setValue.submit(
 			{ name: activePage.value?.name, [key]: value, _skip_validate: true },
 			{
-				onSuccess() {
+				onSuccess(doc: StudioPage) {
 					activePage.value![key] = value
+					// keep modified in sync so the canvas autosave isn't wrongly rejected
+					if (doc?.modified) activePage.value!.modified = doc.modified
 					setAppPages(activeApp.value!.name)
 				},
 			},
@@ -254,8 +286,9 @@ const useStudioStore = defineStore("store", () => {
 		if (!activePage.value) return Promise.resolve()
 		return studioPages.setValue
 			.submit({ name: activePage.value.name, script, _skip_validate: true })
-			.then(() => {
+			.then((doc: StudioPage) => {
 				activePage.value!.script = script
+				if (doc?.modified) activePage.value!.modified = doc.modified
 			})
 	}
 
@@ -267,6 +300,14 @@ const useStudioStore = defineStore("store", () => {
 		if (!page) return
 		activePage.value = page
 		await codeStore.setPageScript(page, Boolean(page.is_standard))
+	}
+
+	// A server tool (AI) wrote resources/variables to the page doc, bumping its `modified`. Pull the
+	// new timestamp so the next canvas autosave isn't wrongly rejected as an outside-the-editor change.
+	async function refreshActivePageTimestamp() {
+		if (!activePage.value) return
+		const page = await fetchPage(activePage.value.name)
+		if (page?.modified && activePage.value) activePage.value.modified = page.modified
 	}
 
 	async function publishPage() {
@@ -611,12 +652,14 @@ const useStudioStore = defineStore("store", () => {
 		selectedPage,
 		settingPage,
 		savingPage,
+		isPageOutdated,
 		activePage,
 		setPage,
 		savePage,
 		updateActivePage,
 		setActivePageScript,
 		reloadActivePageScript,
+		refreshActivePageTimestamp,
 		publishPage,
 		unpublishPage,
 		publishApp,
