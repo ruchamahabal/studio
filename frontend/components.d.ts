@@ -49,6 +49,7 @@ declare module 'vue' {
     DraggablePopup: typeof import('./src/components/DraggablePopup.vue')['default']
     DynamicStyleSetter: typeof import('./src/components/DynamicStyleSetter.vue')['default']
     DynamicValueSelector: typeof import('./src/components/DynamicValueSelector.vue')['default']
+    EditableTextBlock: typeof import('./src/components/EditableTextBlock.vue')['default']
     EmptyState: typeof import('./src/components/EmptyState.vue')['default']
     ExportAppDialog: typeof import('./src/components/ExportAppDialog.vue')['default']
     EyeDropper: typeof import('./src/components/Icons/EyeDropper.vue')['default']
@@ -72,7 +73,6 @@ declare module 'vue' {
     LucideActivity: typeof import('~icons/lucide/activity')['default']
     LucideChevronDown: typeof import('~icons/lucide/chevron-down')['default']
     LucideChevronUp: typeof import('~icons/lucide/chevron-up')['default']
-    LucideFlaskConical: typeof import('~icons/lucide/flask-conical')['default']
     LucidePaperclip: typeof import('~icons/lucide/paperclip')['default']
     LucideRepeat: typeof import('~icons/lucide/repeat')['default']
     MarginHandler: typeof import('./src/components/MarginHandler.vue')['default']
@@ -113,5 +113,6 @@ declare module 'vue' {
     StudioSettingsDialog: typeof import('./src/components/StudioSettingsDialog.vue')['default']
     StudioToolbar: typeof import('./src/components/StudioToolbar.vue')['default']
     TextBlock: typeof import('./src/components/AppLayout/TextBlock.vue')['default']
+    TextSelectionToolbar: typeof import('./src/components/TextSelectionToolbar.vue')['default']
   }
 }

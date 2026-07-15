@@ -227,6 +227,11 @@ const selectedBlocks = computed(() => {
 function selectBlock(block: Block, e: MouseEvent | null, setBreakpoint = true) {
 	if (store.settingPage) return
 
+	// exit inline text editing when selecting a different block
+	if (canvasStore.editableBlock && canvasStore.editableBlock !== block) {
+		canvasStore.editableBlock = null
+	}
+
 	if (e && e.shiftKey) {
 		selectBlockRange(block)
 	} else if (e && (e.metaKey || e.ctrlKey)) {
@@ -291,6 +296,7 @@ const handleClick = (ev: MouseEvent) => {
 	// TODO: Still clears selection if space handlers are dragged over canvas-container
 	if (target?.classList.contains("canvas-container")) {
 		clearSelection()
+		canvasStore.editableBlock = null
 	}
 }
 

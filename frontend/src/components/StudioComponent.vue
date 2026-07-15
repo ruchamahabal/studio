@@ -20,7 +20,7 @@
 		<component
 			v-if="showComponent"
 			:is="componentName"
-			v-bind="componentProps"
+			v-bind="{ ...componentProps, ...textEditBindings }"
 			v-on="vModelListeners"
 			:data-component-id="block.componentId"
 			:data-breakpoint="breakpoint"
@@ -29,6 +29,7 @@
 			@mouseover="handleMouseOver"
 			@mouseleave="handleMouseLeave"
 			@click="handleClick"
+			@dblclick="handleDoubleClick"
 			ref="componentRef"
 		>
 			<!-- Dynamically render named slots -->
@@ -87,7 +88,7 @@
 		<component
 			v-if="showComponent"
 			:is="componentName"
-			v-bind="componentProps"
+			v-bind="{ ...componentProps, ...textEditBindings }"
 			v-on="vModelListeners"
 			:data-component-id="block.componentId"
 			:data-breakpoint="breakpoint"
@@ -96,6 +97,7 @@
 			@mouseover="handleMouseOver"
 			@mouseleave="handleMouseLeave"
 			@click="handleClick"
+			@dblclick="handleDoubleClick"
 			ref="componentRef"
 		/>
 	</template>
@@ -118,6 +120,7 @@ import { computed, ref, watch, useAttrs, inject, ComputedRef, onErrorCaptured, h
 import type { ComponentPublicInstance } from "vue"
 import StudioComponentWrapper from "@/components/StudioComponentWrapper.vue"
 import ComponentEditor from "@/components/ComponentEditor.vue"
+import EditableTextBlock from "@/components/EditableTextBlock.vue"
 import { customVueComponentsRegistry } from "@/globals"
 
 import Block from "@/utils/block"
@@ -172,6 +175,10 @@ const styles = computed(() => {
 })
 
 const componentName = computed(() => {
+	// swap in the TipTap-backed editor only for the text block being edited; TipTap stays
+	// out of the shipped app since it renders via AppComponent, never StudioComponent
+	if (props.block.isText() && isEditingText.value) return EditableTextBlock
+
 	if (props.block.isContainer()) return props.block.originalElement || "div"
 
 	let name
@@ -252,6 +259,27 @@ const showComponent = computed(() => {
 const isHovered = ref(false)
 const isSelected = computed(() => canvasStore.activeCanvas?.selectedBlockIds?.has(props.block.componentId))
 
+// inline text editing
+const isEditingText = computed(
+	() =>
+		canvasStore.editableBlock === props.block &&
+		props.breakpoint === canvasStore.activeCanvas?.activeBreakpoint,
+)
+
+const textEditBindings = computed(() => {
+	if (!(props.block.isText() && isEditingText.value)) return {}
+	return {
+		"onUpdate:text": (value: string) => props.block.setProp("text", value),
+		onStop: () => (canvasStore.editableBlock = null),
+	}
+})
+
+const handleDoubleClick = (e: MouseEvent) => {
+	if (!props.block.isText()) return
+	canvasStore.editableBlock = props.block
+	e.stopPropagation()
+}
+
 const target = computed<HTMLElement | null>(() => {
 	if (!componentRef.value) return null
 	const root = getComponentRoot(componentRef)
@@ -300,6 +328,11 @@ const getClickedComponent = (e: MouseEvent) => {
 }
 
 const handleClick = (e: MouseEvent) => {
+	// let clicks through to position the caret while inline-editing this text block
+	if (isEditingText.value) {
+		e.stopPropagation()
+		return
+	}
 	// A component can declare its own `click` emit and fire it with a non-DOM payload
 	const domEvent = e instanceof Event ? e : null
 	const block = (domEvent && getClickedComponent(domEvent)) || props.block
