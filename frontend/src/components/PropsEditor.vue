@@ -255,7 +255,20 @@ const getFormattedValue = (propName: string) => {
 	if (value?.$type === "variable") {
 		return `{{ ${value.name} }}`
 	}
+	// TextBlock content can hold inline formatting (bold/color spans); show readable plain
+	// text here — formatting is applied on canvas via the bubble menu, not in this field
+	if (props.block?.isText() && propName === "text" && typeof value === "string" && /<[^>]+>/.test(value)) {
+		return stripHtml(value)
+	}
 	return value
+}
+
+const stripHtml = (html: string) => {
+	const el = document.createElement("div")
+	el.innerHTML = html
+	const text = el.textContent || el.innerText || ""
+	el.remove()
+	return text
 }
 
 const handlePropUpdate = (propName: string, newValue: any) => {
