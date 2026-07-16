@@ -360,16 +360,28 @@ def _is_page_json(file_path: str) -> bool:
 
 
 def _page_blocks_differ(page_name: str, file_doc: dict) -> bool:
-	"""True if the exported JSON's blocks differ from what's stored in the DB doc."""
-	db_doc = frappe.db.get_value("Studio Page", page_name, ["blocks", "draft_blocks"], as_dict=True)
+	"""True if the on-disk JSON's blocks differ from what the DB doc would itself export.
+
+	Compared against the export output (not the raw DB blocks) because the export prunes empty/null
+	fields from the block tree — so a raw comparison would flag every save as a change and echo
+	Studio's own writes back as a reload."""
+	export = _exported_page_dict(page_name)
 	return any(
-		_canonical_blocks(file_doc.get(field)) != _canonical_blocks(db_doc.get(field))
+		_canonical_blocks(file_doc.get(field)) != _canonical_blocks(export.get(field))
 		for field in ("blocks", "draft_blocks")
 	)
 
 
+def _exported_page_dict(page_name: str) -> dict:
+	"""The page as it serializes to disk: run the same before_export normalization the exporter uses."""
+	doc = frappe.get_doc("Studio Page", page_name)
+	export = doc.as_dict(no_nulls=True)
+	doc.run_method("before_export", export)
+	return export
+
+
 def _canonical_blocks(value) -> str:
-	"""Normalize blocks for comparison (a JSON string in the DB, a parsed list in the exported file)."""
+	"""Normalize blocks for comparison (a JSON string, a parsed list, or absent)."""
 	if isinstance(value, str):
 		value = frappe.parse_json(value) if value else None
 	return frappe.as_json(value, indent=None) if value else ""
