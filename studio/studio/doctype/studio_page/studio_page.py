@@ -94,6 +94,17 @@ class StudioPage(Document):
 
 	def on_update(self):
 		self.export_page()
+		self.notify_page_update()
+
+	def notify_page_update(self):
+		# Tell any editor holding this page open that it changed (this or another session, a migrate,
+		# a code-mode edit). The client ignores the echo of its own save by comparing `modified`, and
+		# reloads / prompts for a genuinely newer copy.
+		frappe.publish_realtime(
+			f"studio_page_update_{self.name}",
+			{"name": self.name, "modified": str(self.modified)},
+			after_commit=True,
+		)
 
 	def export_page(self):
 		if can_export(self):
@@ -281,17 +292,34 @@ class StudioPage(Document):
 		compare the client's loaded `modified` against the current one and refuse to clobber a page
 		that changed underneath it (an external migrate, another session, a code-mode edit).
 		"""
-		if modified and cstr(self.modified) != cstr(modified):
-			frappe.throw(
-				_("This page was changed outside the editor. Please reload to get the latest version."),
-				exc=frappe.TimestampMismatchError,
-			)
+		self.raise_if_stale(modified)
 		self.draft_blocks = draft_blocks
 		# variables & resources are validated only on publish; skip here to keep autosaves cheap
 		self._skip_validate = True
 		self.save()
 		# return the new timestamp so the editor stays in sync for the next autosave
 		return self.modified
+
+	@frappe.whitelist()
+	def save_field(self, fieldname: str, value: str, modified: str | None = None):
+		"""Guarded single-field save for editor edits (page title, route, script).
+
+		`frappe.client.set_value` reloads the doc fresh server-side and so can never detect a stale
+		copy; route these edits here instead so a page changed underneath the editor is rejected.
+		"""
+		self.raise_if_stale(modified)
+		self.set(fieldname, value)
+		self._skip_validate = True
+		self.save()
+		return self.modified
+
+	def raise_if_stale(self, modified: str | None):
+		# `run_doc_method` loads a fresh copy, so compare the client's loaded `modified` explicitly
+		if modified and cstr(self.modified) != cstr(modified):
+			frappe.throw(
+				_("This page was changed outside the editor. Please reload to get the latest version."),
+				exc=frappe.TimestampMismatchError,
+			)
 
 	@frappe.whitelist()
 	def publish(self, **kwargs):

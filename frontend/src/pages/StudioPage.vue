@@ -146,7 +146,7 @@
 </template>
 
 <script setup lang="ts">
-import { onActivated, watchEffect, watch, ref, onDeactivated, toRef, nextTick } from "vue"
+import { onActivated, watchEffect, watch, ref, onDeactivated, inject, toRef, nextTick } from "vue"
 import { useRoute, useRouter } from "vue-router"
 import { useDebounceFn } from "@vueuse/core"
 import { usePageMeta, Dialog } from "frappe-ui"
@@ -176,6 +176,15 @@ const canvasStore = useCanvasStore()
 const getCompletions = useStudioCompletions()
 const componentContextMenu = toRef(store, "componentContextMenu")
 useStudioEvents()
+
+const socket = inject<any>("socket")
+watch(
+	() => store.selectedPage,
+	(newID, oldID) => {
+		if (oldID) socket?.off(`studio_page_update_${oldID}`, store.handleExternalPageUpdate)
+		if (newID) socket?.on(`studio_page_update_${newID}`, store.handleExternalPageUpdate)
+	},
+)
 
 const pageCanvas = ref<InstanceType<typeof StudioCanvas> | null>(null)
 const fragmentCanvas = ref<InstanceType<typeof StudioCanvas> | null>(null)
@@ -215,6 +224,7 @@ watch(
 			!canvasStore.isAIStreaming
 		) {
 			store.savingPage = true
+			store.isPageDirty = true
 			if (canvasStore.editingMode === "page") {
 				debouncedPageSave()
 			} else {
@@ -258,6 +268,8 @@ onActivated(async () => {
 })
 
 onDeactivated(() => {
+	if (store.selectedPage)
+		socket?.off(`studio_page_update_${store.selectedPage}`, store.handleExternalPageUpdate)
 	store.selectedPage = null
 	store.activePage = null
 })

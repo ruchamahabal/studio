@@ -9,6 +9,7 @@ import { resourcesPlugin } from "frappe-ui"
 import { spritePlugin } from "frappe-ui/icons"
 import { registerGlobalComponents, registerCustomVueComponents } from "@/globals"
 import { registerStudioPageScripts } from "@/data/studioPageScripts"
+import { initSocket } from "@/socket"
 
 // For rendering apps built by studio
 const app = createApp(AppRenderer)
@@ -18,6 +19,8 @@ app.use(app_router)
 app.use(pinia)
 app.use(resourcesPlugin)
 app.use(spritePlugin)
+// live-reload the preview when its page changes in the editor
+app.provide("socket", initSocket())
 registerGlobalComponents(app)
 window.__APP_COMPONENTS__ = app._context.components
 

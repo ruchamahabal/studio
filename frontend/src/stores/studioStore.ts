@@ -180,6 +180,8 @@ const useStudioStore = defineStore("store", () => {
 	const savingPage = ref(false)
 	const settingPage = ref(false)
 	const isPageOutdated = ref(false)
+	// canvas has edits not yet confirmed saved; set on edit, cleared on a successful save / reload
+	const isPageDirty = ref(false)
 
 	// design-time test values for dynamic route variables (e.g. { category: "tech" }), persists in localStorage
 	const routeVariables = ref<Record<string, string>>({})
@@ -209,6 +211,9 @@ const useStudioStore = defineStore("store", () => {
 		canvasStore.activeCanvas?.setRootBlock(pageBlocks.value[0])
 		canvasStore.activeCanvas?.clearSelection()
 
+		// canvas now mirrors the server copy
+		isPageDirty.value = false
+
 		nextTick(() => {
 			settingPage.value = false
 		})
@@ -236,6 +241,7 @@ const useStudioStore = defineStore("store", () => {
 			.then((data: { message: string }) => {
 				// keep our timestamp in sync so the next autosave isn't wrongly rejected
 				if (activePage.value && data?.message) activePage.value.modified = data.message
+				isPageDirty.value = false
 			})
 			.catch((error: any) => {
 				if (error?.exc_type === "TimestampMismatchError") {
@@ -247,6 +253,28 @@ const useStudioStore = defineStore("store", () => {
 			.finally(() => {
 				savingPage.value = false
 			})
+	}
+
+	// Silently rebuild the canvas from the server copy (used when the page changed on the backend and
+	// the editor has no unsaved edits to lose).
+	async function reloadPageFromServer() {
+		if (!selectedPage.value || settingPage.value) return
+		await setPage(selectedPage.value)
+		toast.info("Loaded the latest changes to this page")
+	}
+
+	// Realtime: the page doc changed. Ignore the echo of our own writes; if the canvas is clean pull
+	// the latest silently, if it has unsaved edits prompt before discarding them.
+	function handleExternalPageUpdate(data: { name: string; modified: string }) {
+		if (!activePage.value || data.name !== selectedPage.value) return
+		if (data.modified === activePage.value.modified) return
+		// a save is in flight: this is likely our own echo — let the save's own guard drive any reload
+		if (savingPage.value) return
+		if (isPageDirty.value) {
+			handleOutdatedPage()
+		} else {
+			reloadPageFromServer()
+		}
 	}
 
 	function handleOutdatedPage() {
@@ -268,28 +296,37 @@ const useStudioStore = defineStore("store", () => {
 		})
 	}
 
+	// Guarded single-field save via save_field so a page changed underneath the editor is rejected
+	// (frappe.client.set_value can't detect that). On conflict, prompt to reload.
+	function saveActivePageField(key: string, value: string) {
+		if (!activePage.value) return Promise.resolve()
+		return studioPages.runDocMethod
+			.submit({
+				name: activePage.value.name,
+				method: "save_field",
+				fieldname: key,
+				value,
+				modified: activePage.value.modified,
+			})
+			.then((data: { message: string }) => {
+				activePage.value![key] = value
+				if (data?.message) activePage.value!.modified = data.message
+			})
+			.catch((error: any) => {
+				if (error?.exc_type === "TimestampMismatchError") {
+					handleOutdatedPage()
+				} else {
+					throw error
+				}
+			})
+	}
+
 	function updateActivePage(key: string, value: string) {
-		return studioPages.setValue.submit(
-			{ name: activePage.value?.name, [key]: value, _skip_validate: true },
-			{
-				onSuccess(doc: StudioPage) {
-					activePage.value![key] = value
-					// keep modified in sync so the canvas autosave isn't wrongly rejected
-					if (doc?.modified) activePage.value!.modified = doc.modified
-					setAppPages(activeApp.value!.name)
-				},
-			},
-		)
+		return saveActivePageField(key, value).then(() => setAppPages(activeApp.value!.name))
 	}
 
 	function setActivePageScript(script: string) {
-		if (!activePage.value) return Promise.resolve()
-		return studioPages.setValue
-			.submit({ name: activePage.value.name, script, _skip_validate: true })
-			.then((doc: StudioPage) => {
-				activePage.value!.script = script
-				if (doc?.modified) activePage.value!.modified = doc.modified
-			})
+		return saveActivePageField("script", script)
 	}
 
 	// A server tool (AI) wrote the page script straight to the DB / code file, so re-fetch the
@@ -660,6 +697,8 @@ const useStudioStore = defineStore("store", () => {
 		setActivePageScript,
 		reloadActivePageScript,
 		refreshActivePageTimestamp,
+		handleExternalPageUpdate,
+		isPageDirty,
 		publishPage,
 		unpublishPage,
 		publishApp,
