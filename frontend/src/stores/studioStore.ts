@@ -56,7 +56,6 @@ const useStudioStore = defineStore("store", () => {
 
 	// studio apps
 	const activeApp = ref<StudioApp | null>(null)
-	const appPages = ref<Record<string, StudioPage>>({})
 	const customVueComponents = ref<CustomVueComponentMeta[]>([])
 
 	// cross-panel navigation
@@ -103,17 +102,20 @@ const useStudioStore = defineStore("store", () => {
 		}
 	}
 
+	const appPages = computed(() => {
+		const pages: Record<string, StudioPage> = {}
+		studioPages.data.map((page: StudioPage) => {
+			pages[page.name] = page
+		})
+		return pages
+	})
+
 	async function setAppPages(appName: string) {
 		if (!appName) {
 			return
 		}
 		studioPages.filters = { studio_app: appName }
 		await studioPages.reload()
-		appPages.value = {}
-
-		studioPages.data.map((page: StudioPage) => {
-			appPages.value[page.name] = page
-		})
 	}
 
 	function updateActiveApp(key: string, value: string) {
@@ -245,7 +247,6 @@ const useStudioStore = defineStore("store", () => {
 			{
 				onSuccess() {
 					activePage.value![key] = value
-					setAppPages(activeApp.value!.name)
 				},
 			},
 		)
@@ -319,7 +320,6 @@ const useStudioStore = defineStore("store", () => {
 			{
 				onSuccess() {
 					activePage.value!.published = 0
-					setAppPages(activeApp.value!.name)
 					toast.success("Page unpublished")
 				},
 				onError(error: any) {
