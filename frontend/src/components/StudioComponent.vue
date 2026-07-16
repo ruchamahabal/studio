@@ -177,7 +177,7 @@ const styles = computed(() => {
 const componentName = computed(() => {
 	// swap in the TipTap-backed editor only for the text block being edited; TipTap stays
 	// out of the shipped app since it renders via AppComponent, never StudioComponent
-	if (props.block.isText() && isEditingText.value) return EditableTextBlock
+	if (props.block.isText() && isEditingText.value && !textIsDynamic.value) return EditableTextBlock
 
 	if (props.block.isContainer()) return props.block.originalElement || "div"
 
@@ -266,6 +266,15 @@ const isEditingText = computed(
 		props.breakpoint === canvasStore.activeCanvas?.activeBreakpoint,
 )
 
+// dynamically-bound text (variable or {{ }} expression) is driven by data, so it can't be
+// edited directly on canvas — matches Builder
+const textIsDynamic = computed(() => {
+	if (!props.block.isText()) return false
+	const value = props.block.getProp("text")
+	if (value?.$type === "variable") return true
+	return typeof value === "string" && isDynamicValue(value)
+})
+
 const textEditBindings = computed(() => {
 	if (!(props.block.isText() && isEditingText.value)) return {}
 	return {
@@ -275,7 +284,7 @@ const textEditBindings = computed(() => {
 })
 
 const handleDoubleClick = (e: MouseEvent) => {
-	if (!props.block.isText()) return
+	if (!props.block.isText() || textIsDynamic.value) return
 	canvasStore.editableBlock = props.block
 	e.stopPropagation()
 }
