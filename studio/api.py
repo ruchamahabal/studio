@@ -7,6 +7,7 @@ from typing import Literal
 import frappe
 from frappe import _
 from frappe.model import display_fieldtypes, no_value_fields, table_fields
+from frappe.modules.export_file import strip_default_fields
 from frappe.modules.import_file import import_file_by_path
 
 from studio.constants import STANDARD_COMPONENT_NAMES
@@ -347,7 +348,7 @@ def sync_page_from_disk(frappe_app: str, studio_app: str, file_path: str) -> dic
 	if not page_name or not frappe.db.exists("Studio Page", page_name):
 		return {"changed": False}
 
-	if not _page_blocks_differ(page_name, file_doc):
+	if not _page_differs_from_disk(page_name, file_doc):
 		return {"page_name": page_name, "changed": False}
 
 	import_file_by_path(target, force=True)
@@ -359,32 +360,26 @@ def _is_page_json(file_path: str) -> bool:
 	return normalized.startswith("studio_page/") and normalized.lower().endswith(".json")
 
 
-def _page_blocks_differ(page_name: str, file_doc: dict) -> bool:
-	"""True if the on-disk JSON's blocks differ from what the DB doc would itself export.
+def _page_differs_from_disk(page_name: str, file_doc: dict) -> bool:
+	"""True if the on-disk JSON differs from what the DB doc would itself export — across every field
+	(blocks, route, title, published, and the variables/resources child tables), not just blocks.
 
-	Compared against the export output (not the raw DB blocks) because the export prunes empty/null
-	fields from the block tree — so a raw comparison would flag every save as a change and echo
-	Studio's own writes back as a reload."""
+	Compared against the *export output* rather than the raw doc because the export normalizes the doc
+	(prunes empty/null fields, strips child-row metadata). The file was written by that same pipeline,
+	so a self-save's file matches and returns False — no echo — while any real on-disk edit differs."""
 	export = _exported_page_dict(page_name)
-	return any(
-		_canonical_blocks(file_doc.get(field)) != _canonical_blocks(export.get(field))
-		for field in ("blocks", "draft_blocks")
-	)
+	return frappe.as_json(export, indent=None) != frappe.as_json(file_doc, indent=None)
 
 
 def _exported_page_dict(page_name: str) -> dict:
-	"""The page as it serializes to disk: run the same before_export normalization the exporter uses."""
+	"""The page exactly as it serializes to disk: the same transformation studio.export.write_document_file
+	applies (as_dict → before_export → strip_default_fields, minus the script written to a companion .ts)."""
 	doc = frappe.get_doc("Studio Page", page_name)
 	export = doc.as_dict(no_nulls=True)
 	doc.run_method("before_export", export)
+	export = strip_default_fields(doc, export)
+	export.pop("script", None)
 	return export
-
-
-def _canonical_blocks(value) -> str:
-	"""Normalize blocks for comparison (a JSON string, a parsed list, or absent)."""
-	if isinstance(value, str):
-		value = frappe.parse_json(value) if value else None
-	return frappe.as_json(value, indent=None) if value else ""
 
 
 def _validate_studio_file_access() -> None:
