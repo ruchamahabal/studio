@@ -361,12 +361,6 @@ def _is_page_json(file_path: str) -> bool:
 
 
 def _page_differs_from_disk(page_name: str, file_doc: dict) -> bool:
-	"""True if the on-disk JSON differs from what the DB doc would itself export — across every field
-	(blocks, route, title, published, and the variables/resources child tables), not just blocks.
-
-	Compared against the *export output* rather than the raw doc because the export normalizes the doc
-	(prunes empty/null fields, strips child-row metadata). The file was written by that same pipeline,
-	so a self-save's file matches and returns False — no echo — while any real on-disk edit differs."""
 	export = _exported_page_dict(page_name)
 	return frappe.as_json(export, indent=None) != frappe.as_json(file_doc, indent=None)
 

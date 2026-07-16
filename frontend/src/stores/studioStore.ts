@@ -465,8 +465,6 @@ const useStudioStore = defineStore("store", () => {
 		if (studioApp !== app.name || !isPageJson(filePath)) return
 
 		const result = await syncPageFromDisk({ frappe_app: app.frappe_app!, studio_app: app.name }, filePath)
-		// A no-op result (self-save echo, or unchanged) leaves the canvas alone; only reload the active
-		// page when its blocks actually changed on disk.
 		if (result.changed && result.page_name && result.page_name === selectedPage.value) {
 			await setPage(result.page_name)
 		}

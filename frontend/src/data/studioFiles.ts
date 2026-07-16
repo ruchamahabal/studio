@@ -59,8 +59,6 @@ export function deleteStudioFile(location: StudioFileLocation, file_path: string
 	return call("studio.api.delete_studio_file", { ...location, file_path })
 }
 
-// Re-import a page's exported JSON into the DB after it changed on disk (editor/CLI/AI). Returns the
-// affected page's docname and whether a re-import actually happened (false for a self-save echo).
 export function syncPageFromDisk(
 	location: StudioFileLocation,
 	file_path: string,
