@@ -14,6 +14,7 @@ import { getBlockInstance, getRootBlock, getBlockCopyWithoutParent, jsToJson } f
 import { studioPages } from "@/data/studioPages"
 import { studioApps } from "@/data/studioApps"
 import { studioVariables } from "@/data/studioVariables"
+import { syncPageFromDisk } from "@/data/studioFiles"
 
 import Block from "@/utils/block"
 import useCanvasStore from "@/stores/canvasStore"
@@ -412,6 +413,7 @@ const useStudioStore = defineStore("store", () => {
 	async function setCustomComponents() {
 		await loadCustomVueComponents()
 		setCustomComponentListener()
+		setPageJsonSyncListener()
 		setCustomComponentFilePaths(customVueComponents.value)
 	}
 
@@ -440,6 +442,38 @@ const useStudioStore = defineStore("store", () => {
 				loadCustomVueComponents()
 			})
 		}
+	}
+
+	let pageJsonListenerRegistered = false
+	function setPageJsonSyncListener() {
+		if (activeApp.value?.is_standard && import.meta.hot && !pageJsonListenerRegistered) {
+			// Re-import a page's blocks when its exported JSON changes on disk (edited via an editor/CLI/AI),
+			// so the canvas reflects the change without a full migrate. Registered once — the handler reads
+			// the current active app itself, so it stays correct across app switches.
+			import.meta.hot.on("studio:file-changed", onPageJsonChanged)
+			pageJsonListenerRegistered = true
+		}
+	}
+
+	// The folder watcher reports paths as "<studio_app>/<path under the app's studio folder>",
+	// e.g. "myapp/studio_page/home/home.json".
+	async function onPageJsonChanged({ path }: { path: string }) {
+		const app = activeApp.value
+		if (!app?.is_standard) return
+		const [studioApp, ...rest] = path.split("/")
+		const filePath = rest.join("/")
+		if (studioApp !== app.name || !isPageJson(filePath)) return
+
+		const result = await syncPageFromDisk({ frappe_app: app.frappe_app!, studio_app: app.name }, filePath)
+		// A no-op result (self-save echo, or unchanged) leaves the canvas alone; only reload the active
+		// page when its blocks actually changed on disk.
+		if (result.changed && result.page_name && result.page_name === selectedPage.value) {
+			await setPage(result.page_name)
+		}
+	}
+
+	function isPageJson(filePath: string) {
+		return filePath.startsWith("studio_page/") && filePath.endsWith(".json")
 	}
 
 	// build

@@ -59,6 +59,15 @@ export function deleteStudioFile(location: StudioFileLocation, file_path: string
 	return call("studio.api.delete_studio_file", { ...location, file_path })
 }
 
+// Re-import a page's exported JSON into the DB after it changed on disk (editor/CLI/AI). Returns the
+// affected page's docname and whether a re-import actually happened (false for a self-save echo).
+export function syncPageFromDisk(
+	location: StudioFileLocation,
+	file_path: string,
+): Promise<{ page_name?: string; changed: boolean }> {
+	return call("studio.api.sync_page_from_disk", { ...location, file_path })
+}
+
 // Map a file extension to the language mode the Code editor understands.
 export function languageForFile(path: string): "json" | "javascript" | "html" | "css" | "vue" {
 	const extension = path.slice(path.lastIndexOf(".")).toLowerCase()

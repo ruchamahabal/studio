@@ -7,6 +7,7 @@ from typing import Literal
 import frappe
 from frappe import _
 from frappe.model import display_fieldtypes, no_value_fields, table_fields
+from frappe.modules.import_file import import_file_by_path
 
 from studio.constants import STANDARD_COMPONENT_NAMES
 from studio.utils import has_page_write_perm
@@ -324,6 +325,54 @@ def delete_studio_file(frappe_app: str, studio_app: str, file_path: str) -> None
 	if not os.path.isfile(target):
 		frappe.throw(_("Not found: {0}").format(file_path))
 	os.remove(target)
+
+
+@frappe.whitelist()
+@has_page_write_perm()
+def sync_page_from_disk(frappe_app: str, studio_app: str, file_path: str) -> dict:
+	"""Re-import an exported page's JSON from disk into the DB when it differs, so edits made to the
+	file directly (via an editor/CLI/AI) show up in Studio without a full migrate. The editor calls
+	this when the studio folder watcher reports a page JSON changed on disk.
+
+	A no-op when the file already matches the DB (e.g. the change is Studio's own export echo): this
+	keeps a background sync from bumping `modified` under an active edit. Returns the page's docname
+	and whether a re-import happened."""
+	_validate_studio_file_access()
+	target = _resolve_studio_file(frappe_app, studio_app, file_path)
+	if not _is_page_json(file_path) or not os.path.isfile(target):
+		return {"changed": False}
+
+	file_doc = frappe.parse_json(frappe.read_file(target))
+	page_name = file_doc.get("page_name")
+	if not page_name or not frappe.db.exists("Studio Page", page_name):
+		return {"changed": False}
+
+	if not _page_blocks_differ(page_name, file_doc):
+		return {"page_name": page_name, "changed": False}
+
+	import_file_by_path(target, force=True)
+	return {"page_name": page_name, "changed": True}
+
+
+def _is_page_json(file_path: str) -> bool:
+	normalized = file_path.strip("/")
+	return normalized.startswith("studio_page/") and normalized.lower().endswith(".json")
+
+
+def _page_blocks_differ(page_name: str, file_doc: dict) -> bool:
+	"""True if the exported JSON's blocks differ from what's stored in the DB doc."""
+	db_doc = frappe.db.get_value("Studio Page", page_name, ["blocks", "draft_blocks"], as_dict=True)
+	return any(
+		_canonical_blocks(file_doc.get(field)) != _canonical_blocks(db_doc.get(field))
+		for field in ("blocks", "draft_blocks")
+	)
+
+
+def _canonical_blocks(value) -> str:
+	"""Normalize blocks for comparison (a JSON string in the DB, a parsed list in the exported file)."""
+	if isinstance(value, str):
+		value = frappe.parse_json(value) if value else None
+	return frappe.as_json(value, indent=None) if value else ""
 
 
 def _validate_studio_file_access() -> None:
