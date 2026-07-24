@@ -783,6 +783,78 @@ export const COMPONENTS: FrappeUIComponents = {
 			},
 		},
 	},
+	// composition-based list family (frappe-ui/list)
+	List: {
+		name: "List",
+		title: "List",
+		icon: LucideRows3,
+	},
+	ListRow: {
+		name: "ListRow",
+		title: "List Row",
+		icon: LucideMinus,
+	},
+	ListRows: {
+		name: "ListRows",
+		title: "List Rows",
+		icon: LucideRows3,
+	},
+	ListCell: {
+		name: "ListCell",
+		title: "List Cell",
+		icon: LucideRectangleHorizontal,
+	},
+	ListHeader: {
+		name: "ListHeader",
+		title: "List Header",
+		icon: LucideLayoutTemplate,
+	},
+	ListHeaderCell: {
+		name: "ListHeaderCell",
+		title: "List Header Cell",
+		icon: LucideRectangleHorizontal,
+	},
+	ListHeaderCellSort: {
+		name: "ListHeaderCellSort",
+		title: "List Header Cell Sort",
+		icon: LucideArrowUpDown,
+	},
+	ListGroup: {
+		name: "ListGroup",
+		title: "List Group",
+		icon: LucideListTree,
+	},
+	// settings dialog family
+	SettingsDialog: {
+		name: "SettingsDialog",
+		title: "Settings Dialog",
+		icon: LucideSlidersHorizontal,
+	},
+	SettingsSidebar: {
+		name: "SettingsSidebar",
+		title: "Settings Sidebar",
+		icon: LucideSidebar,
+	},
+	SettingsNavGroup: {
+		name: "SettingsNavGroup",
+		title: "Settings Nav Group",
+		icon: LucideListTree,
+	},
+	SettingsNavItem: {
+		name: "SettingsNavItem",
+		title: "Settings Nav Item",
+		icon: LucideMousePointer2,
+	},
+	SettingsContent: {
+		name: "SettingsContent",
+		title: "Settings Content",
+		icon: LucideAppWindowMac,
+	},
+	SettingsPanel: {
+		name: "SettingsPanel",
+		title: "Settings Panel",
+		icon: LucideAppWindowMac,
+	},
 	// Studio Components
 	Repeater: {
 		name: "Repeater",

@@ -1,11 +1,15 @@
 import useStudioStore from "@/stores/studioStore"
 import useCanvasStore from "@/stores/canvasStore"
+import useCodeStore from "@/stores/codeStore"
 import { useEventListener } from "@vueuse/core"
 import blockController from "@/utils/blockController"
 import { isCtrlOrCmd, isTargetEditable, setClipboardData, numberToPx, isHTML } from "@/utils/helpers"
 import { getBlockCopy, getBlockCopyWithoutParent, getComponentBlock, isJSONString } from "@/utils/serializer"
+import { isVueCode } from "@/utils/vueImport/detect"
+import { studioVariables } from "@/data/studioVariables"
 import Block from "@/utils/block"
 import type { BlockOptions } from "@/types"
+import type { NewPageVariable } from "@/utils/vueImport"
 import { toast } from "frappe-ui"
 
 const store = useStudioStore()
@@ -35,30 +39,18 @@ export function useStudioEvents() {
 		// paste blocks directly
 		if (data && isJSONString(data)) {
 			const dataObj = JSON.parse(data) as { blocks: Block[] }
-
-			if (canvasStore.activeCanvas?.selectedBlocks.length && dataObj.blocks[0].componentId !== "root") {
-				let parentBlock = canvasStore.activeCanvas.selectedBlocks[0]
-				let slotName = canvasStore.activeCanvas.selectedSlot?.slotName
-				while (parentBlock && !parentBlock.canHaveChildren()) {
-					parentBlock = parentBlock.getParentBlock() as Block
-				}
-				dataObj.blocks.forEach((block: BlockOptions) => {
-					if (slotName) {
-						block.parentSlotName = slotName
-					} else {
-						delete block.parentSlotName
-					}
-					parentBlock.addChild(getBlockCopy(block), null)
-				})
-			} else {
-				canvasStore.pushBlocks(dataObj.blocks)
-			}
-
+			insertBlocksAtSelection(dataObj.blocks)
 			return
 		}
 
 		let text = e.clipboardData?.getData("text/plain") as string
 		if (!text) {
+			return
+		}
+
+		if (isVueCode(text)) {
+			e.preventDefault()
+			pasteVueCode(text)
 			return
 		}
 
@@ -182,6 +174,68 @@ const copySelectedBlocksToClipboard = (e: ClipboardEvent) => {
 
 		const dataToCopy = { blocks: blocksToCopy }
 		setClipboardData(dataToCopy, e, "studio-copied-blocks")
+	}
+}
+
+const insertBlocksAtSelection = (blocks: (Block | BlockOptions)[]) => {
+	if (canvasStore.activeCanvas?.selectedBlocks.length && blocks[0].componentId !== "root") {
+		let parentBlock = canvasStore.activeCanvas.selectedBlocks[0]
+		let slotName = canvasStore.activeCanvas.selectedSlot?.slotName
+		while (parentBlock && !parentBlock.canHaveChildren()) {
+			parentBlock = parentBlock.getParentBlock() as Block
+		}
+		blocks.forEach((block: BlockOptions) => {
+			if (slotName) {
+				block.parentSlotName = slotName
+			} else {
+				delete block.parentSlotName
+			}
+			parentBlock.addChild(getBlockCopy(block), null)
+		})
+	} else {
+		canvasStore.pushBlocks(blocks as BlockOptions[])
+	}
+}
+
+const pasteVueCode = async (text: string) => {
+	try {
+		const { convertVueToBlocks } = await import("@/utils/vueImport")
+		const { blocks, variables, warnings } = convertVueToBlocks(text)
+		if (!blocks.length) {
+			toast.error("Nothing convertible was found in the pasted Vue code")
+			return
+		}
+		await createPageVariables(variables)
+		insertBlocksAtSelection(blocks)
+		if (warnings.length) {
+			console.warn("Vue paste warnings:", warnings)
+			toast.warning(`Converted with ${warnings.length} warning(s)`, {
+				description: warnings.slice(0, 3).join("\n"),
+			})
+		} else {
+			toast.success(`Converted ${blocks.length} block(s) from Vue code`)
+		}
+	} catch (error: any) {
+		console.error("Vue paste failed:", error)
+		toast.error("Could not convert the pasted Vue code", { description: error.message })
+	}
+}
+
+const createPageVariables = async (variables: NewPageVariable[]) => {
+	if (!variables.length || !store.activePage) return
+	const existing = new Set((studioVariables.data || []).map((variable: any) => variable.variable_name))
+	const newVariables = variables.filter((variable) => !existing.has(variable.variable_name))
+	for (const variable of newVariables) {
+		await studioVariables.insert.submit({
+			...variable,
+			parent: store.activePage.name,
+			parenttype: "Studio Page",
+			parentfield: "variables",
+		})
+	}
+	if (newVariables.length) {
+		const codeStore = useCodeStore()
+		await codeStore.setPageVariables(store.activePage)
 	}
 }
 

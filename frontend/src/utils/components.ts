@@ -17,6 +17,11 @@ const componentTypes = jsonTypes as ComponentTypes
 const componentFolders: Record<string, string> = {
 	DateTimePicker: "DatePicker",
 	DateRangePicker: "DatePicker",
+	SettingsSidebar: "SettingsDialog",
+	SettingsNavGroup: "SettingsDialog",
+	SettingsNavItem: "SettingsDialog",
+	SettingsContent: "SettingsDialog",
+	SettingsPanel: "SettingsDialog",
 }
 
 function getComponentProps(componentName: string, component: ConcreteComponent | string): ComponentProps {
@@ -184,6 +189,12 @@ const studioModules: Record<string, string> = import.meta.glob("@/components/App
 	import: "default",
 })
 
+// molecules ship outside src/components (e.g. the frappe-ui/list family)
+const frappeUIMoleculeModules: Record<string, string> = import.meta.glob(
+	["../../../node_modules/frappe-ui/src/molecules/list/*.vue", "!**/*.story.vue"],
+	{ query: "?raw", eager: true, import: "default" },
+)
+
 // @framework/ui component sources (apps/frappe/ui). Used for slot parsing.
 const frameworkUIModules: Record<string, string> = import.meta.glob(
 	["../../../../frappe/ui/src/components/**/*.vue", "!**/*.story.vue"],
@@ -238,15 +249,16 @@ function getComponentTemplate(componentName: string): string {
 	if (components.isFrappeUIComponent(componentName)) {
 		try {
 			let modulePath = `../../../node_modules/frappe-ui/src/components/${componentName}.vue`
+			const folderName = componentFolders[componentName] || componentName
+			const folderPath = `../../../node_modules/frappe-ui/src/components/${folderName}/${componentName}.vue`
+			const moleculePath = `../../../node_modules/frappe-ui/src/molecules/list/${componentName}.vue`
 			if (frappeUIModules[modulePath]) {
 				rawTemplate = frappeUIModules[modulePath]
-			} else {
-				// try finding the vue file inside component folder
-				const folderName = componentFolders[componentName] || componentName
-				modulePath = `../../../node_modules/frappe-ui/src/components/${folderName}/${componentName}.vue`
-				if (frappeUIModules[modulePath]) {
-					rawTemplate = frappeUIModules[modulePath]
-				}
+			} else if (frappeUIModules[folderPath]) {
+				// the vue file lives inside a component folder
+				rawTemplate = frappeUIModules[folderPath]
+			} else if (frappeUIMoleculeModules[moleculePath]) {
+				rawTemplate = frappeUIMoleculeModules[moleculePath]
 			}
 		} catch (error) {
 			console.error(`Error loading component template ${componentName}:`, error)

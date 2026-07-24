@@ -43,6 +43,22 @@ export const FRAPPE_UI_COMPONENTS = [
 	"AxisChart",
 	"NumberChart",
 	"DonutChart",
+	// composition-based list family (frappe-ui/list subpath)
+	"List",
+	"ListRow",
+	"ListRows",
+	"ListCell",
+	"ListHeader",
+	"ListHeaderCell",
+	"ListHeaderCellSort",
+	"ListGroup",
+	// settings dialog family
+	"SettingsDialog",
+	"SettingsSidebar",
+	"SettingsNavGroup",
+	"SettingsNavItem",
+	"SettingsContent",
+	"SettingsPanel",
 ]
 // Legacy frappe-ui/frappe components. Filter and Link now ship from @framework/ui
 // (see FRAMEWORK_UI_COMPONENTS), so this list is currently empty.
