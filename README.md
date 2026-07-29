@@ -75,7 +75,7 @@ yarn dev --host
 ```bash
 bench --site studio.localhost watch-studio
 ```
-It watches the `studio` folder of every installed app and imports changed app/page/component JSON into the database, so apps edited on disk (by hand, the CLI or an AI agent) show up in the editor without a `bench migrate`. Page scripts don't need it — vite hot-reloads the `.ts` files straight off disk.
+It watches the `studio` folder of every installed app and imports changed app/page/component JSON into the database, so apps edited on disk (by hand, the CLI or an AI agent) show up in the editor without a `bench migrate`. Deletions are not synchronized, so remove the corresponding database record separately. Page scripts don't need it — vite hot-reloads the `.ts` files straight off disk.
 
 **Note:** Exported apps can only be edited on a local setup with the dev server running. On a production site they only run, they can't be edited. We will be adding customization support for standard apps soon.
 
