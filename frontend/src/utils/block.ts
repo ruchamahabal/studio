@@ -307,9 +307,15 @@ class Block implements BlockOptions {
 	isOverlayNode(): boolean {
 		if (this.isStudioComponent) {
 			const componentStore = useComponentStore()
-			return Boolean(componentStore.componentMap.get(this.componentName)?.isOverlayNode())
+			const componentRoot = componentStore.componentMap.get(this.componentName)
+			if (!componentRoot) return false
+			return componentRoot.isOverlayNode() || componentRoot.wrapsOnlyOverlays()
 		}
 		return Boolean(this.editInFragmentMode())
+	}
+
+	wrapsOnlyOverlays(): boolean {
+		return Boolean(this.findFirstOverlayNode()) && !this.hasNonOverlayContent()
 	}
 
 	hasNonOverlayContent(): boolean {
