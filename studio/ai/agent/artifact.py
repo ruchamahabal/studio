@@ -106,16 +106,16 @@ def _build_message(ctx, brief: str) -> dict:
 
 
 def _available_data_note(ctx) -> str:
-	"""A message listing the data sources + variables already on the page, so the
-	generator binds the layout to real, existing sources (per the DATA BINDING rules).
-	Empty when the page has no data layer yet."""
+	"""A message listing the data sources already on the page, so the generator binds the
+	layout to real, existing sources (per the DATA BINDING rules). Empty when the page has
+	no data layer yet."""
 	page = frappe.get_doc("Studio Page", ctx.page_id) if ctx.page_id else None
 	if page is None:
 		return ""
 	state = describe_page_data(page)
-	if not state["data_sources"] and not state["variables"]:
+	if not state["data_sources"]:
 		return ""
 	return (
-		"Data sources and variables already created on this page — bind the layout to THESE "
-		"(and only these), per the DATA BINDING rules:\n" + BlockCodec.to_json(state)
+		"Data sources already created on this page — bind the layout to THESE (and only these), "
+		"per the DATA BINDING rules:\n" + BlockCodec.to_json(state)
 	)

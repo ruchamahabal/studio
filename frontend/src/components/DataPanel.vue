@@ -29,124 +29,52 @@
 			</div>
 		</CollapsibleSection>
 
-		<!-- Variables -->
-		<CollapsibleSection sectionName="Variables">
-			<div class="ml-3 flex flex-col gap-1" v-if="!isObjectEmpty(codeStore.variables)">
+		<!-- Page state — declared in the page script, read-only here -->
+		<CollapsibleSection sectionName="State">
+			<div class="ml-3 flex flex-col gap-1" v-if="!isObjectEmpty(codeStore.pageScriptTemplateBindings)">
 				<div
-					v-for="(value, variable_name) in codeStore.variables"
-					:key="variable_name"
+					v-for="(value, name) in codeStore.pageScriptTemplateBindings"
+					:key="name"
 					class="group/item flex flex-row items-center justify-between"
 				>
 					<ObjectBrowser
-						v-if="typeof value === 'object'"
+						v-if="typeof value === 'object' && value !== null"
 						:object="value"
-						:name="variable_name"
+						:name="name"
 						class="-ml-[0.9rem] overflow-hidden"
 					/>
 					<div v-else class="flex flex-row justify-between font-mono text-xs">
-						<div class="font-semibold text-ink-pink-8">{{ variable_name }}</div>
-						<template v-if="value !== ''">
+						<div class="font-semibold text-ink-pink-8">{{ name }}</div>
+						<template v-if="value !== '' && typeof value !== 'function'">
 							<div class="text-ink-gray-5">&nbsp;=&nbsp;</div>
 							<div class="text-ink-violet-8">{{ value }}</div>
 						</template>
 					</div>
 					<ItemActions
 						class="-mt-1 self-start"
-						:menuOptions="getVariableMenu(variable_name, value)"
-						@edit="openVariable(variable_name)"
+						:menuOptions="getStateMenu(String(name), value)"
+						@edit="openPageScript"
 					/>
 				</div>
 			</div>
 
-			<EmptyState v-else message="No variables added" />
-
-			<div class="mt-2 flex flex-col" v-if="store.activePage">
-				<Button icon-left="plus" @click="showVariableDialog = true">Add Variable</Button>
-				<Dialog
-					v-model="showVariableDialog"
-					:title="variableRef?.name ? 'Edit Variable' : 'Add Variable'"
-					@after-leave="
-						() =>
-							(variableRef = {
-								name: '',
-								variable_name: '',
-								variable_type: 'String',
-								initial_value: '',
-							})
-					"
-				>
-					<template #default>
-						<div class="flex flex-col space-y-4">
-							<FormControl
-								label="Variable Name"
-								v-model="variableRef.variable_name"
-								:required="true"
-								autocomplete="off"
-							/>
-							<FormControl
-								label="Variable Type"
-								type="select"
-								:options="['String', 'Number', 'Boolean', 'Object']"
-								v-model="variableRef.variable_type"
-								:required="true"
-								default="String"
-								@change="() => setInitialValue()"
-							/>
-							<Code
-								v-if="variableRef.variable_type === 'Object'"
-								ref="variableEditor"
-								label="Initial Value"
-								language="javascript"
-								height="250px"
-								:showLineNumbers="true"
-								v-model="variableRef.initial_value"
-								@save="saveVariable(variableRef)"
-							/>
-							<FormControl
-								v-else-if="variableRef.variable_type === 'Number'"
-								label="Initial Value"
-								type="number"
-								:modelValue="variableRef.initial_value"
-								@update:modelValue="variableRef.initial_value = Number($event)"
-							/>
-							<FormControl
-								v-else
-								label="Initial Value"
-								v-model="variableRef.initial_value"
-								autocomplete="off"
-							/>
-						</div>
-					</template>
-					<template #actions>
-						<Button
-							variant="solid"
-							:label="variableRef.name ? 'Update' : 'Add'"
-							@click="saveVariable(variableRef)"
-							class="w-full"
-						/>
-					</template>
-				</Dialog>
-			</div>
+			<EmptyState v-else message="No state declared in the page script" />
 		</CollapsibleSection>
 	</div>
 </template>
 
 <script setup lang="ts">
 import { ref, watch } from "vue"
-import { Dialog } from "frappe-ui"
 import useStudioStore from "@/stores/studioStore"
 import useCodeStore from "@/stores/codeStore"
 import CollapsibleSection from "@/components/CollapsibleSection.vue"
 import ObjectBrowser from "@/components/ObjectBrowser.vue"
 import EmptyState from "@/components/EmptyState.vue"
 import ResourceDialog from "@/components/ResourceDialog.vue"
-import Code from "@/components/Code.vue"
 import ItemActions from "@/components/ItemActions.vue"
 
 import { isObjectEmpty, getAutocompleteValues, getParamsObj, confirm, copyToClipboard } from "@/utils/helpers"
 import { studioPageResources } from "@/data/studioResources"
-import { studioVariables } from "@/data/studioVariables"
-import type { Variable } from "@/types/Studio/StudioPageVariable"
 import type { Resource } from "@/types/Studio/StudioResource"
 import { toast } from "frappe-ui"
 
@@ -266,159 +194,24 @@ const getResourceMenu = (resource: Resource, resource_name: string) => {
 	]
 }
 
-// variables
-const showVariableDialog = ref(false)
-const variableEditor = ref()
-const variableRef = ref<Variable>({
-	name: "",
-	variable_name: "",
-	variable_type: "String",
-	initial_value: "" as string | number | boolean | object | null,
-})
-const setInitialValue = () => {
-	if (variableRef.value.variable_type === "String") {
-		variableRef.value.initial_value = ""
-	} else if (variableRef.value.variable_type === "Number") {
-		variableRef.value.initial_value = 0
-	} else if (variableRef.value.variable_type === "Boolean") {
-		variableRef.value.initial_value = false
-	} else if (variableRef.value.variable_type === "Object") {
-		variableRef.value.initial_value = {}
-	}
+// page state is declared in the page script; this panel only inspects it
+const openPageScript = () => {
+	store.studioLayout.leftPanelActiveTab = "Code"
+	store.studioLayout.showLeftPanel = true
 }
 
-const getInitialValue = (variable: Variable) => {
-	if (variable.variable_type === "Object" && typeof variable.initial_value !== "string") {
-		try {
-			return JSON.stringify(variable.initial_value)
-		} catch (error) {
-			toast.error("Invalid Object")
-			throw new Error("Invalid Object")
-		}
-	} else if (variable.variable_type === "String" && !variable.initial_value) {
-		return JSON.stringify("")
-	} else if (variable.variable_type === "Boolean" && typeof variable.initial_value === "string") {
-		// return string as is - to avoid saving false as "false" in the backend field
-		return variable.initial_value
-	}
-	return JSON.stringify(variable.initial_value)
-}
-
-const addVariable = (variable: Variable) => {
-	const initial_value = getInitialValue(variable)
-	studioVariables.insert.submit(
-		{
-			variable_name: variable.variable_name,
-			variable_type: variable.variable_type,
-			initial_value: initial_value,
-			parent: store.activePage?.name,
-			parenttype: "Studio Page",
-			parentfield: "variables",
-		},
-		{
-			async onSuccess(data: any) {
-				if (store.activePage) {
-					await codeStore.setPageVariables(store.activePage)
-					store.syncPageModified(data)
-				}
-				showVariableDialog.value = false
-			},
-			onError(error: any) {
-				toast.error("Failed to add variable", {
-					description: error.messages.join(", "),
-				})
-			},
-		},
-	)
-}
-
-const editVariable = (variable: Variable) => {
-	const initial_value = getInitialValue(variable)
-	studioVariables.setValue
-		.submit({
-			name: variable.name,
-			variable_name: variable.variable_name,
-			variable_type: variable.variable_type,
-			initial_value: initial_value,
-		})
-		.then(async (data: any) => {
-			if (store.activePage) {
-				await codeStore.setPageVariables(store.activePage)
-				store.syncPageModified(data)
-			}
-			showVariableDialog.value = false
-		})
-}
-
-const deleteVariable = async (variable: Variable) => {
-	const confirmed = await confirm(`Are you sure you want to delete the variable ${variable.variable_name}?`)
-	if (confirmed) {
-		studioVariables.delete
-			.submit(variable.name)
-			.then(async () => {
-				if (store.activePage) {
-					await codeStore.setPageVariables(store.activePage)
-					await store.refreshActivePageModified()
-				}
-				toast.success(`Variable ${variable.variable_name} deleted successfully`)
-			})
-			.catch(() => {
-				toast.error(`Failed to delete variable ${variable.variable_name}`)
-			})
-	}
-}
-
-const openVariable = async (variable_name: string) => {
-	const variableConfig = store.variableConfigs[variable_name]
-	variableRef.value = { ...variableConfig }
-	showVariableDialog.value = true
-}
-
-const getVariableMenu = (variable_name: string, value: any) => {
+const getStateMenu = (name: string, value: any) => {
 	return [
-		{
-			label: "Delete",
-			icon: "lucide-trash",
-			theme: "red",
-			onClick: () => {
-				const variableConfig = store.variableConfigs[variable_name]
-				deleteVariable(variableConfig)
-			},
-		},
 		{
 			label: "Copy Name",
 			icon: "lucide-copy",
-			onClick: () => {
-				copyToClipboard(variable_name)
-			},
+			onClick: () => copyToClipboard(name),
 		},
 		{
 			label: "Copy Value",
 			icon: "lucide-copy",
-			onClick: () => {
-				copyToClipboard(value)
-			},
+			onClick: () => copyToClipboard(value),
 		},
 	]
-}
-
-const validateVariable = (variable: Variable) => {
-	if (variable.variable_type === "Object") {
-		variableEditor.value?.emitEditorValue()
-		if (variableEditor.value?.errorMessage) {
-			return false
-		}
-	}
-	return true
-}
-
-const saveVariable = (variable: Variable) => {
-	const validated = validateVariable(variable)
-	if (!validated) return
-	if (variable.name) {
-		editVariable(variable)
-	} else {
-		addVariable(variable)
-	}
 }
 </script>

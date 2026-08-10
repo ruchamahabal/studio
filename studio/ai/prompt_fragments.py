@@ -13,7 +13,7 @@ TRANSFORM_RULE = (
 
 ON_SUCCESS_RULE = (
 	"JavaScript run after a successful fetch. MUST declare a function named exactly `onSuccess` taking "
-	"(data). The page context is in scope — variables are refs (write via .value), plus the other "
+	"(data). The page context is in scope — the page script's refs (write via .value), plus the other "
 	"resources and route/router. e.g. 'function onSuccess(data) { rowCount.value = data.length }'."
 )
 

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Studio is a visual app builder for the Frappe Framework. It allows developers to build modern web applications using a drag & drop layout builder, wire Frappe Framework data sources, edit component props and slots, and create reactive apps with dynamic variables and scripts.
+Studio is a visual app builder for the Frappe Framework. It allows developers to build modern web applications using a drag & drop layout builder, wire Frappe Framework data sources, edit component props and slots, and create reactive apps with page scripts.
 
 ## Agent Guidelines & Code Conventions
 

@@ -199,7 +199,7 @@ const getComponentProps = () => {
 	const propValues = props.block.getPropsAndAttributes()
 	Object.entries(propValues).forEach(([propName, propValue]) => {
 		if (propValue?.$type === "variable") {
-			propValues[propName] = codeStore.getValueFromVariable(propValue.name, evaluationContext.value)
+			propValues[propName] = codeStore.getValueFromBinding(propValue.name, evaluationContext.value)
 		} else {
 			propValues[propName] = codeStore.evaluateDynamicValues(propValue, evaluationContext.value)
 		}
@@ -218,7 +218,7 @@ const vModelListeners = computed(() => {
 		if (propValue?.$type === "variable") {
 			const eventName = `update:${propName}`
 			listeners[eventName] = (newValue: any) => {
-				codeStore.setValueInVariable(propValue.name, newValue, evaluationContext.value)
+				codeStore.setValueInBinding(propValue.name, newValue, evaluationContext.value)
 			}
 		}
 	})

@@ -7,15 +7,13 @@ import {
 import { watchDebounced } from "@vueuse/core"
 import { createDocumentResource, createListResource, createResource, call } from "frappe-ui"
 import { studioPageResources } from "@/data/studioResources"
-import { studioVariables } from "@/data/studioVariables"
 import { loadPageScriptModule, setPageScriptHotUpdateHandler } from "@/data/studioPageScripts"
 import * as globalUtils from "@/utils/globalUtils"
-import { getInitialVariableValue, getValueFromObject, setValueInObject } from "@/utils/helpers"
+import { getValueFromObject, setValueInObject } from "@/utils/helpers"
 import { isDynamicValue, normalizeDynamicValue } from "@/utils/code"
 import { isFunctionExpression, toOptionalChaining, getTopLevelBindings } from "@/utils/parseCode"
 import type { Filters, Resource, DocumentResource, DataResult } from "@/types/Studio/StudioResource"
 import type { StudioPage } from "@/types/Studio/StudioPage"
-import type { Variable } from "@/types/Studio/StudioPageVariable"
 import type { ExpressionEvaluationContext } from "@/types"
 import type { Router } from "vue-router"
 
@@ -27,7 +25,6 @@ export const vueReactivityApis = {
 
 const useCodeStore = defineStore("codeStore", () => {
 	const resources = ref<Record<string, Resource>>({})
-	const variables = ref<Record<string, any>>({})
 	const routeObject = ref<ComputedRef>()
 	const routerObject = ref<Router | Readonly<Router>>()
 
@@ -57,8 +54,9 @@ const useCodeStore = defineStore("codeStore", () => {
 		await studioPageResources.reload()
 
 		const resourcePromises = studioPageResources.data.map(async (resource: Resource) => {
+			// Resources are created before the page script runs, so only route/router are reliably
+			// available here; `{{ }}` filters resolve through the live evalContext anyway.
 			const newResource = await getNewResource(resource, {
-				...variables.value,
 				route: unref(routeObject.value),
 				router: routerObject.value,
 			})
@@ -84,26 +82,16 @@ const useCodeStore = defineStore("codeStore", () => {
 		resources.value = newResources
 	}
 
-	async function setPageVariables(page: StudioPage) {
-		studioVariables.filters = { parent: page.name }
-		await studioVariables.reload()
-		variables.value = {}
-
-		studioVariables.data.map((variable: Variable) => {
-			variables.value[variable.variable_name] = getInitialVariableValue(variable)
-		})
+	function getValueFromBinding(bindingPath: string, localContext?: ExpressionEvaluationContext) {
+		const context = { ...pageScriptTemplateBindings.value, ...localContext }
+		return getValueFromObject(context, bindingPath)
 	}
 
-	function getValueFromVariable(variablePath: string, localContext?: ExpressionEvaluationContext) {
-		const context = { ...variables.value, ...pageScriptTemplateBindings.value, ...localContext }
-		return getValueFromObject(context, variablePath)
-	}
-
-	function setValueInVariable(variablePath: string, value: any, localContext?: ExpressionEvaluationContext) {
-		const pathParts = variablePath.split(".")
+	function setValueInBinding(bindingPath: string, value: any, localContext?: ExpressionEvaluationContext) {
+		const pathParts = bindingPath.split(".")
 		const rootKey = pathParts[0]
 		if (localContext && localContext[rootKey] !== undefined) {
-			setValueInObject(localContext, variablePath, value)
+			setValueInObject(localContext, bindingPath, value)
 			return
 		}
 
@@ -116,7 +104,7 @@ const useCodeStore = defineStore("codeStore", () => {
 			}
 			return
 		}
-		setValueInObject(variables.value, variablePath, value)
+		setValueInObject(pageScriptBindings.value, bindingPath, value)
 	}
 
 	function disposePageScriptScope() {
@@ -154,7 +142,7 @@ const useCodeStore = defineStore("codeStore", () => {
 		disposePageScriptScope()
 		if (typeof setup !== "function") return {}
 		try {
-			// setup(ctx) gets the live execution context (resources/variables/route/router) and may
+			// setup(ctx) gets the live execution context (resources/route/router) and may
 			// be async (e.g. awaiting a resource fetch). Effects (watch/computed) created BEFORE the
 			// first await are owned by the page scope; declare them before awaiting so they're
 			// disposed on navigation.
@@ -203,7 +191,7 @@ const useCodeStore = defineStore("codeStore", () => {
 		// Run the page script source once, like a Vue `<script setup>`, and return every top-level
 		// binding (refs/reactive/computed/functions/classes). Free identifiers resolve through a
 		// proxy over the LIVE execution context, so the script sees the Vue reactivity APIs and
-		// variables/resources/modules — including ones registered a tick later. The source is
+		// resources and modules — including ones registered a tick later. The source is
 		// always run (even with no named bindings) so watcher-only scripts still take effect.
 		const liveContext = new Proxy(
 			{},
@@ -232,7 +220,6 @@ const useCodeStore = defineStore("codeStore", () => {
 
 	const evalContext = computed(() => {
 		return {
-			...variables.value,
 			...resources.value,
 			...pageScriptTemplateBindings.value,
 			...globalUtils,
@@ -243,9 +230,7 @@ const useCodeStore = defineStore("codeStore", () => {
 
 	// Base context for every script scope — event/success/error handlers, function-value props, and page-script setup.
 	const scriptContext = computed(() => {
-		const variablesRefs = toRefs(variables.value)
 		return {
-			...variablesRefs,
 			...resources.value,
 			...pageScriptBindings.value,
 			...globalUtils,
@@ -628,11 +613,9 @@ const useCodeStore = defineStore("codeStore", () => {
 		// resources
 		resources,
 		setPageResources,
-		// variables
-		variables,
-		setPageVariables,
-		getValueFromVariable,
-		setValueInVariable,
+		// two-way prop bindings (props stored as { $type: "variable", name })
+		getValueFromBinding,
+		setValueInBinding,
 		// page script
 		pageScriptBindings,
 		pageScriptTemplateBindings,

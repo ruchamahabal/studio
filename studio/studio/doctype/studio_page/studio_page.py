@@ -1,7 +1,6 @@
 # Copyright (c) 2024, Frappe Technologies Pvt Ltd and contributors
 # For license information, please see license.txt
 import os
-import re
 
 import frappe
 from frappe import _
@@ -21,10 +20,6 @@ from studio.export import (
 from studio.realtime import publish_doc_change
 from studio.utils import camel_case_to_kebab_case, has_page_write_perm
 
-# A variable is referenced as {{ name }} and spread into the page's JS eval context, so its
-# name must be a bare JS identifier.
-VARIABLE_NAME_REGEX = re.compile(r"^[A-Za-z_$][A-Za-z0-9_$]*$")
-
 
 class StudioPage(Document):
 	# begin: auto-generated types
@@ -36,7 +31,6 @@ class StudioPage(Document):
 		from frappe.types import DF
 
 		from studio.studio.doctype.studio_page_resource.studio_page_resource import StudioPageResource
-		from studio.studio.doctype.studio_page_variable.studio_page_variable import StudioPageVariable
 
 		blocks: DF.LongText | None
 		draft_blocks: DF.LongText | None
@@ -49,7 +43,6 @@ class StudioPage(Document):
 		route: DF.Data | None
 		script: DF.Code | None
 		studio_app: DF.Link | None
-		variables: DF.Table[StudioPageVariable]
 	# end: auto-generated types
 
 	def autoname(self):
@@ -87,9 +80,8 @@ class StudioPage(Document):
 			self.route = f"/{self.route}"
 
 	def validate(self):
-		# passed from the frontend for faster page saves when variables & resources are not changed
+		# passed from the frontend for faster page saves when resources are not changed
 		if not hasattr(self, "_skip_validate"):
-			self.validate_variables()
 			self.process_resources()
 
 	def on_update(self):
@@ -200,21 +192,6 @@ class StudioPage(Document):
 	def delete_ai_sessions(self):
 		for session in frappe.get_all("Studio AI Session", filters={"page": self.name}, pluck="name"):
 			frappe.delete_doc("Studio AI Session", session, ignore_missing=True)
-
-	def validate_variables(self):
-		# check for duplicate variable names and show the duplicate variable name
-		variable_names = [variable.variable_name for variable in self.variables]
-		duplicate_variable_names = set(x for x in variable_names if variable_names.count(x) > 1)
-		if duplicate_variable_names:
-			frappe.throw(_("Duplicate variable name: {0}").format(", ".join(duplicate_variable_names)))
-
-		for variable in self.variables:
-			if not VARIABLE_NAME_REGEX.match(variable.variable_name or ""):
-				frappe.throw(
-					_(
-						"Invalid variable name '{0}' — use letters, digits and underscores, starting with a letter."
-					).format(variable.variable_name)
-				)
 
 	def process_resources(self):
 		for resource in self.resources:

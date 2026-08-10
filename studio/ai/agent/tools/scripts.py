@@ -5,11 +5,11 @@ A page's script exposes top-level bindings — refs, computed, functions — usa
 app is exported, and set_page_script serves both (build_tools picks the description):
 
   - Non-exported page → a bare `<script setup>` body (no `export`/`import`/`setup()`),
-    interpreted live. Top-level declarations are auto-exposed; Vue APIs, variables,
-    resources, route and router are ambient (write `ref(0)`, not `context.ref`).
+    interpreted live. Top-level declarations are auto-exposed; Vue APIs, resources,
+    route and router are ambient (write `ref(0)`, not `context.ref`).
   - Standard (exported) page → a real ES module whose default export is a
     `setup(context)` function returning its bindings; it may `import`, and reads
-    variables/resources/route/router off `context`.
+    resources/route/router off `context`.
 
 Where that script LIVES also differs, and the two write paths differ:
   - Non-standard page → the DB `script` field. Editing it is live: the canvas
@@ -142,7 +142,7 @@ _CUSTOM_SET_DESCRIPTION = (
 	"`setup()` wrapper). For page logic that outgrows a single event handler: shared helpers, watchers, "
 	"computed values, data fetched on mount. Declare state and helpers at the TOP LEVEL and every "
 	"top-level const/function is auto-exposed to {{ }} and handlers — do NOT write a return. Vue "
-	"reactivity APIs (ref/computed/watch), the page's variables, resources, route and router are all "
+	"reactivity APIs (ref/computed/watch), the page's resources, route and router are all "
 	"directly in scope — write `ref(0)` and `route.params`, never `context.ref`. Pass the ENTIRE script "
 	"(it replaces the current one; read it first with get_page_script). It runs live on the canvas once saved."
 )
@@ -153,7 +153,7 @@ _STANDARD_SET_DESCRIPTION = (
 	"APIs at the top: `import { ref, computed, watch } from 'vue'` (also 'frappe-ui', 'pinia', 'vue-router', "
 	"and app files via '@app/*'). `ref`/`computed` are NOT on `context` — never write `context.ref` or "
 	"`const { ref } = context`; import them from 'vue'. The `context` param carries the PAGE's own things — "
-	"its data sources/resources, variables, `route` and `router` (e.g. `context.notes`, `context.route`). "
+	"its data sources/resources, `route` and `router` (e.g. `context.notes`, `context.route`). "
 	"Only what you RETURN becomes bindings usable in {{ }} and handlers. Pass the ENTIRE module (it replaces "
 	"the current one; read it first with get_page_script)."
 )
