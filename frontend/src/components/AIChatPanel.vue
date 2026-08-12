@@ -347,6 +347,7 @@ const controller = new AIChatController({
 	savePage: () => store.savePage(),
 	reloadSession,
 	scrollToBottom,
+	setAgentEditing: (active: boolean) => (store.aiEditing = active),
 	reloadPageData: ({ resources, variables, script, modified }) => {
 		const page = store.activePage
 		if (!page) return

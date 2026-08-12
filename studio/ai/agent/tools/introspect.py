@@ -10,6 +10,7 @@ the agent sees exactly what a human binding data would see.
 import frappe
 
 from studio.ai.agent.registry import Tool
+from studio.ai.agent.tools.page import PAGE_NAME_PROP, load_page
 from studio.ai.block_codec import BlockCodec
 
 # Field metadata is verbose; the model only needs these keys to pick fields/filters.
@@ -50,7 +51,7 @@ def run_get_page_state(ctx, args: dict) -> str:
 	"""A compact snapshot of the page's DATA wiring — existing data sources,
 	variables, and whether a page script is set. The block tree itself is already
 	in the conversation context, so it is not repeated here."""
-	page = frappe.get_doc("Studio Page", ctx.page_id) if ctx.page_id else None
+	page = load_page(ctx, args)
 	if page is None:
 		return "No page in context."
 	state = describe_page_data(page)
@@ -131,7 +132,7 @@ get_page_state = Tool(
 		"involves showing or binding data, so you don't recreate a source that already exists. The "
 		"block tree is already in your context — this covers only the data layer."
 	),
-	parameters={"type": "object", "properties": {}},
+	parameters={"type": "object", "properties": {"page_name": PAGE_NAME_PROP}},
 )
 
 list_doctypes = Tool(

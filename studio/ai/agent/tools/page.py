@@ -22,8 +22,47 @@ def text_arg(value) -> str:
 	return value.strip() if isinstance(value, str) else ""
 
 
-def load_page(ctx):
-	return frappe.get_doc("Studio Page", ctx.page_id) if ctx.page_id else None
+NO_PAGE = (
+	"no target page — page_name doesn't name a page of this app (see get_app_map), or no page is in context."
+)
+
+# Shared schema fragment: any server tool that accepts it can act on a sibling page
+# of the same app (whole-app mode) instead of the page open in the editor.
+PAGE_NAME_PROP = {
+	"type": "string",
+	"description": (
+		"Optional: target a SIBLING page of this app by its page id (from get_app_map) instead of "
+		"the page open in the editor. Omit to act on the open page."
+	),
+}
+
+
+def load_page(ctx, args: dict | None = None):
+	"""The page a server tool targets: the page open in the editor, or — when the tool call
+	carries `page_name` — a sibling page of the same app (whole-app mode). Returns None when
+	the target can't be resolved or written (callers report NO_PAGE)."""
+	name = text_arg((args or {}).get("page_name")) or ctx.page_id
+	if not name:
+		return None
+	if name != ctx.page_id and not is_sibling_page(ctx, name):
+		return None
+	return frappe.get_doc("Studio Page", name)
+
+
+def is_sibling_page(ctx, page_name: str) -> bool:
+	"""True when `page_name` is a writable page of the SAME app as the page in context.
+	The API entry point verified write permission on the open page only, so a sibling
+	target is permission-checked here."""
+	if not ctx.page_id:
+		return False
+	app = frappe.db.get_value("Studio Page", ctx.page_id, "studio_app")
+	if not app or frappe.db.get_value("Studio Page", page_name, "studio_app") != app:
+		return False
+	return frappe.has_permission("Studio Page", "write", page_name)
+
+
+def is_current_page(ctx, page) -> bool:
+	return bool(page) and page.name == ctx.page_id
 
 
 def save_page(page) -> str | None:

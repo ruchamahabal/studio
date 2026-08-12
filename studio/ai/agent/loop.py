@@ -34,9 +34,9 @@ logger = frappe.logger("studio.ai.agent.loop")
 logger.setLevel(logging.INFO)
 
 # One turn may span several rounds: server-tool reads plus a model that applies a
-# change in batches. High enough to finish a big multi-block edit, bounded so a runaway
-# loop can't spin.
-MAX_ROUNDS = 40
+# change in batches. High enough to finish a whole-app build (per page: create + data
+# sources + build_app_page) or a big multi-block edit, bounded so a runaway loop can't spin.
+MAX_ROUNDS = 60
 EVENT_PREFIX = "ai_chat"
 
 # A streaming round is retried on transient failure (litellm can't fall back mid-stream).
@@ -78,6 +78,9 @@ class AgentRunner:
 		self.registry = get_tool_registry_for_mode(is_standard)
 		self.system_prompt = get_system_prompt_for_mode(is_standard)
 		self.tree: WorkingTree | None = None
+		# Screenshots captured by view_page this round; flushed into the next user
+		# message so the vision model can inspect what actually rendered.
+		self.pending_images: list[dict] = []
 
 	def is_standard(self) -> bool:
 		if not self.page_id:
@@ -355,19 +358,6 @@ class AgentRunner:
 					self.handle_terminal(terminal_ops[0])
 					return
 
-				# An artifact tool (full-page generation) is the turn's work: its generator
-				# streams the artifact live on the heavy model and returns the canonical client
-				# op(s). Generation ends the loop.
-				if artifact_ops:
-					for op in artifact_ops:
-						tool = self.registry.get(op["tool_name"])
-						if tool and tool.generator:
-							ops = tool.generator(self, op["args"])
-							client_operations.extend(ops)
-							if ops:
-								self.emit("tool_batch", operations=ops)
-					break
-
 				# Apply this round's edits immediately so the canvas updates live and the user
 				# sees progress during a long multi-block change. Server ops are NOT emitted —
 				# they run via their handler below.
@@ -393,7 +383,24 @@ class AgentRunner:
 				)
 				for tc_dict, op in zip(raw_tool_calls, tool_operations, strict=True):
 					tool = self.registry.get(op["tool_name"])
-					if tool and tool.side == "server" and tool.handler:
+					if tool and tool.artifact and tool.generator:
+						# Full-page generation: the generator streams the artifact on the heavy
+						# model and returns the canonical client op(s). The turn continues so the
+						# model can LOOK at the result (view_page) before wrapping up.
+						ops = tool.generator(self, op["args"])
+						client_operations.extend(ops)
+						if ops:
+							self.emit("tool_batch", operations=ops)
+							content = (
+								"Page generated and applied to the canvas. Verify it with view_page "
+								"(the editor saves the draft momentarily), or finish with a short summary."
+							)
+						else:
+							content = (
+								"FAILED: generation produced no parseable page. Retry generate_page "
+								"with a shorter, more specific brief."
+							)
+					elif tool and tool.side == "server" and tool.handler:
 						content = tool.handler(self, op["args"])
 					else:
 						content = self.tree.apply(op["tool_name"], op["args"])
@@ -402,6 +409,10 @@ class AgentRunner:
 						if "FAILED" in content or "NOT FOUND" in content:
 							logger.warning("Client op rejected — %s: %s", op["tool_name"], content)
 					messages.append({"role": "tool", "tool_call_id": tc_dict["id"], "content": content})
+
+				# Screenshots captured this round arrive as an image message the model can see.
+				if self.pending_images:
+					messages.append(self._flush_image_message())
 
 		except CancelledError:
 			self._emit_cancelled()
@@ -442,6 +453,18 @@ class AgentRunner:
 		)
 		frappe.db.commit()  # commit before emit so the client's reload sees the final turn
 		self.emit("complete", message=summary_text or "Done")
+
+	def _flush_image_message(self) -> dict:
+		"""The screenshots view_page captured this round, as one multimodal user message
+		(tool results can't carry images in the chat-completions contract)."""
+		parts: list[dict] = [
+			{"type": "text", "text": "The screenshot(s) you requested with view_page — inspect them:"}
+		]
+		for image in self.pending_images:
+			parts.append({"type": "text", "text": image["note"]})
+			parts.append({"type": "image_url", "image_url": {"url": image["url"]}})
+		self.pending_images = []
+		return {"role": "user", "content": parts}
 
 	def _classify(self, tool_operations: list[dict]) -> tuple[list, list, list, list]:
 		"""Split this round's calls. Artifact tools (generate_page) are handled by their

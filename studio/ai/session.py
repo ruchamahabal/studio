@@ -16,6 +16,11 @@ class AISession:
 
 	@classmethod
 	def get_or_create(cls, page_id: str, model: str | None = None, user: str | None = None):
+		# Sessions are per page; an empty page_id would otherwise die on the doctype's
+		# mandatory `page` deep inside insert (seen when the editor submits before the
+		# active page has loaded).
+		if not page_id:
+			frappe.throw(_("No page is open — open a page in the editor and try again."))
 		user = user or frappe.session.user
 
 		session_name = frappe.db.get_value(

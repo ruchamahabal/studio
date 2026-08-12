@@ -13,7 +13,15 @@ keeps the canvas block edits from racing this save.
 """
 
 from studio.ai.agent.registry import Tool
-from studio.ai.agent.tools.page import dangling_binding_warning, load_page, save_page, text_arg
+from studio.ai.agent.tools.page import (
+	NO_PAGE,
+	PAGE_NAME_PROP,
+	dangling_binding_warning,
+	is_current_page,
+	load_page,
+	save_page,
+	text_arg,
+)
 from studio.ai.block_codec import BlockCodec
 from studio.ai.prompt_fragments import FILTER_FORMAT_RULE, ON_ERROR_RULE, ON_SUCCESS_RULE, TRANSFORM_RULE
 
@@ -28,9 +36,9 @@ def run_add_data_source(ctx, args: dict) -> str:
 	if source_type not in RESOURCE_TYPES:
 		return f"FAILED: data_source_type must be one of {list(RESOURCE_TYPES)}."
 
-	page = load_page(ctx)
+	page = load_page(ctx, args)
 	if page is None:
-		return "FAILED: no page in context."
+		return f"FAILED: {NO_PAGE}"
 	if _find_resource(page, name):
 		return f"FAILED: a data source named '{name}' already exists. Use update_data_source to change it."
 
@@ -42,9 +50,9 @@ def run_add_data_source(ctx, args: dict) -> str:
 
 
 def run_list_data_sources(ctx, args: dict) -> str:
-	page = load_page(ctx)
+	page = load_page(ctx, args)
 	if page is None:
-		return "No page in context."
+		return f"FAILED: {NO_PAGE}"
 	if not page.resources:
 		return "No data sources defined on this page yet."
 	out = [_describe_resource(r) for r in page.resources]
@@ -53,9 +61,9 @@ def run_list_data_sources(ctx, args: dict) -> str:
 
 def run_update_data_source(ctx, args: dict) -> str:
 	name = text_arg(args.get("data_source_name"))
-	page = load_page(ctx)
+	page = load_page(ctx, args)
 	if page is None:
-		return "FAILED: no page in context."
+		return f"FAILED: {NO_PAGE}"
 	row = _find_resource(page, name)
 	if row is None:
 		return f"FAILED: no data source named '{name}'. Call list_data_sources to see the current set."
@@ -71,9 +79,9 @@ def run_update_data_source(ctx, args: dict) -> str:
 
 def run_delete_data_source(ctx, args: dict) -> str:
 	name = text_arg(args.get("data_source_name"))
-	page = load_page(ctx)
+	page = load_page(ctx, args)
 	if page is None:
-		return "FAILED: no page in context."
+		return f"FAILED: {NO_PAGE}"
 	row = _find_resource(page, name)
 	if row is None:
 		return f"FAILED: no data source named '{name}'."
@@ -83,7 +91,8 @@ def run_delete_data_source(ctx, args: dict) -> str:
 		return f"FAILED: {error}"
 	_reload(ctx, page)
 
-	warning = dangling_binding_warning(ctx, name)
+	# The bindings scan reads the turn-start tree of the OPEN page only.
+	warning = dangling_binding_warning(ctx, name) if is_current_page(ctx, page) else ""
 	return f"Deleted data source '{name}'." + (f" {warning}" if warning else "")
 
 
@@ -141,8 +150,10 @@ def _find_resource(page, name: str):
 
 
 def _reload(ctx, page) -> None:
-	# Ship the saved page's modified so the editor re-syncs its optimistic-lock timestamp without an extra fetch
-	ctx.emit("reload", resources=True, modified=page.modified)
+	# Ship the saved page's modified so the editor re-syncs its optimistic-lock timestamp without an
+	# extra fetch. Sibling pages don't reload the open canvas — they sync via studio_doc_update.
+	if is_current_page(ctx, page):
+		ctx.emit("reload", resources=True, modified=page.modified)
 
 
 def _describe_resource(r) -> dict:
@@ -230,6 +241,7 @@ add_data_source = Tool(
 			"transform": _TRANSFORM_PARAM,
 			"on_success": _ON_SUCCESS_PARAM,
 			"on_error": _ON_ERROR_PARAM,
+			"page_name": PAGE_NAME_PROP,
 		},
 		"required": ["data_source_name", "data_source_type"],
 	},
@@ -244,7 +256,7 @@ list_data_sources = Tool(
 		"fields, filters, limit, sort). Use before update_data_source / delete_data_source, or to "
 		"reuse a source that already exists."
 	),
-	parameters={"type": "object", "properties": {}},
+	parameters={"type": "object", "properties": {"page_name": PAGE_NAME_PROP}},
 )
 
 update_data_source = Tool(
@@ -275,6 +287,7 @@ update_data_source = Tool(
 			"transform": _TRANSFORM_PARAM,
 			"on_success": _ON_SUCCESS_PARAM,
 			"on_error": _ON_ERROR_PARAM,
+			"page_name": PAGE_NAME_PROP,
 		},
 		"required": ["data_source_name"],
 	},
@@ -292,6 +305,7 @@ delete_data_source = Tool(
 		"type": "object",
 		"properties": {
 			"data_source_name": {"type": "string", "description": "The data source to delete."},
+			"page_name": PAGE_NAME_PROP,
 		},
 		"required": ["data_source_name"],
 	},

@@ -36,8 +36,19 @@ def generate_page_json(ctx, args: dict) -> list[dict]:
 	chunks to the canvas as the model writes them. Returns [] if the model produced
 	nothing.
 	"""
-	brief = (args.get("brief") or "").strip()
+	page = frappe.get_doc("Studio Page", ctx.page_id) if ctx.page_id else None
+	ctx.emit("progress", message="Building the page…")
+	block = generate_blocks(ctx, page, (args.get("brief") or "").strip(), stream_kind="page_json")
+	if block is None:
+		return []
+	return [{"tool_name": "generate_page", "args": {"block": block}}]
 
+
+def generate_blocks(ctx, page, brief: str, stream_kind: str | None = None) -> dict | None:
+	"""Generate a full block tree for `page` on the heavy model and return it parsed,
+	or None if the output didn't parse. With `stream_kind` set, chunks stream to the
+	client as they arrive (only correct when `page` IS the page open on the canvas);
+	without it the generation is silent — used by build_app_page for sibling pages."""
 	messages: list[dict] = [
 		{"role": "system", "content": GENERATION, "cache_control": {"type": "ephemeral"}},
 	]
@@ -45,12 +56,19 @@ def generate_page_json(ctx, args: dict) -> list[dict]:
 	messages.extend(AISession.build_context_messages_from_id(ctx.session_id))
 	# The generator builds its own prompt, so it won't see data sources created earlier this
 	# turn unless told — hand it the page's data state so it binds to real, existing sources.
-	if data_note := _available_data_note(ctx):
+	if data_note := _available_data_note(page):
 		messages.append({"role": "user", "content": data_note})
 	messages.append(_build_message(ctx, brief))
 
-	ctx.emit("progress", message="Building the page…")
+	content = _stream_completion(ctx, messages, stream_kind)
+	try:
+		return BlockCodec.parse_blocks(content)
+	except Exception as e:
+		logger.warning("generate_blocks: could not parse model output (model=%s): %s", ctx.model, e)
+		return None
 
+
+def _stream_completion(ctx, messages: list[dict], stream_kind: str | None) -> str:
 	content = ""
 	finish_reason = None
 	stream = llm.complete(ctx.model, messages, llm.TASK_PARAMS["complex"], stream=True, api_key=ctx.api_key)
@@ -70,17 +88,12 @@ def generate_page_json(ctx, args: dict) -> list[dict]:
 		delta = chunk.choices[0].delta.content
 		if delta:
 			content += delta
-			ctx.emit("stream", chunk=delta, kind="page_json")
+			if stream_kind:
+				ctx.emit("stream", chunk=delta, kind=stream_kind)
 
 	if finish_reason == "length":
-		logger.warning("generate_page hit max_tokens — the page may be truncated")
-	try:
-		block = BlockCodec.parse_blocks(content)
-	except Exception as e:
-		logger.warning("generate_page_json: could not parse model output (model=%s): %s", ctx.model, e)
-		return []
-
-	return [{"tool_name": "generate_page", "args": {"block": block}}]
+		logger.warning("page generation hit max_tokens — the page may be truncated")
+	return content
 
 
 def _build_message(ctx, brief: str) -> dict:
@@ -105,11 +118,10 @@ def _build_message(ctx, brief: str) -> dict:
 	}
 
 
-def _available_data_note(ctx) -> str:
+def _available_data_note(page) -> str:
 	"""A message listing the data sources + variables already on the page, so the
 	generator binds the layout to real, existing sources (per the DATA BINDING rules).
 	Empty when the page has no data layer yet."""
-	page = frappe.get_doc("Studio Page", ctx.page_id) if ctx.page_id else None
 	if page is None:
 		return ""
 	state = describe_page_data(page)

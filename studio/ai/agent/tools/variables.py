@@ -18,7 +18,15 @@ import json
 import frappe
 
 from studio.ai.agent.registry import Tool
-from studio.ai.agent.tools.page import dangling_binding_warning, load_page, save_page, text_arg
+from studio.ai.agent.tools.page import (
+	NO_PAGE,
+	PAGE_NAME_PROP,
+	dangling_binding_warning,
+	is_current_page,
+	load_page,
+	save_page,
+	text_arg,
+)
 from studio.ai.block_codec import BlockCodec
 
 VARIABLE_TYPES = ("String", "Number", "Boolean", "Object")
@@ -30,9 +38,9 @@ def run_add_variable(ctx, args: dict) -> str:
 	if var_type not in VARIABLE_TYPES:
 		return f"FAILED: variable_type must be one of {list(VARIABLE_TYPES)}."
 
-	page = load_page(ctx)
+	page = load_page(ctx, args)
 	if page is None:
-		return "FAILED: no page in context."
+		return f"FAILED: {NO_PAGE}"
 
 	page.append(
 		"variables",
@@ -49,9 +57,9 @@ def run_add_variable(ctx, args: dict) -> str:
 
 
 def run_list_variables(ctx, args: dict) -> str:
-	page = load_page(ctx)
+	page = load_page(ctx, args)
 	if page is None:
-		return "No page in context."
+		return f"FAILED: {NO_PAGE}"
 	if not page.variables:
 		return "No variables defined on this page yet."
 	out = [
@@ -63,9 +71,9 @@ def run_list_variables(ctx, args: dict) -> str:
 
 def run_update_variable(ctx, args: dict) -> str:
 	name = text_arg(args.get("variable_name"))
-	page = load_page(ctx)
+	page = load_page(ctx, args)
 	if page is None:
-		return "FAILED: no page in context."
+		return f"FAILED: {NO_PAGE}"
 	row = _find_variable(page, name)
 	if row is None:
 		return f"FAILED: no variable named '{name}'. Call list_variables to see the current set."
@@ -90,9 +98,9 @@ def run_update_variable(ctx, args: dict) -> str:
 
 def run_delete_variable(ctx, args: dict) -> str:
 	name = text_arg(args.get("variable_name"))
-	page = load_page(ctx)
+	page = load_page(ctx, args)
 	if page is None:
-		return "FAILED: no page in context."
+		return f"FAILED: {NO_PAGE}"
 	row = _find_variable(page, name)
 	if row is None:
 		return f"FAILED: no variable named '{name}'."
@@ -102,7 +110,8 @@ def run_delete_variable(ctx, args: dict) -> str:
 		return f"FAILED: {error}"
 	_reload(ctx, page)
 
-	warning = dangling_binding_warning(ctx, name)
+	# The bindings scan reads the turn-start tree of the OPEN page only.
+	warning = dangling_binding_warning(ctx, name) if is_current_page(ctx, page) else ""
 	return f"Deleted variable '{name}'." + (f" {warning}" if warning else "")
 
 
@@ -142,8 +151,10 @@ def _encode_initial_value(variable_type: str, value) -> str:
 
 
 def _reload(ctx, page) -> None:
-	# Ship the saved page's modified so the editor re-syncs its optimistic-lock timestamp without an extra fetch
-	ctx.emit("reload", variables=True, modified=page.modified)
+	# Ship the saved page's modified so the editor re-syncs its optimistic-lock timestamp without an
+	# extra fetch. Sibling pages don't reload the open canvas — they sync via studio_doc_update.
+	if is_current_page(ctx, page):
+		ctx.emit("reload", variables=True, modified=page.modified)
 
 
 # --- tool definitions -----------------------------------------------------
@@ -175,6 +186,7 @@ add_variable = Tool(
 				"type": "string",
 				"description": "Starting value: e.g. '0' (Number), 'true' (Boolean), 'Hello' (String), '{\"open\":false}' (Object).",
 			},
+			"page_name": PAGE_NAME_PROP,
 		},
 		"required": ["variable_name", "variable_type"],
 	},
@@ -188,7 +200,7 @@ list_variables = Tool(
 		"List the page's variables with their type and initial value. Use before "
 		"update_variable / delete_variable, or to reuse a variable that already exists."
 	),
-	parameters={"type": "object", "properties": {}},
+	parameters={"type": "object", "properties": {"page_name": PAGE_NAME_PROP}},
 )
 
 update_variable = Tool(
@@ -205,6 +217,7 @@ update_variable = Tool(
 			"variable_name": {"type": "string", "description": "The variable to update."},
 			"variable_type": {"type": "string", "enum": list(VARIABLE_TYPES)},
 			"initial_value": {"type": "string", "description": "New starting value (encoded for the type)."},
+			"page_name": PAGE_NAME_PROP,
 		},
 		"required": ["variable_name"],
 	},
@@ -222,6 +235,7 @@ delete_variable = Tool(
 		"type": "object",
 		"properties": {
 			"variable_name": {"type": "string", "description": "The variable to delete."},
+			"page_name": PAGE_NAME_PROP,
 		},
 		"required": ["variable_name"],
 	},

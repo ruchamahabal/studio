@@ -187,6 +187,10 @@ const useStudioStore = defineStore("store", () => {
 	// set when a save is rejected because the page moved on in the DB (a disk sync or an AI edit)
 	// after the editor loaded it. Autosave pauses until the user refreshes to the latest version.
 	const pageConflict = ref(false)
+	// true while an AI agent turn is running. The agent's own server-side saves (data sources,
+	// variables, scripts) advance the page's timestamp; a canvas save that races them is not a
+	// real conflict, so savePage re-syncs and retries instead of showing the conflict dialog.
+	const aiEditing = ref(false)
 
 	// design-time test values for dynamic route variables (e.g. { category: "tech" }), persists in localStorage
 	const routeVariables = ref<Record<string, string>>({})
@@ -237,6 +241,10 @@ const useStudioStore = defineStore("store", () => {
 		const pageData = jsToJson(pageBlocks.value.map((block) => getBlockCopyWithoutParent(block)))
 		const savedPage = selectedPage.value
 
+		return submitDraft(savedPage, pageData, false)
+	}
+
+	function submitDraft(savedPage: string | null, pageData: string, retried: boolean): Promise<any> {
 		return studioPages.runDocMethod
 			.submit({
 				name: savedPage,
@@ -252,7 +260,17 @@ const useStudioStore = defineStore("store", () => {
 				// track that the page now has unpublished changes (drives the "Revert Changes" option)
 				activePage.value.draft_blocks = pageData
 			})
-			.catch(handlePageWriteConflict)
+			.catch(async (error: any) => {
+				// Mid-AI-turn, a timestamp mismatch is the agent's own server-side save landing
+				// between our timestamp and this request — not an external change. Re-sync the
+				// timestamp and retry once; the draft holds canvas state the agent didn't touch.
+				if (error?.exc_type === "TimestampMismatchError" && aiEditing.value && !retried) {
+					await refreshActivePageModified()
+					if (activePage.value?.name !== savedPage) return
+					return submitDraft(savedPage, pageData, true)
+				}
+				handlePageWriteConflict(error)
+			})
 			.finally(() => {
 				if (activePage.value?.name === savedPage) savingPage.value = false
 			})
@@ -678,6 +696,7 @@ const useStudioStore = defineStore("store", () => {
 		settingPage,
 		savingPage,
 		pageConflict,
+		aiEditing,
 		activePage,
 		setPage,
 		savePage,

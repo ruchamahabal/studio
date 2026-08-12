@@ -29,14 +29,14 @@ import re
 import frappe
 
 from studio.ai.agent.registry import Tool
-from studio.ai.agent.tools.page import load_page, save_page
+from studio.ai.agent.tools.page import NO_PAGE, PAGE_NAME_PROP, is_current_page, load_page, save_page
 from studio.export import can_export, write_code_file
 
 
 def run_get_page_script(ctx, args: dict) -> str:
-	page = load_page(ctx)
+	page = load_page(ctx, args)
 	if page is None:
-		return "No page in context."
+		return f"FAILED: {NO_PAGE}"
 	source = _read_script(page)
 	if not source.strip():
 		return "This page has no script yet."
@@ -48,9 +48,9 @@ def run_set_page_script(ctx, args: dict) -> str:
 	source = args.get("script")
 	if not isinstance(source, str) or not source.strip():
 		return "FAILED: script is required — pass the FULL script, not a fragment."
-	page = load_page(ctx)
+	page = load_page(ctx, args)
 	if page is None:
-		return "FAILED: no page in context."
+		return f"FAILED: {NO_PAGE}"
 	if page.is_standard:
 		if "export default" not in source:
 			return (
@@ -78,8 +78,12 @@ def _write_db_script(ctx, page, source: str) -> str:
 	page.script = source
 	if error := save_page(page):
 		return f"FAILED: {error}"
-	ctx.emit("reload", script=True)
-	return "Updated the page script. It runs live on the canvas now."
+	if is_current_page(ctx, page):
+		# Ship the fresh modified so the editor re-syncs its optimistic lock — without it
+		# the next canvas save hits the "page changed outside the editor" conflict.
+		ctx.emit("reload", script=True, modified=page.modified)
+		return "Updated the page script. It runs live on the canvas now."
+	return f"Updated the page script of {page.name}."
 
 
 def _write_file_script(ctx, page, source: str) -> str:
@@ -134,7 +138,7 @@ get_page_script = Tool(
 		"Read the page's current script. Call this before set_page_script so you EXTEND the existing "
 		"script instead of overwriting it — set_page_script replaces the whole thing."
 	),
-	parameters={"type": "object", "properties": {}},
+	parameters={"type": "object", "properties": {"page_name": PAGE_NAME_PROP}},
 )
 
 _CUSTOM_SET_DESCRIPTION = (
@@ -177,7 +181,8 @@ def build_tools(is_standard: bool) -> list[Tool]:
 		parameters={
 			"type": "object",
 			"properties": {
-				"script": {"type": "string", "description": f"The FULL script source, e.g. '{example}'."}
+				"script": {"type": "string", "description": f"The FULL script source, e.g. '{example}'."},
+				"page_name": PAGE_NAME_PROP,
 			},
 			"required": ["script"],
 		},

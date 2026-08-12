@@ -86,6 +86,8 @@ def _build_shared_registry() -> ToolRegistry:
 	These act on the block tree the shared renderer consumes, identical in both modes. Imported lazily
 	to avoid import cycles (tool handlers reference the agent context type)."""
 	from studio.ai.agent.tools import (
+		app,
+		backend,
 		bindings,
 		blocks,
 		conversation,
@@ -94,6 +96,8 @@ def _build_shared_registry() -> ToolRegistry:
 		interactivity,
 		introspect,
 		query,
+		skills,
+		visual,
 	)
 
 	registry = ToolRegistry()
@@ -105,6 +109,10 @@ def _build_shared_registry() -> ToolRegistry:
 	registry.extend(data.TOOLS)
 	registry.extend(bindings.TOOLS)
 	registry.extend(interactivity.TOOLS)
+	registry.extend(app.TOOLS)
+	registry.extend(backend.TOOLS)
+	registry.extend(skills.TOOLS)
+	registry.extend(visual.TOOLS)
 	return registry
 
 

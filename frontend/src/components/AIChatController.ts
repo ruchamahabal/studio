@@ -23,6 +23,10 @@ export interface AIChatContext {
 	savePage: () => void
 	reloadSession: () => void
 	scrollToBottom: () => void
+	// Marks the store's aiEditing flag for the duration of a turn, so canvas saves
+	// treat timestamp conflicts caused by the agent's own server-side writes as
+	// recoverable (re-sync + retry) instead of raising the conflict dialog.
+	setAgentEditing: (active: boolean) => void
 	reloadPageData: (opts: {
 		resources?: boolean
 		variables?: boolean
@@ -79,10 +83,17 @@ export class AIChatController {
 	}
 
 	async submit(promptText: string, model: string) {
+		// The active page can be momentarily unset (still loading, or a navigation in
+		// flight). Sessions are per page, so refuse instead of posting page_id: "".
+		if (!this.ctx.pageId()) {
+			this.ctx.error.value = "The page isn't loaded yet — wait a moment and try again."
+			return
+		}
 		this.summary = ""
 		this.pageBuffer = ""
 		this.ctx.error.value = ""
 		this.ctx.loading.value = true
+		this.ctx.setAgentEditing(true)
 		this.ctx.statusMessage.value = ""
 		const image = this.imageData.value
 		this.pushMessage("user", promptText, image ? { attachedImageUrl: image } : undefined)
@@ -145,6 +156,7 @@ export class AIChatController {
 
 	onComplete = (data: any) => {
 		this.ctx.loading.value = false
+		this.ctx.setAgentEditing(false)
 		this.ctx.statusMessage.value = ""
 		this.updatePending(this.summary || data.message || "Done")
 		this.pendingAssistantId = null
@@ -155,6 +167,7 @@ export class AIChatController {
 
 	onError = (data: any) => {
 		this.ctx.loading.value = false
+		this.ctx.setAgentEditing(false)
 		this.ctx.statusMessage.value = ""
 		this.ctx.error.value = data.message || "Request failed."
 		this.pendingAssistantId = null
@@ -176,6 +189,7 @@ export class AIChatController {
 
 	onClarify = (data: any) => {
 		this.ctx.loading.value = false
+		this.ctx.setAgentEditing(false)
 		this.ctx.statusMessage.value = ""
 		if (data.plan_summary) {
 			this.updatePending(data.headline || "Here's my plan", {

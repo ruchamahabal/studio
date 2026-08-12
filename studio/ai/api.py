@@ -61,10 +61,11 @@ def run(
 	# Background queue (not now=True): a streaming turn can run for tens of seconds, and
 	# now=True would hold this web worker open for the whole stream — exhausting the worker
 	# pool under concurrency. Realtime events flow over Redis pub/sub regardless of process.
+	# Timeout covers a whole-app build turn: several full-page generations in one turn.
 	frappe.enqueue(
 		run_agent_job,
 		queue="long",
-		timeout=600,
+		timeout=1800,
 		prompt=prompt,
 		page_context_json=page_context,
 		model=resolved_model,
