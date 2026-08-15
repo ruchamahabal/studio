@@ -598,6 +598,9 @@ class AgentRunner:
 		# message after the tool results (tool results can't carry image parts).
 		self.pending_images: list[dict] = []
 		self.preview_count = 0
+		# Every photo search_images turned up this turn, handed to the generation step
+		# so the page can use any of them without the model retyping urls into a brief.
+		self.found_images: list[dict] = []
 		client_operations: list[dict] = []
 		summary_text = ""
 		corrected_unbacked = False
