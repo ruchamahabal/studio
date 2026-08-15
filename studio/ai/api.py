@@ -12,7 +12,7 @@ import logging
 import frappe
 from frappe import _
 
-from studio.ai import llm
+from studio.ai import llm, locks
 from studio.ai.agent.loop import run_agent_job
 from studio.ai.block_codec import BlockCodec
 from studio.ai.models import ModelRegistry
@@ -67,7 +67,7 @@ def run(
 	image_url = BlockCodec.validate_image_data(image_data) if image_data else None
 
 	session = AISession.get_or_create(page_id, resolved_model)
-	if AISession.is_session_running(session.name):
+	if locks.held(locks.session_key(session.name)):
 		frappe.local.response.http_status_code = 429
 		return {"status": "busy", "message": _("Another AI request is still processing. Please wait.")}
 
@@ -101,9 +101,20 @@ def run(
 def cancel(session_id: str):
 	"""Request that the currently-running turn for this session abort at its next stream
 	chunk. The loop closes the LLM stream — Anthropic / OpenRouter stop billing for further
-	tokens once the connection drops."""
-	if session_id:
-		frappe.cache.set_value(f"studio_ai_cancel:{session_id}", "1", expires_in_sec=300)
+	tokens once the connection drops. When no run is alive (worker died, lock expired),
+	say so with an error event so a spinning client stops waiting for a ghost."""
+	if not session_id:
+		return {"status": "ok"}
+	if not locks.held(locks.session_key(session_id)):
+		session = AISession.get(session_id)
+		event = f"ai_chat_error_{session.page}" if session.page else "ai_chat_error"
+		frappe.publish_realtime(
+			event,
+			{"page_id": session.page, "message": _("The AI run is no longer active.")},
+			user=frappe.session.user,
+		)
+		return {"status": "not_running"}
+	frappe.cache.set_value(f"studio_ai_cancel:{session_id}", "1", expires_in_sec=300)
 	return {"status": "ok"}
 
 

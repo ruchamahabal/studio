@@ -22,7 +22,7 @@ import time
 
 import frappe
 
-from studio.ai import llm
+from studio.ai import llm, locks
 from studio.ai.agent.registry import get_tool_registry_for_mode
 from studio.ai.agent.tree import WorkingTree
 from studio.ai.block_codec import BlockCodec
@@ -324,18 +324,27 @@ class AgentRunner:
 	# --- orchestration ----------------------------------------------------
 
 	def run(self):
+		"""Acquire the turn's locks, then drive the loop. One turn per session, one
+		writer per page — both atomic and self-expiring, so a crashed worker can
+		never wedge them (see studio.ai.locks)."""
+		with locks.guard(locks.session_key(self.session_id or "-"), locks.SESSION_LOCK_TTL) as got:
+			if not got:
+				logger.warning("AgentRunner.run: session %s already running, rejecting", self.session_id)
+				self.emit(
+					"error", message="Another AI request is still processing. Please wait for it to finish."
+				)
+				return
+			with locks.guard(locks.page_key(self.page_id or "-"), locks.PAGE_LOCK_TTL) as page_got:
+				if not page_got:
+					self.emit("error", message="Another AI request is editing this page. Please wait.")
+					return
+				self.run_turn()
+
+	def run_turn(self):
 		# Clear any stale cancel flag from a previous turn before starting.
 		self.clear_cancel_flag()
 		label = ModelRegistry.get_label(self.model)
 		self.emit("progress", message=f"Thinking with {label}…" if label else "Thinking…")
-
-		if self.session_id and AISession.is_session_running(self.session_id):
-			logger.warning("AgentRunner.run: session %s already running, rejecting", self.session_id)
-			self.emit(
-				"error", message="Another AI request is still processing. Please wait for it to finish."
-			)
-			return
-		self._set_running(True)
 
 		messages = self.build_messages()
 		# Mirror of the page tree this turn. Client ops are validated against it so the tool
@@ -419,7 +428,6 @@ class AgentRunner:
 			return
 		finally:
 			self.clear_cancel_flag()
-			self._set_running(False)
 
 		if not client_operations and not summary_text:
 			logger.warning("Agent returned empty response (no tools, no text)")
@@ -461,16 +469,6 @@ class AgentRunner:
 			else:
 				client_ops.append(op)
 		return terminal_ops, artifact_ops, server_ops, client_ops
-
-	def _set_running(self, running: bool) -> None:
-		if not self.session_id:
-			return
-		try:
-			session = AISession(frappe.get_doc(AISession.DOCTYPE, self.session_id))
-			session.set_running() if running else session.clear_running()
-			frappe.db.commit()  # visible to other workers' concurrency guard
-		except Exception:
-			pass
 
 	def _emit_cancelled(self) -> None:
 		msg = "Cancelled."

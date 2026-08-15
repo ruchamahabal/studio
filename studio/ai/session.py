@@ -258,20 +258,6 @@ class AISession:
 			update_modified=False,
 		)
 
-	# --- running flag (concurrency guard) --------------------------------
-
-	def set_running(self):
-		frappe.db.set_value(self.DOCTYPE, self._doc.name, "is_running", 1, update_modified=False)
-
-	def clear_running(self):
-		frappe.db.set_value(self.DOCTYPE, self._doc.name, "is_running", 0, update_modified=False)
-
-	@classmethod
-	def is_session_running(cls, session_id: str) -> bool:
-		if not session_id or not frappe.db.exists(cls.DOCTYPE, session_id):
-			return False
-		return bool(frappe.db.get_value(cls.DOCTYPE, session_id, "is_running"))
-
 	# --- lifecycle --------------------------------------------------------
 
 	def clear(self):
@@ -281,7 +267,6 @@ class AISession:
 			self.DOCTYPE,
 			self._doc.name,
 			{
-				"is_running": 0,
 				"last_task_type": None,
 				"last_interaction_on": frappe.utils.now_datetime(),
 			},
