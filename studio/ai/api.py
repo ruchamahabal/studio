@@ -23,6 +23,25 @@ logger = frappe.logger("studio.ai.api")
 logger.setLevel(logging.INFO)
 
 
+def resolve_api_key(model: str | None = None) -> str:
+	"""The key to call `model` with: its provider's own key when it has one (a
+	local or self-hosted gateway needs no OpenRouter account at all), otherwise
+	the shared key from Studio Settings. OAuth providers (codex) carry their own
+	credential and need no key here."""
+	if model:
+		from studio.ai.llm import codex_route, provider_api_key
+
+		if codex_route(model):
+			return ""
+		info = ModelRegistry.find(model)
+		if info and (key := provider_api_key(info)):
+			return key
+	api_key = llm.get_api_key()
+	if not api_key:
+		frappe.throw(_("Please configure an API key in Studio Settings, or one on the model's provider"))
+	return api_key
+
+
 @frappe.whitelist()
 @has_page_write_perm()
 def run(
@@ -42,10 +61,8 @@ def run(
 	except (json.JSONDecodeError, TypeError):
 		frappe.throw(_("Invalid page context JSON"))
 
-	resolved_model = model or ModelRegistry.DEFAULT
-	api_key = llm.get_api_key()
-	if not api_key:
-		frappe.throw(_("OpenRouter API key is not configured. Please set it in Studio Settings."))
+	resolved_model = ModelRegistry.get_default(model)
+	api_key = resolve_api_key(resolved_model)
 
 	image_url = BlockCodec.validate_image_data(image_data) if image_data else None
 
