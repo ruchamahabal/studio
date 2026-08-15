@@ -8,7 +8,12 @@ Realtime event contract (consumed by the frontend). Every event name is
 suffixed with the page id, e.g. `ai_chat_stream_<page_id>`:
 
     ai_chat_progress    {message}
-    ai_chat_stream      {chunk}      append to the chat reply text
+    ai_chat_stream      {chunk, kind?}   append to the chat reply text;
+                                         kind="reasoning" → the open thinking step
+    ai_chat_step        {id, kind: "thinking"|"tool"|"text", status: "running"|"done",
+                         summary?, text?, ms?, tool?}
+                        One entry of the turn's timeline; the same id is emitted
+                        twice (running then done), so upsert by id.
     ai_chat_tool_batch  {operations: [{tool_name, args}]}   apply to the canvas
     ai_chat_complete    {message}
     ai_chat_error       {message}
@@ -49,6 +54,52 @@ class CancelledError(Exception):
 	"""Raised inside the stream loop when the user cancels the turn."""
 
 
+# Tools that shouldn't appear in the visible timeline (they render as their own
+# chat card instead).
+ACTIVITY_SILENT = frozenset({"ask_clarification", "propose_plan"})
+
+TOOL_LABELS = {
+	"generate_page": "Building the page",
+	"query_blocks": "Scanned the page",
+	"get_page_state": "Checked page data",
+	"list_doctypes": "Browsed doctypes",
+	"get_sort_fields": "Checked sortable fields",
+	"get_whitelisted_methods": "Checked available methods",
+	"list_data_sources": "Read data sources",
+	"add_data_source": "Added a data source",
+	"update_data_source": "Updated a data source",
+	"delete_data_source": "Removed a data source",
+	"get_page_script": "Read the page script",
+	"set_page_script": "Updated the page script",
+	"list_variables": "Read variables",
+	"add_variable": "Added a variable",
+	"update_variable": "Updated a variable",
+	"delete_variable": "Removed a variable",
+	"list_app_files": "Browsed app files",
+	"trigger_app_build": "Queued an app build",
+}
+
+
+def activity_summary(tool_name: str, args: dict) -> str:
+	"""A short human line for the chat's timeline ("Read block: hero"). Written for
+	someone who asked for an app, not someone who knows the tool API."""
+	args = args or {}
+	if label := TOOL_LABELS.get(tool_name):
+		return label
+	if tool_name == "read_block":
+		return f"Read block: {args.get('component_id') or ''}".rstrip(": ")
+	if tool_name in ("update_block", "update_blocks", "add_block", "remove_block", "move_block"):
+		verb = tool_name.split("_")[0].capitalize()
+		target = args.get("component_id") or ""
+		return f"{verb} block{'s' if tool_name == 'update_blocks' else ''}: {target}".rstrip(": ")
+	if tool_name == "get_doctype_fields":
+		return f"Checked the {args['doctype']} fields" if args.get("doctype") else "Checked the data fields"
+	if tool_name in ("read_app_file", "write_app_file", "delete_app_file"):
+		verb = {"read_app_file": "Read", "write_app_file": "Wrote", "delete_app_file": "Deleted"}[tool_name]
+		return f"{verb} {args.get('path') or 'a file'}"
+	return tool_name.replace("_", " ").capitalize()
+
+
 class AgentRunner:
 	def __init__(
 		self,
@@ -78,6 +129,12 @@ class AgentRunner:
 		self.registry = get_tool_registry_for_mode(is_standard)
 		self.system_prompt = get_system_prompt_for_mode(is_standard)
 		self.tree: WorkingTree | None = None
+		# The turn's timeline, streamed to the chat as ai_chat_step events and persisted
+		# on the final message: the tools the model ran, its reasoning, and the narration
+		# it wrote between rounds — in the order they happened.
+		self.steps: list[dict] = []
+		self.step_starts: dict[int, float] = {}
+		self._open_thinking: dict | None = None
 
 	def is_standard(self) -> bool:
 		if not self.page_id:
@@ -116,6 +173,58 @@ class AgentRunner:
 		if self.page_id:
 			event = f"{event}_{self.page_id}"
 		frappe.publish_realtime(event, {"page_id": self.page_id, **kwargs}, user=self.user)
+
+	# --- turn timeline ----------------------------------------------------
+
+	def add_step(self, kind: str, **fields) -> dict:
+		"""Append one timeline entry and stream it. Steps are upserted client-side by
+		id, so a running step is finished by re-emitting the same entry."""
+		step = {"id": len(self.steps), "kind": kind, **fields}
+		self.steps.append(step)
+		self.emit("step", **step)
+		return step
+
+	def finish_step(self, step: dict | None, started: float | None = None, **fields) -> None:
+		if step is None:
+			return
+		step["status"] = "done"
+		if started is not None:
+			step["ms"] = round((time.monotonic() - started) * 1000)
+		step.update(fields)
+		self.emit("step", **step)
+
+	def timeline(self) -> list[dict]:
+		"""The steps worth keeping on the message: tools, narration with text, and
+		thinking that actually carries reasoning (an empty one would replay as a stall)."""
+		return [
+			s
+			for s in self.steps
+			if (s.get("kind") == "tool")
+			or (s.get("kind") == "text" and s.get("text"))
+			or (s.get("kind") == "thinking" and s.get("text"))
+		]
+
+	def begin_activity(self, tool_name: str, args: dict) -> dict | None:
+		if tool_name in ACTIVITY_SILENT:
+			return None
+		entry = self.add_step(
+			"tool", tool=tool_name, summary=activity_summary(tool_name, args), status="running"
+		)
+		self.step_starts[entry["id"]] = time.monotonic()
+		return entry
+
+	def end_activity(self, entry: dict | None) -> None:
+		if entry is not None:
+			self.finish_step(entry, self.step_starts.pop(entry["id"], None))
+
+	def checkpoint(self) -> None:
+		"""Make this round's work durable. A turn runs as a background job, and a job
+		that raises rolls the WHOLE transaction back — without this, a provider
+		timeout in round 7 would discard the data sources, scripts and messages
+		written in rounds 1-6. It also lets the editor and the chat, both separate
+		requests, see a long turn progress instead of nothing until it ends. One
+		commit per round: individual tools never commit."""
+		frappe.db.commit()  # nosemgrep
 
 	# --- message construction --------------------------------------------
 
@@ -188,6 +297,10 @@ class AgentRunner:
 			except CancelledError:
 				raise
 			except Exception as exc:
+				# A thinking step opened by the failed attempt would otherwise spin forever.
+				if self._open_thinking is not None:
+					self.finish_step(self._open_thinking)
+					self._open_thinking = None
 				if attempt == STREAM_MAX_ATTEMPTS - 1 or not llm.is_retryable(exc):
 					raise
 				backoff = STREAM_BACKOFF_BASE * (2**attempt)
@@ -232,6 +345,13 @@ class AgentRunner:
 			if fr := chunk.choices[0].finish_reason:
 				finish_reason = fr
 			delta = chunk.choices[0].delta
+			# Models that stream reasoning get a live thinking step; the text rides
+			# along so a reload can replay it from the persisted timeline.
+			if reasoning := getattr(delta, "reasoning_content", None):
+				if self._open_thinking is None:
+					self._open_thinking = self.add_step("thinking", status="running", text="")
+				self._open_thinking["text"] = (self._open_thinking.get("text") or "") + reasoning
+				self.emit("stream", chunk=reasoning, kind="reasoning")
 			if getattr(delta, "content", None):
 				content_parts.append(delta.content)
 			for tc in getattr(delta, "tool_calls", None) or []:
@@ -266,6 +386,10 @@ class AgentRunner:
 					"function": {"name": entry["name"], "arguments": raw_arguments},
 				}
 			)
+
+		if self._open_thinking is not None:
+			self.finish_step(self._open_thinking)
+			self._open_thinking = None
 
 		content = "".join(content_parts)
 		if finish_reason == "length":
@@ -371,7 +495,9 @@ class AgentRunner:
 					for op in artifact_ops:
 						tool = self.registry.get(op["tool_name"])
 						if tool and tool.generator:
+							entry = self.begin_activity(op["tool_name"], op["args"])
 							ops = tool.generator(self, op["args"])
+							self.end_activity(entry)
 							client_operations.extend(ops)
 							if ops:
 								self.emit("tool_batch", operations=ops)
@@ -384,12 +510,14 @@ class AgentRunner:
 					client_operations.extend(client_ops)
 					self.emit("tool_batch", operations=client_ops)
 
-				# Live narration: surface what the model said / did THIS round.
+				# Live narration: surface what the model said / did THIS round, and keep
+				# it on the timeline so a reload can replay it.
 				if tool_operations:
 					note = (summary_text or "").strip() or (
 						self.describe_operations(client_ops) if client_ops else ""
 					)
 					if note:
+						self.add_step("text", text=note, status="done")
 						self.emit("progress", message=note)
 
 				# The model ENDS the turn by replying with a final summary and NO tool calls.
@@ -402,6 +530,7 @@ class AgentRunner:
 				)
 				for tc_dict, op in zip(raw_tool_calls, tool_operations, strict=True):
 					tool = self.registry.get(op["tool_name"])
+					entry = self.begin_activity(op["tool_name"], op["args"])
 					if tool and tool.side == "server" and tool.handler:
 						content = tool.handler(self, op["args"])
 					else:
@@ -410,7 +539,12 @@ class AgentRunner:
 						# the model is now being asked to make. Log so it's not invisible.
 						if "FAILED" in content or "NOT FOUND" in content:
 							logger.warning("Client op rejected — %s: %s", op["tool_name"], content)
+					self.end_activity(entry)
 					messages.append({"role": "tool", "tool_call_id": tc_dict["id"], "content": content})
+
+				# One commit per round: makes this round's server-tool writes and messages
+				# durable, so a provider failure in a later round can't roll them back.
+				self.checkpoint()
 
 		except CancelledError:
 			self._emit_cancelled()
@@ -421,7 +555,11 @@ class AgentRunner:
 			# Show a generic message — raw provider/exception strings can leak internals.
 			user_msg = "Something went wrong while building your changes. Please try again."
 			AISession.try_append_message(
-				self.session_id, "assistant", user_msg, message_type="status", metadata={"status": "error"}
+				self.session_id,
+				"assistant",
+				user_msg,
+				message_type="status",
+				metadata={"status": "error", "steps": self.timeline()},
 			)
 			frappe.db.commit()  # commit before emit so the client's reload sees it
 			self.emit("error", message=user_msg)
@@ -446,7 +584,12 @@ class AgentRunner:
 			summary_text or "Done",
 			message_type="chat",
 			task_type="agent",
-			metadata={"status": "complete", "model": self.model, "operations": len(client_operations)},
+			metadata={
+				"status": "complete",
+				"model": self.model,
+				"operations": len(client_operations),
+				"steps": self.timeline(),
+			},
 		)
 		frappe.db.commit()  # commit before emit so the client's reload sees the final turn
 		self.emit("complete", message=summary_text or "Done")
@@ -473,17 +616,25 @@ class AgentRunner:
 	def _emit_cancelled(self) -> None:
 		msg = "Cancelled."
 		AISession.try_append_message(
-			self.session_id, "assistant", msg, message_type="status", metadata={"status": "cancelled"}
+			self.session_id,
+			"assistant",
+			msg,
+			message_type="status",
+			metadata={"status": "cancelled", "steps": self.timeline()},
 		)
 		frappe.db.commit()
 		self.emit("complete", message=msg)
 
 	def handle_terminal(self, op: dict):
 		"""Run a terminal tool's handler (which emits the appropriate event and persists
-		the message). Terminal tools register a handler."""
+		the message). Terminal tools register a handler. The turn's timeline is attached
+		to whatever message the handler persisted, so a reload can replay it."""
 		tool = self.registry.get(op["tool_name"])
 		if tool and tool.handler:
 			tool.handler(self, op["args"])
+		if steps := self.timeline():
+			AISession.attach_metadata_to_last_assistant(self.session_id, {"steps": steps})
+			frappe.db.commit()
 
 
 def run_agent_job(prompt: str, page_context_json: str, model: str, api_key: str, **kwargs):

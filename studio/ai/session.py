@@ -60,6 +60,11 @@ class AISession:
 			cls(frappe.get_doc(cls.DOCTYPE, session_id)).append_message(role, content, **kwargs)
 
 	@classmethod
+	def attach_metadata_to_last_assistant(cls, session_id: str | None, extra_metadata: dict):
+		if session_id and frappe.db.exists(cls.DOCTYPE, session_id):
+			cls(frappe.get_doc(cls.DOCTYPE, session_id)).update_last_assistant_metadata(extra_metadata)
+
+	@classmethod
 	def build_context_messages_from_id(cls, session_id: str | None) -> list[dict]:
 		if not session_id or not frappe.db.exists(cls.DOCTYPE, session_id):
 			return []
