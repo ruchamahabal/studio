@@ -81,6 +81,8 @@ READ_ONLY_SERVER_TOOLS = frozenset(
 		"read_page",
 		"preview_page",
 		"get_page_errors",
+		"read_skill",
+		"search_images",
 	}
 )
 
@@ -117,6 +119,8 @@ TOOL_LABELS = {
 	"list_app_files": "Browsed app files",
 	"trigger_app_build": "Queued an app build",
 	"preview_page": "Looked at the page",
+	"read_skill": "Read reference docs",
+	"search_images": "Searched stock photos",
 	"list_pages": "Listed the app's pages",
 	"create_page": "Created a page",
 	"open_page": "Switched working page",

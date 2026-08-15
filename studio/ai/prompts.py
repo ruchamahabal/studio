@@ -323,7 +323,14 @@ AGENT_SYSTEM_STANDARD = get_agent_system(DATA_WIRING + "\n\n" + STANDARD_PAGE_CO
 
 
 def get_system_prompt_for_mode(is_standard: bool) -> str:
-	return AGENT_SYSTEM_STANDARD if is_standard else AGENT_SYSTEM_CUSTOM
+	"""The static prompt for the mode, plus the live skills index (skills are
+	files on disk, so the index is resolved per turn, not at import)."""
+	from studio.ai import skills
+
+	base = AGENT_SYSTEM_STANDARD if is_standard else AGENT_SYSTEM_CUSTOM
+	if index := skills.index_for_prompt():
+		return f"{base}\n\n{index}"
+	return base
 
 
 # Used by the generate_page artifact generator — reuse the one-shot JSON system prompt

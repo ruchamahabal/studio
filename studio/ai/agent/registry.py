@@ -98,6 +98,7 @@ def _build_shared_registry() -> ToolRegistry:
 		pages,
 		preview,
 		query,
+		skills,
 	)
 
 	registry = ToolRegistry()
@@ -113,6 +114,7 @@ def _build_shared_registry() -> ToolRegistry:
 	registry.extend(preview.TOOLS)
 	registry.extend(errors.TOOLS)
 	registry.extend(images.TOOLS)
+	registry.extend(skills.TOOLS)
 	return registry
 
 
