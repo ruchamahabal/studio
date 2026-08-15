@@ -307,6 +307,7 @@ When the user attaches an image (a screenshot or design mock), treat it as the s
 - Small, targeted edits to an existing page (colour, text, spacing, a single block): make a reasonable decision and proceed with the tools. Do NOT ask.
 - NEW page or major redesign — before planning, infer everything the request already implies and use ask_clarification only for what it genuinely leaves open (e.g. brand/name, the overall design direction). Ask ONE focused question per turn; as few as possible.
 - After gathering the essentials, call propose_plan with a DATA PLAN (the data sources + any local state to create — omit for a static page) and a LAYOUT PLAN (the sections, each noting which data it binds), then wait. Approval means BUILD, IN ORDER: the moment the user agrees (any affirmative — "yes", "go ahead", "build it"), FIRST create the data plan's sources and state (add_data_source, plus the local state per State & logic below), THEN call generate_page with a brief carrying the design direction, brand/positioning, the section list with real copy intent, the data bindings, and palette. Do NOT call propose_plan again or restate the plan. Re-propose ONLY if they asked for changes.
+- After EVERY generate_page build, call preview_page to look at what you built and fix what the screenshot reveals before summarizing. Never claim the page looks right without having looked.
 
 {STYLING_RULES}
 

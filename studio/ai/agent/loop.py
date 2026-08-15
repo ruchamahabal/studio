@@ -98,6 +98,11 @@ TOOL_LABELS = {
 	"delete_variable": "Removed a variable",
 	"list_app_files": "Browsed app files",
 	"trigger_app_build": "Queued an app build",
+	"preview_page": "Looked at the page",
+	"list_pages": "Listed the app's pages",
+	"create_page": "Created a page",
+	"open_page": "Switched working page",
+	"set_page_meta": "Updated page title/route",
 }
 
 
@@ -298,6 +303,18 @@ class AgentRunner:
 	def end_activity(self, entry: dict | None) -> None:
 		if entry is not None:
 			self.finish_step(entry, self.step_starts.pop(entry["id"], None))
+
+	def flush_pending_images(self, messages: list[dict]) -> None:
+		"""Screenshots queued by preview_page ride a follow-up USER message after the
+		round's tool results — the OpenAI tool-result shape can't carry image parts."""
+		if not self.pending_images:
+			return
+		content: list[dict] = []
+		for image in self.pending_images:
+			content.append({"type": "text", "text": image["caption"]})
+			content.append({"type": "image_url", "image_url": {"url": image["data_url"]}})
+		messages.append({"role": "user", "content": content})
+		self.pending_images = []
 
 	def checkpoint(self) -> None:
 		"""Make this round's work durable. A turn runs as a background job, and a job
@@ -559,6 +576,10 @@ class AgentRunner:
 		# Pre-turn page state, saved as a revert snapshot only if this turn mutates.
 		self.pending_state = snapshots.capture_page_state(self.page_id)
 		self.server_mutations = 0
+		# Screenshots queued by preview_page this round — flushed as a follow-up user
+		# message after the tool results (tool results can't carry image parts).
+		self.pending_images: list[dict] = []
+		self.preview_count = 0
 		client_operations: list[dict] = []
 		summary_text = ""
 
@@ -641,6 +662,8 @@ class AgentRunner:
 							logger.warning("Client op rejected — %s: %s", op["tool_name"], content)
 					self.end_activity(entry)
 					messages.append({"role": "tool", "tool_call_id": tc_dict["id"], "content": content})
+
+				self.flush_pending_images(messages)
 
 				# One commit per round: makes this round's server-tool writes and messages
 				# durable, so a provider failure in a later round can't roll them back.
