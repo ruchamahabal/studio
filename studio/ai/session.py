@@ -263,6 +263,26 @@ class AISession:
 			update_modified=False,
 		)
 
+	def truncate_from_turn(self, message_id: str):
+		"""Rewind the conversation to before the turn containing `message_id`:
+		delete the turn's user prompt, its assistant reply, and everything after."""
+		anchor = frappe.db.get_value(
+			self.MESSAGE_DOCTYPE, {"name": message_id, "session": self._doc.name}, "creation"
+		)
+		if not anchor:
+			frappe.throw(_("Message not found in this session"))
+		# The nearest user message at or before the anchor starts the turn.
+		turn_start = frappe.db.get_value(
+			self.MESSAGE_DOCTYPE,
+			{"session": self._doc.name, "role": "user", "creation": ["<=", anchor]},
+			"creation",
+			order_by="creation desc",
+		)
+		frappe.db.delete(
+			self.MESSAGE_DOCTYPE,
+			{"session": self._doc.name, "creation": [">=", turn_start or anchor]},
+		)
+
 	# --- lifecycle --------------------------------------------------------
 
 	def clear(self):

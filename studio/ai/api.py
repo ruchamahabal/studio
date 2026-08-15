@@ -133,6 +133,30 @@ def get_ai_session(page_id: str, model: str | None = None) -> dict:
 
 @frappe.whitelist()
 @has_page_write_perm()
+def revert_to_message(session_id: str, message_id: str) -> dict:
+	"""Undo an AI turn: restore the page from the turn's pre-edit snapshot and
+	rewind the conversation to before that turn. Rejected while a turn is running
+	(the worker would immediately overwrite the restored state)."""
+	from studio.ai import snapshots
+
+	if locks.held(locks.session_key(session_id)):
+		frappe.throw(_("Wait for the running AI request to finish before reverting."))
+	session = AISession.get(session_id)
+	metadata_json = frappe.db.get_value(
+		"Studio AI Message", {"name": message_id, "session": session_id}, "metadata_json"
+	)
+	meta = json.loads(metadata_json or "{}")
+	if not meta.get("revertSnapshot"):
+		frappe.throw(_("This turn has nothing to revert to"))
+	page_id = snapshots.restore_snapshot(meta["revertSnapshot"])
+	session.truncate_from_turn(message_id)
+	frappe.db.commit()
+	frappe.publish_realtime(f"ai_chat_reload_{page_id}", {"page_id": page_id}, user=frappe.session.user)
+	return {"messages": session.get_messages()}
+
+
+@frappe.whitelist()
+@has_page_write_perm()
 def clear_ai_session(page_id: str) -> dict:
 	session = AISession.get_or_create(page_id)
 	session.clear()

@@ -27,7 +27,7 @@ import time
 
 import frappe
 
-from studio.ai import llm, locks
+from studio.ai import llm, locks, snapshots
 from studio.ai.agent.registry import get_tool_registry_for_mode
 from studio.ai.agent.tree import WorkingTree
 from studio.ai.block_codec import BlockCodec
@@ -57,6 +57,25 @@ class CancelledError(Exception):
 # Tools that shouldn't appear in the visible timeline (they render as their own
 # chat card instead).
 ACTIVITY_SILENT = frozenset({"ask_clarification", "propose_plan"})
+
+# Server tools that only READ. Everything else that runs server-side mutates real
+# state — those turns get a revert snapshot even when no canvas op was applied.
+READ_ONLY_SERVER_TOOLS = frozenset(
+	{
+		"query_blocks",
+		"read_block",
+		"get_page_state",
+		"list_doctypes",
+		"get_doctype_fields",
+		"get_sort_fields",
+		"get_whitelisted_methods",
+		"list_data_sources",
+		"get_page_script",
+		"list_variables",
+		"list_app_files",
+		"read_app_file",
+	}
+)
 
 TOOL_LABELS = {
 	"generate_page": "Building the page",
@@ -474,6 +493,9 @@ class AgentRunner:
 		# Mirror of the page tree this turn. Client ops are validated against it so the tool
 		# result fed back is the truth, not a blanket "Applied." (see WorkingTree).
 		self.tree = WorkingTree(self._page_root())
+		# Pre-turn page state, saved as a revert snapshot only if this turn mutates.
+		self.pending_state = snapshots.capture_page_state(self.page_id)
+		self.server_mutations = 0
 		client_operations: list[dict] = []
 		summary_text = ""
 
@@ -533,6 +555,8 @@ class AgentRunner:
 					entry = self.begin_activity(op["tool_name"], op["args"])
 					if tool and tool.side == "server" and tool.handler:
 						content = tool.handler(self, op["args"])
+						if op["tool_name"] not in READ_ONLY_SERVER_TOOLS and not content.startswith("FAILED"):
+							self.server_mutations += 1
 					else:
 						content = self.tree.apply(op["tool_name"], op["args"])
 						# "FAILED" (hard miss) or "NOT FOUND" (partial bulk miss) — a correction
@@ -578,6 +602,11 @@ class AgentRunner:
 			summary_text = self.describe_operations(client_operations)
 		self.emit("stream", chunk=summary_text)
 
+		# Offer revert only for turns that changed something.
+		snapshot_name = None
+		if client_operations or self.server_mutations:
+			snapshot_name = snapshots.save_revert_snapshot(self.page_id, self.pending_state, self.session_id)
+
 		AISession.try_append_message(
 			self.session_id,
 			"assistant",
@@ -589,6 +618,7 @@ class AgentRunner:
 				"model": self.model,
 				"operations": len(client_operations),
 				"steps": self.timeline(),
+				**({"revertSnapshot": snapshot_name} if snapshot_name else {}),
 			},
 		)
 		frappe.db.commit()  # commit before emit so the client's reload sees the final turn
