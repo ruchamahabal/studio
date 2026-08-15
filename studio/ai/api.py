@@ -11,6 +11,7 @@ import logging
 
 import frappe
 from frappe import _
+from frappe.utils import sbool
 
 from studio.ai import llm, locks
 from studio.ai.agent.loop import run_agent_job
@@ -212,6 +213,41 @@ def clear_ai_session(
 		session = AISession.get_or_create(resolve_app(app_id, page_id))
 	session.clear()
 	return {"status": "ok"}
+
+
+@frappe.whitelist()
+@has_page_write_perm()
+def confirm_pending_action(session_id: str, message_id: str, apply: bool = True) -> dict:
+	"""Apply or skip a confirm-gated action the agent proposed (create_doctype,
+	sample data, backend Python). The mutation happens HERE, user-triggered —
+	never from the agent's own turn."""
+	from studio.ai.agent.pending import apply_pending_action
+
+	session = AISession.get(session_id)
+	row = frappe.db.get_value(
+		"Studio AI Message",
+		{"name": message_id, "session": session_id},
+		["metadata_json", "status"],
+		as_dict=True,
+	)
+	if not row:
+		frappe.throw(_("Message not found"))
+	if row.status != "pending_action":
+		frappe.throw(_("This action was already resolved"))
+	meta = json.loads(row.metadata_json or "{}")
+
+	if not sbool(apply):
+		frappe.db.set_value("Studio AI Message", message_id, "status", "action_skipped")
+		session.append_message(
+			"assistant", _("Skipped."), message_type="status", metadata={"status": "complete"}
+		)
+		return {"status": "skipped", "messages": session.get_messages()}
+
+	result = apply_pending_action(meta.get("kind"), meta.get("payload") or {})
+	frappe.db.set_value("Studio AI Message", message_id, "status", "action_applied")
+	session.append_message("assistant", result, message_type="chat", metadata={"status": "complete"})
+	frappe.db.commit()
+	return {"status": "applied", "result": result, "messages": session.get_messages()}
 
 
 @frappe.whitelist()

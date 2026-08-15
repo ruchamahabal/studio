@@ -59,7 +59,9 @@ class CancelledError(Exception):
 
 # Tools that shouldn't appear in the visible timeline (they render as their own
 # chat card instead).
-ACTIVITY_SILENT = frozenset({"ask_clarification", "propose_plan"})
+ACTIVITY_SILENT = frozenset(
+	{"ask_clarification", "propose_plan", "create_doctype", "seed_sample_data", "write_python_file"}
+)
 
 # Server tools that only READ. Everything else that runs server-side mutates real
 # state — those turns get a revert snapshot even when no canvas op was applied.
@@ -83,6 +85,11 @@ READ_ONLY_SERVER_TOOLS = frozenset(
 		"get_page_errors",
 		"read_skill",
 		"search_images",
+		"query_records",
+		"get_document",
+		"run_python",
+		"list_backend_files",
+		"read_backend_file",
 	}
 )
 
@@ -121,6 +128,11 @@ TOOL_LABELS = {
 	"preview_page": "Looked at the page",
 	"read_skill": "Read reference docs",
 	"search_images": "Searched stock photos",
+	"query_records": "Read real records",
+	"get_document": "Read a record",
+	"run_python": "Ran a read query",
+	"list_backend_files": "Browsed backend files",
+	"read_backend_file": "Read backend code",
 	"list_pages": "Listed the app's pages",
 	"create_page": "Created a page",
 	"open_page": "Switched working page",

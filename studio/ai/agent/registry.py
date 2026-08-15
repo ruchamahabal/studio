@@ -86,6 +86,7 @@ def _build_shared_registry() -> ToolRegistry:
 	These act on the block tree the shared renderer consumes, identical in both modes. Imported lazily
 	to avoid import cycles (tool handlers reference the agent context type)."""
 	from studio.ai.agent.tools import (
+		backend,
 		bindings,
 		blocks,
 		conversation,
@@ -97,6 +98,7 @@ def _build_shared_registry() -> ToolRegistry:
 		introspect,
 		pages,
 		preview,
+		python,
 		query,
 		skills,
 	)
@@ -115,6 +117,8 @@ def _build_shared_registry() -> ToolRegistry:
 	registry.extend(errors.TOOLS)
 	registry.extend(images.TOOLS)
 	registry.extend(skills.TOOLS)
+	registry.extend(backend.SHARED_TOOLS)
+	registry.extend(python.TOOLS)
 	return registry
 
 
@@ -133,10 +137,11 @@ def build_standard_page_registry() -> ToolRegistry:
 	"""Standard (exported) app: a real TypeScript codebase. State/logic live in setup() modules,
 	stores and composables edited as files — so it gets the file tools and the module script form, and
 	NO variable-doctype tools (state is declared in code instead)."""
-	from studio.ai.agent.tools import files, scripts
+	from studio.ai.agent.tools import backend, files, scripts
 
 	registry = _build_shared_registry()
 	registry.extend(files.TOOLS)
+	registry.extend(backend.FILE_TOOLS)
 	registry.extend(scripts.build_tools(is_standard=True))
 	return registry
 

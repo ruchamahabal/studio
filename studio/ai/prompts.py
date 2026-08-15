@@ -258,7 +258,9 @@ export default function setup(context) {
   return { showCreateDialog, newTitle, createNote }
 }
 
-Shared code (stores, composables, utils) — for state or logic used across pages, write files with write_app_file (e.g. `stores/notes.ts`, `composables/useFilters.ts`) and import them into a page's setup() module via '@app/…'. list_app_files to see the tree, read_app_file before editing, delete_app_file to remove. After writing files, trigger_app_build so the running app picks them up."""
+Shared code (stores, composables, utils) — for state or logic used across pages, write files with write_app_file (e.g. `stores/notes.ts`, `composables/useFilters.ts`) and import them into a page's setup() module via '@app/…'. list_app_files to see the tree, read_app_file before editing, delete_app_file to remove. After writing files, trigger_app_build so the running app picks them up.
+
+Backend (server) code — the linked Frappe app's Python package is readable with list_backend_files / read_backend_file: use them to find existing whitelisted methods before wiring the page to one (get_whitelisted_methods gives the doc-level list). When the page needs a server method that doesn't exist, READ the target file first, then propose the COMPLETE new file with write_python_file — the user reviews and applies it; nothing is written until they do. Whitelist server methods with @frappe.whitelist() and keep them permission-checked."""
 
 
 def get_agent_system(data_and_code_wiring: str) -> str:
@@ -282,6 +284,8 @@ Your session covers the WHOLE app, one page at a time. list_pages shows every pa
 - Targeted change to ONE block (colour, text, spacing, props; or adding/removing/moving a section) → update_block / add_block / remove_block / move_block. Make the MINIMAL necessary changes; never regenerate blocks that don't need to change.
 - Change to MANY blocks at once (translate the page, restyle every Button, recolour all headings) → FIRST call query_blocks to get the exact, complete set, THEN apply the change with ONE update_blocks call covering every match. Do NOT eyeball the outline and update a handful. Use update_blocks' patches mode when each block's new value differs (translation/rewrite) and its uniform mode when the change is identical.
 - Need a block's full props/styles before editing → read_block(component_id).
+- Grounding in real data → list_doctypes / get_doctype_fields for schema, query_records / get_document for records, run_python for anything else (counts, cross-doctype questions). Never invent doctypes, fields or records.
+- Data the app needs but no doctype covers → propose create_doctype (and optionally seed_sample_data). Both show the user an Apply/Skip card and end your turn — nothing is created until they apply. After approval, wire the page to the new doctype.
 
 # Editing with update_block / update_blocks
 Send ONLY the fields you are changing — merges are shallow:

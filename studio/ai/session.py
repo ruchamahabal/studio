@@ -79,9 +79,10 @@ class AISession:
 		)
 
 	@classmethod
-	def try_append_message(cls, session_id: str | None, role: str, content: str, **kwargs):
+	def try_append_message(cls, session_id: str | None, role: str, content: str, **kwargs) -> str | None:
 		if session_id and frappe.db.exists(cls.DOCTYPE, session_id):
-			cls(frappe.get_doc(cls.DOCTYPE, session_id)).append_message(role, content, **kwargs)
+			return cls(frappe.get_doc(cls.DOCTYPE, session_id)).append_message(role, content, **kwargs)
+		return None
 
 	@classmethod
 	def attach_metadata_to_last_assistant(cls, session_id: str | None, extra_metadata: dict):
@@ -244,7 +245,7 @@ class AISession:
 			status = (metadata.get("status") or "").strip()
 			meta_clean = {k: v for k, v in metadata.items() if k != "status"}
 
-		frappe.get_doc(
+		message = frappe.get_doc(
 			{
 				"doctype": self.MESSAGE_DOCTYPE,
 				"session": self._doc.name,
@@ -263,6 +264,7 @@ class AISession:
 		if task_type:
 			updates["last_task_type"] = task_type
 		frappe.db.set_value(self.DOCTYPE, self._doc.name, updates, update_modified=False)
+		return message.name
 
 	def update_last_assistant_metadata(self, extra_metadata: dict):
 		"""Merge extra_metadata into the most recent assistant message's
