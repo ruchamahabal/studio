@@ -109,7 +109,8 @@ def _available_data_note(ctx) -> str:
 	"""A message listing the data sources + variables already on the page, so the
 	generator binds the layout to real, existing sources (per the DATA BINDING rules).
 	Empty when the page has no data layer yet."""
-	page = frappe.get_doc("Studio Page", ctx.page_id) if ctx.page_id else None
+	page_id = getattr(ctx, "target_page_id", None) or ctx.page_id
+	page = frappe.get_doc("Studio Page", page_id) if page_id else None
 	if page is None:
 		return ""
 	state = describe_page_data(page)

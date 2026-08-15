@@ -15,6 +15,8 @@ suffixed with the page id, e.g. `ai_chat_stream_<page_id>`:
                         One entry of the turn's timeline; the same id is emitted
                         twice (running then done), so upsert by id.
     ai_chat_tool_batch  {operations: [{tool_name, args}]}   apply to the canvas
+    ai_chat_page        {action: "created"|"meta"|"updated", name, title, route}
+                        a page this turn touched — render an open-page link
     ai_chat_complete    {message}
     ai_chat_error       {message}
 
@@ -152,6 +154,11 @@ class AgentRunner:
 		self.registry = get_tool_registry_for_mode(is_standard)
 		self.system_prompt = get_system_prompt_for_mode(is_standard)
 		self.tree: WorkingTree | None = None
+		# The page the agent is currently building — starts as the editor's open page.
+		# create_page/open_page switch it; background pages get server-side persistence.
+		self.target_page_id = page_id
+		# Pages this turn created/updated — persisted on the reply for link chips.
+		self.page_events: list[dict] = []
 		# The turn's timeline, streamed to the chat as ai_chat_step events and persisted
 		# on the final message: the tools the model ran, its reasoning, and the narration
 		# it wrote between rounds — in the order they happened.
@@ -200,6 +207,54 @@ class AgentRunner:
 		if self.page_id:
 			event = f"{event}_{self.page_id}"
 		frappe.publish_realtime(event, {"page_id": self.page_id, **kwargs}, user=self.user)
+
+	# --- working page -----------------------------------------------------
+
+	def targeting_editor_page(self) -> bool:
+		return bool(self.target_page_id) and self.target_page_id == self.page_id
+
+	def switch_target(self, page_name: str) -> None:
+		"""Point the loop at another page of the app. The editor's open page keeps
+		its live canvas mirror; any other page is mirrored from the DB."""
+		self.target_page_id = page_name
+		if self.targeting_editor_page():
+			self.tree = WorkingTree(self._page_root())
+		else:
+			self.tree = WorkingTree(self._db_page_root(page_name))
+
+	@staticmethod
+	def _db_page_root(page_name: str) -> dict | None:
+		raw = frappe.db.get_value("Studio Page", page_name, "draft_blocks") or frappe.db.get_value(
+			"Studio Page", page_name, "blocks"
+		)
+		try:
+			blocks = json.loads(raw or "[]")
+		except (json.JSONDecodeError, TypeError):
+			return None
+		if isinstance(blocks, list):
+			return blocks[0] if blocks else None
+		return blocks if isinstance(blocks, dict) else None
+
+	def note_page_event(self, action: str, doc) -> None:
+		"""Record a page this turn touched (created / meta / updated) — streamed live
+		and persisted on the reply so the chat can render an open-page link."""
+		event = {"action": action, "name": doc.name, "title": doc.page_title, "route": doc.route}
+		self.page_events.append(event)
+		self.emit("page", **event)
+
+	def persist_generated(self, ops: list[dict]) -> None:
+		"""A generation aimed at a background page can't ride the canvas — expand it,
+		assign ids server-side, and save it straight to the page."""
+		for op in ops:
+			compact = (op.get("args") or {}).get("block")
+			if not compact:
+				continue
+			root = BlockCodec.ensure_ids(BlockCodec.expand(compact))
+			doc = frappe.get_doc("Studio Page", self.target_page_id)
+			doc.draft_blocks = json.dumps([root])
+			doc.save(ignore_permissions=True)
+			self.tree = WorkingTree(root)
+			self.note_page_event("updated", doc)
 
 	# --- turn timeline ----------------------------------------------------
 
@@ -529,14 +584,21 @@ class AgentRunner:
 							ops = tool.generator(self, op["args"])
 							self.end_activity(entry)
 							client_operations.extend(ops)
-							if ops:
+							if not ops:
+								continue
+							# The editor's open page applies ops on the canvas; a
+							# background page is persisted server-side.
+							if self.targeting_editor_page() or not self.target_page_id:
 								self.emit("tool_batch", operations=ops)
+							else:
+								self.persist_generated(ops)
 					break
 
 				# Apply this round's edits immediately so the canvas updates live and the user
 				# sees progress during a long multi-block change. Server ops are NOT emitted —
-				# they run via their handler below.
-				if client_ops:
+				# they run via their handler below. Canvas ops only exist for the page open
+				# in the editor; aimed at a background page they are refused in the feedback.
+				if client_ops and (self.targeting_editor_page() or not self.target_page_id):
 					client_operations.extend(client_ops)
 					self.emit("tool_batch", operations=client_ops)
 
@@ -565,6 +627,12 @@ class AgentRunner:
 						content = tool.handler(self, op["args"])
 						if op["tool_name"] not in READ_ONLY_SERVER_TOOLS and not content.startswith("FAILED"):
 							self.server_mutations += 1
+					elif not (self.targeting_editor_page() or not self.target_page_id):
+						content = (
+							f"NOT APPLIED: '{op['tool_name']}' edits the canvas, and the working page "
+							f"'{self.target_page_id}' isn't open in the editor. Rebuild it whole with "
+							"generate_page, or tell the user to open it for surgical edits."
+						)
 					else:
 						content = self.tree.apply(op["tool_name"], op["args"])
 						# "FAILED" (hard miss) or "NOT FOUND" (partial bulk miss) — a correction
@@ -626,6 +694,7 @@ class AgentRunner:
 				"model": self.model,
 				"operations": len(client_operations),
 				"steps": self.timeline(),
+				**({"pages": self.page_events} if self.page_events else {}),
 				**({"revertSnapshot": snapshot_name} if snapshot_name else {}),
 			},
 		)

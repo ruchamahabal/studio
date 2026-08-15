@@ -144,6 +144,25 @@ class BlockCodec:
 		return out
 
 	@staticmethod
+	def ensure_ids(block: dict) -> dict:
+		"""Assign componentIds server-side (canvas format: `<name>-<hash>`). The editor
+		assigns ids on the canvas; blocks persisted server-side (background-page
+		generation) need them here so refs are stable when the page is opened later."""
+		if not isinstance(block, dict):
+			return block
+		if not block.get("componentId"):
+			name = (block.get("componentName") or "block").lower()
+			block["componentId"] = f"{name}-{frappe.generate_hash(length=8)}"
+		for child in block.get("children") or []:
+			BlockCodec.ensure_ids(child)
+		for slot in (block.get("componentSlots") or {}).values():
+			content = slot.get("slotContent") if isinstance(slot, dict) else None
+			if isinstance(content, list):
+				for child in content:
+					BlockCodec.ensure_ids(child)
+		return block
+
+	@staticmethod
 	def parse_blocks(content: str) -> dict:
 		cleaned = BlockCodec.strip_fences(content)
 		try:

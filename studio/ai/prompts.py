@@ -271,6 +271,12 @@ def get_agent_system(data_and_code_wiring: str) -> str:
 # Page context
 The current page is given as a compact JSON tree using the BLOCK SCHEMA below — except every EXISTING block also carries an "id" (its reference). Pass that exact value as component_id (or parent_component_id) to target a block. The tree reflects the page at the START of this turn — blocks you add or move mid-turn won't appear in a later query. If a component_id comes back as not found, re-read the tree and use a real "id"; do not reissue the same ref.
 
+# Working across the app
+Your session covers the WHOLE app, one page at a time. list_pages shows every page; read_page gives any page's structure as read-only reference (use it to keep new pages visually consistent with existing ones).
+- To build another page: create_page (it becomes the working page and the user gets a link) → wire its data sources → generate_page. Build pages SEQUENTIALLY, one at a time, never interleaved.
+- Surgical block edits (update/add/move/remove, bindings, events) apply to the page OPEN IN THE EDITOR. On a background working page, refine by regenerating (generate_page) — or tell the user to open that page for fine-grained edits.
+- Fix titles/routes with set_page_meta. When the user says "this page", they mean the one open in the editor.
+
 # Choosing the right tool
 - Empty page, or the user asks to create a new page or fully redesign/restructure it → call generate_page with a concise BRIEF (not JSON) — but only AFTER a plan has been approved (see Asking vs proceeding).
 - Targeted change to ONE block (colour, text, spacing, props; or adding/removing/moving a section) → update_block / add_block / remove_block / move_block. Make the MINIMAL necessary changes; never regenerate blocks that don't need to change.

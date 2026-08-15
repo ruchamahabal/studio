@@ -23,7 +23,10 @@ def text_arg(value) -> str:
 
 
 def load_page(ctx):
-	return frappe.get_doc("Studio Page", ctx.page_id) if ctx.page_id else None
+	"""The working page's doc — follows create_page/open_page switches, so data
+	sources, variables and scripts land on the page the agent is building."""
+	page_id = getattr(ctx, "target_page_id", None) or ctx.page_id
+	return frappe.get_doc("Studio Page", page_id) if page_id else None
 
 
 def save_page(page) -> str | None:

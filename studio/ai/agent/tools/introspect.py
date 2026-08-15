@@ -50,7 +50,8 @@ def run_get_page_state(ctx, args: dict) -> str:
 	"""A compact snapshot of the page's DATA wiring — existing data sources,
 	variables, and whether a page script is set. The block tree itself is already
 	in the conversation context, so it is not repeated here."""
-	page = frappe.get_doc("Studio Page", ctx.page_id) if ctx.page_id else None
+	page_id = getattr(ctx, "target_page_id", None) or ctx.page_id
+	page = frappe.get_doc("Studio Page", page_id) if page_id else None
 	if page is None:
 		return "No page in context."
 	state = describe_page_data(page)
