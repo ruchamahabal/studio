@@ -214,6 +214,18 @@ def clear_ai_session(
 	return {"status": "ok"}
 
 
+@frappe.whitelist()
+@has_page_write_perm()
+def report_page_error(page_id: str, message: str, source: str = "", stack: str = "") -> dict:
+	"""The renderer (editor canvas / dev preview) reports uncaught errors here so
+	the agent can read them via get_page_errors and fix its own breakage."""
+	from studio.ai.agent.tools.errors import record_error
+
+	if page_id and frappe.db.exists("Studio Page", page_id):
+		record_error(page_id, message, source, stack)
+	return {"status": "ok"}
+
+
 def _parse_block_ids(selected_block_ids: list | str | None) -> list[str]:
 	if isinstance(selected_block_ids, str):
 		try:

@@ -25,6 +25,7 @@ All events also carry {page_id}.
 
 import json
 import logging
+import re
 import time
 
 import frappe
@@ -76,7 +77,24 @@ READ_ONLY_SERVER_TOOLS = frozenset(
 		"list_variables",
 		"list_app_files",
 		"read_app_file",
+		"list_pages",
+		"read_page",
+		"preview_page",
+		"get_page_errors",
 	}
+)
+
+# Past-tense claims of applied work. Used to catch a model narrating success
+# with zero ops applied — the most corrosive failure mode a chat agent has.
+ACTION_CLAIM_RE = re.compile(
+	r"\b(added|updated|changed|created|built|removed|moved|wired|applied|fixed|restyled|redesigned)\b",
+	re.IGNORECASE,
+)
+
+UNBACKED_CORRECTION = (
+	"CORRECTION: your last message claims changes, but NO tool call was applied this turn. "
+	"Either make the changes now by calling the tools, or reply honestly that nothing was changed. "
+	"Never describe work you did not do."
 )
 
 TOOL_LABELS = {
@@ -582,6 +600,7 @@ class AgentRunner:
 		self.preview_count = 0
 		client_operations: list[dict] = []
 		summary_text = ""
+		corrected_unbacked = False
 
 		try:
 			for _round in range(MAX_ROUNDS):
@@ -635,6 +654,18 @@ class AgentRunner:
 
 				# The model ENDS the turn by replying with a final summary and NO tool calls.
 				if not tool_operations:
+					# One corrective round when the summary claims work nothing backs.
+					if (
+						not corrected_unbacked
+						and summary_text
+						and not client_operations
+						and not self.server_mutations
+						and ACTION_CLAIM_RE.search(summary_text)
+					):
+						corrected_unbacked = True
+						messages.append({"role": "assistant", "content": summary_text})
+						messages.append({"role": "user", "content": UNBACKED_CORRECTION})
+						continue
 					break
 
 				# Feed each tool's result back so the model can continue or self-correct.
@@ -699,6 +730,15 @@ class AgentRunner:
 		# wrote no summary, synthesise one from the ops rather than making a second LLM call.
 		if not summary_text:
 			summary_text = self.describe_operations(client_operations)
+		# Final backstop: a summary still claiming work nothing backs is rewritten to
+		# the truth rather than persisted as a lie.
+		if (
+			summary_text
+			and not client_operations
+			and not self.server_mutations
+			and ACTION_CLAIM_RE.search(summary_text)
+		):
+			summary_text = "I looked into it but didn't apply any changes. Tell me how you'd like to proceed."
 		self.emit("stream", chunk=summary_text)
 
 		# Offer revert only for turns that changed something.

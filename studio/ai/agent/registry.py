@@ -90,6 +90,7 @@ def _build_shared_registry() -> ToolRegistry:
 		blocks,
 		conversation,
 		data,
+		errors,
 		generate,
 		interactivity,
 		introspect,
@@ -109,6 +110,7 @@ def _build_shared_registry() -> ToolRegistry:
 	registry.extend(interactivity.TOOLS)
 	registry.extend(pages.TOOLS)
 	registry.extend(preview.TOOLS)
+	registry.extend(errors.TOOLS)
 	return registry
 
 
