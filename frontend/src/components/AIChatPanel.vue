@@ -3,7 +3,41 @@
 		<div
 			class="flex shrink-0 items-center justify-between border-b border-outline-gray-1 bg-surface-base px-3 py-2.5"
 		>
-			<div class="text-[11px] leading-4 text-ink-gray-5">Session persists for this page</div>
+			<Popover placement="bottom-start" :offset="6">
+				<template #target="{ togglePopover }">
+					<button
+						class="flex max-w-[11rem] items-center gap-1 truncate text-[11px] leading-4 text-ink-gray-5 hover:text-ink-gray-8"
+						title="Switch chat"
+						@click="loadSessions(togglePopover)"
+					>
+						<span class="truncate">{{ sessionTitle || "Chat" }}</span>
+						<FeatherIcon name="chevron-down" class="h-3 w-3 shrink-0" />
+					</button>
+				</template>
+				<template #body="{ close }">
+					<div
+						class="max-h-64 min-w-52 overflow-y-auto rounded-lg border border-outline-gray-2 bg-surface-base py-1 shadow-lg"
+					>
+						<button
+							class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs font-medium text-ink-gray-8 hover:bg-surface-gray-2"
+							@click="newSession(close)"
+						>
+							<FeatherIcon name="plus" class="h-3 w-3" />
+							New chat
+						</button>
+						<button
+							v-for="s in sessions"
+							:key="s.name"
+							class="flex w-full flex-col px-3 py-1.5 text-left hover:bg-surface-gray-2"
+							:class="{ 'bg-surface-gray-1': s.name === controller.sessionId }"
+							@click="switchSession(s.name, close)"
+						>
+							<span class="truncate text-xs text-ink-gray-8">{{ s.title || "Untitled chat" }}</span>
+							<span class="text-[10px] text-ink-gray-4">{{ s.last_interaction_on }}</span>
+						</button>
+					</div>
+				</template>
+			</Popover>
 			<button
 				v-if="messages.length"
 				class="text-xs text-ink-gray-4 hover:text-ink-gray-9"
@@ -45,10 +79,66 @@
 					</div>
 				</div>
 				<div v-else class="flex w-full flex-col items-start gap-2">
+					<!-- Persisted turn timeline (what the agent did), collapsed by default -->
+					<details v-if="msg.metadata?.steps?.length" class="w-full">
+						<summary class="cursor-pointer select-none text-[11px] text-ink-gray-4 hover:text-ink-gray-6">
+							Worked through {{ msg.metadata.steps.length }} step{{
+								msg.metadata.steps.length === 1 ? "" : "s"
+							}}
+						</summary>
+						<AITurnTimeline :steps="msg.metadata.steps" class="mt-1.5" />
+					</details>
+
 					<div
 						class="w-fit max-w-full break-words text-p-xs text-ink-gray-8 [&_a]:text-ink-blue-3 [&_a]:underline [&_code]:rounded [&_code]:bg-surface-gray-2 [&_code]:px-1 [&_code]:py-0.5 [&_h1]:my-1.5 [&_h1]:text-sm [&_h1]:font-semibold [&_h2]:my-1.5 [&_h2]:text-sm [&_h2]:font-semibold [&_h3]:font-semibold [&_li]:my-0.5 [&_ol]:my-1 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-1 [&_pre]:my-1 [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-surface-gray-2 [&_pre]:p-2 [&_strong]:font-semibold [&_ul]:my-1 [&_ul]:list-disc [&_ul]:pl-5"
 						v-html="renderMarkdown(msg.content)"
 					/>
+
+					<!-- Pages this turn created/updated — open them in the editor -->
+					<div v-if="msg.metadata?.pages?.length" class="flex flex-wrap gap-1.5">
+						<button
+							v-for="page in msg.metadata.pages"
+							:key="page.name"
+							class="flex items-center gap-1 rounded-md border border-outline-gray-2 bg-surface-gray-1 px-2 py-1 text-[11px] text-ink-gray-7 hover:bg-surface-gray-2"
+							:title="page.route"
+							@click="openPage(page)"
+						>
+							<FeatherIcon name="file" class="h-3 w-3 text-ink-gray-4" />
+							{{ page.title || page.name }}
+							<FeatherIcon name="arrow-up-right" class="h-3 w-3 text-ink-gray-4" />
+						</button>
+					</div>
+
+					<!-- Undo this turn's changes -->
+					<button
+						v-if="msg.metadata?.revertSnapshot && msg.id === lastMessageId && !loading"
+						class="flex items-center gap-1 text-[11px] text-ink-gray-4 hover:text-ink-gray-8"
+						@click="revertTurn(msg)"
+					>
+						<FeatherIcon name="rotate-ccw" class="h-3 w-3" />
+						Undo this change
+					</button>
+
+					<!-- Confirm-gated action: Apply / Skip -->
+					<div
+						v-if="msg.metadata?.status === 'pending_action' && msg.id === lastMessageId"
+						class="flex gap-1.5"
+					>
+						<Button
+							variant="solid"
+							size="sm"
+							label="Apply"
+							:disabled="loading"
+							@click="controller.confirmPending(String(msg.id), true)"
+						/>
+						<Button
+							variant="outline"
+							size="sm"
+							label="Skip"
+							:disabled="loading"
+							@click="controller.confirmPending(String(msg.id), false)"
+						/>
+					</div>
 
 					<!-- Proposed plan: data plan + layout plan + palette + approve -->
 					<div
@@ -114,9 +204,23 @@
 				</div>
 			</template>
 
-			<p v-if="loading" class="text-p-xs text-ink-gray-5">
-				{{ statusMessage || "Generating…" }}
-			</p>
+			<!-- Live turn: the steps streaming in right now, then the status line -->
+			<div v-if="loading" class="flex flex-col gap-2">
+				<AITurnTimeline :steps="liveSteps" />
+				<div v-if="livePages.length" class="flex flex-wrap gap-1.5">
+					<button
+						v-for="page in livePages"
+						:key="page.name"
+						class="flex items-center gap-1 rounded-md border border-outline-gray-2 bg-surface-gray-1 px-2 py-1 text-[11px] text-ink-gray-7 hover:bg-surface-gray-2"
+						@click="openPage(page)"
+					>
+						<FeatherIcon name="file" class="h-3 w-3 text-ink-gray-4" />
+						{{ page.title || page.name }}
+						<FeatherIcon name="arrow-up-right" class="h-3 w-3 text-ink-gray-4" />
+					</button>
+				</div>
+				<p class="text-p-xs text-ink-gray-5">{{ statusMessage || "Generating…" }}</p>
+			</div>
 		</div>
 
 		<div v-if="isAIEnabled" class="shrink-0 border-t border-outline-gray-1 bg-surface-base p-4">
@@ -230,6 +334,7 @@
 
 <script lang="ts" setup>
 import { ref, computed, inject, watch, nextTick } from "vue"
+import { useRouter } from "vue-router"
 import { ErrorMessage, Button, Badge, FeatherIcon, call, createResource, Popover, toast } from "frappe-ui"
 import { marked } from "marked"
 import DOMPurify from "dompurify"
@@ -237,6 +342,7 @@ import useStudioStore from "@/stores/studioStore"
 import useCanvasStore from "@/stores/canvasStore"
 import useCodeStore from "@/stores/codeStore"
 import { AIChatController } from "@/components/AIChatController"
+import AITurnTimeline from "@/components/ai/AITurnTimeline.vue"
 import { getBlockInstance, getBlockString } from "@/utils/serializer"
 import type { BlockOptions } from "@/types"
 import { studioSettings } from "@/data/studioSettings"
@@ -246,6 +352,7 @@ const store = useStudioStore()
 const canvasStore = useCanvasStore()
 const codeStore = useCodeStore()
 const socket = inject<any>("socket")
+const router = useRouter()
 
 const isAIEnabled = computed(() => !!studioSettings.doc?.ai_api_key)
 
@@ -290,11 +397,15 @@ const isVisionModel = computed(() => {
 	return selected ? selected.vision : true
 })
 
+const sessionTitle = ref("")
+const sessions = ref<any[]>([])
+
 const sessionResource = createResource({
 	url: "studio.ai.api.get_ai_session",
 	onSuccess(data: any) {
 		messages.value = data.messages ?? []
 		controller.sessionId = data.session_id ?? ""
+		sessionTitle.value = data.title ?? ""
 		if (data.selected_model) {
 			selectedModel.value = data.selected_model
 		} else if (modelOptions.value.length) {
@@ -303,6 +414,43 @@ const sessionResource = createResource({
 		scrollToBottom()
 	},
 })
+
+const appId = computed(() => store.activePage?.studio_app ?? "")
+
+async function loadSessions(toggle: () => void) {
+	toggle()
+	if (!appId.value) return
+	sessions.value = (await call("studio.ai.api.list_ai_sessions", { app_id: appId.value })) ?? []
+}
+
+function switchSession(sessionId: string, close: () => void) {
+	close()
+	sessionResource.submit({ session_id: sessionId })
+}
+
+async function newSession(close: () => void) {
+	close()
+	if (!appId.value) return
+	const data: any = await call("studio.ai.api.new_ai_session", {
+		app_id: appId.value,
+		page_id: pageId.value,
+		model: selectedModel.value,
+	})
+	controller.sessionId = data?.session_id ?? ""
+	sessionTitle.value = ""
+	messages.value = []
+}
+
+function openPage(page: { name: string }) {
+	if (!page?.name || page.name === pageId.value) return
+	router.push({ name: "StudioPage", params: { appID: appId.value, pageID: page.name } })
+}
+
+async function revertTurn(msg: any) {
+	if (!confirm("Undo this change? The page goes back to how it was before this turn.")) return
+	await controller.revertTo(String(msg.id))
+	store.activePage && store.setPage(store.activePage.name)
+}
 
 function scrollToBottom() {
 	nextTick(() => {
@@ -356,6 +504,10 @@ const controller = new AIChatController({
 		store.syncPageModified({ modified })
 	},
 })
+
+// Live turn state (streamed steps + page chips), exposed for the template.
+const liveSteps = controller.steps
+const livePages = controller.pageEvents
 
 watch(isVisionModel, (vision) => {
 	if (!vision) controller.clearImage()
@@ -439,7 +591,10 @@ function sendPrompt(text: string) {
 }
 
 async function clearSession() {
-	await call("studio.ai.api.clear_ai_session", { page_id: pageId.value })
+	await call("studio.ai.api.clear_ai_session", {
+		session_id: controller.sessionId || undefined,
+		page_id: pageId.value,
+	})
 	messages.value = []
 }
 </script>

@@ -42,6 +42,11 @@ export class AIChatController {
 	imageData = ref<string | null>(null)
 	imagePreviewUrl = ref<string | null>(null)
 	imageFileName = ref("")
+	// The running turn's live timeline (ai_chat_step, upserted by id) and the pages
+	// it created/updated (ai_chat_page). Cleared when the turn ends — the persisted
+	// copies come back on the final message via reloadSession.
+	steps = ref<any[]>([])
+	pageEvents = ref<any[]>([])
 	private readonly dispatcher: ToolDispatcher
 	private pendingAssistantId: number | null = null
 	private summary = ""
@@ -62,7 +67,9 @@ export class AIChatController {
 		return {
 			onProgress: this.onProgress,
 			onStream: this.onStream,
+			onStep: this.onStep,
 			onToolBatch: this.onToolBatch,
+			onPage: this.onPage,
 			onClarify: this.onClarify,
 			onComplete: this.onComplete,
 			onError: this.onError,
@@ -81,6 +88,8 @@ export class AIChatController {
 	async submit(promptText: string, model: string) {
 		this.summary = ""
 		this.pageBuffer = ""
+		this.steps.value = []
+		this.pageEvents.value = []
 		this.ctx.error.value = ""
 		this.ctx.loading.value = true
 		this.ctx.statusMessage.value = ""
@@ -93,6 +102,7 @@ export class AIChatController {
 			const res: any = await call("studio.ai.api.run", {
 				prompt: promptText,
 				page_id: this.ctx.pageId(),
+				session_id: this.sessionId || undefined,
 				page_context: this.ctx.getPageContext(),
 				model,
 				selected_block_ids: this.ctx.getSelectedBlockIds(),
@@ -104,6 +114,37 @@ export class AIChatController {
 			}
 		} catch (e: any) {
 			this.onError({ message: e?.message || "Failed to start. Please try again." })
+		}
+	}
+
+	/** Apply or skip a confirm-gated action the agent proposed (Apply/Skip card). */
+	async confirmPending(messageId: string, apply: boolean) {
+		this.ctx.loading.value = true
+		try {
+			const res: any = await call("studio.ai.api.confirm_pending_action", {
+				session_id: this.sessionId,
+				message_id: messageId,
+				apply,
+			})
+			if (res?.messages) this.ctx.messages.value = res.messages
+		} catch (e: any) {
+			this.ctx.error.value = e?.message || "Could not apply the action."
+		} finally {
+			this.ctx.loading.value = false
+			this.ctx.scrollToBottom()
+		}
+	}
+
+	/** Undo an AI turn: restore the page from its snapshot and rewind the chat. */
+	async revertTo(messageId: string) {
+		try {
+			const res: any = await call("studio.ai.api.revert_to_message", {
+				session_id: this.sessionId,
+				message_id: messageId,
+			})
+			if (res?.messages) this.ctx.messages.value = res.messages
+		} catch (e: any) {
+			this.ctx.error.value = e?.message || "Could not revert."
 		}
 	}
 
@@ -136,6 +177,27 @@ export class AIChatController {
 		this.ctx.scrollToBottom()
 	}
 
+	onStep = (data: any) => {
+		// The same step id arrives twice (running, then done) — upsert by id.
+		const index = this.steps.value.findIndex((s) => s.id === data.id)
+		const step = { ...data }
+		delete step.page_id
+		if (index === -1) this.steps.value = [...this.steps.value, step]
+		else {
+			const next = [...this.steps.value]
+			next[index] = step
+			this.steps.value = next
+		}
+		this.ctx.scrollToBottom()
+	}
+
+	onPage = (data: any) => {
+		this.pageEvents.value = [
+			...this.pageEvents.value.filter((p) => p.name !== data.name),
+			{ action: data.action, name: data.name, title: data.title, route: data.route },
+		]
+	}
+
 	onToolBatch = (data: any) => {
 		if (!data.operations?.length) return
 		this.dispatcher.applyToolBatch(data.operations)
@@ -150,6 +212,8 @@ export class AIChatController {
 		this.pendingAssistantId = null
 		this.summary = ""
 		this.pageBuffer = ""
+		this.steps.value = []
+		this.pageEvents.value = []
 		this.ctx.reloadSession()
 	}
 
@@ -160,6 +224,8 @@ export class AIChatController {
 		this.pendingAssistantId = null
 		this.summary = ""
 		this.pageBuffer = ""
+		this.steps.value = []
+		this.pageEvents.value = []
 		this.ctx.reloadSession()
 	}
 
@@ -185,6 +251,11 @@ export class AIChatController {
 				layout_plan: data.layout_plan || [],
 				palette: data.palette || "",
 			})
+		} else if (data.pending_action) {
+			this.updatePending(data.question || "Apply this change?", {
+				status: "pending_action",
+				pending_action: data.pending_action,
+			})
 		} else {
 			this.updatePending(data.question || "Could you clarify?", {
 				status: "clarification",
@@ -193,6 +264,8 @@ export class AIChatController {
 		}
 		this.pendingAssistantId = null
 		this.summary = ""
+		this.steps.value = []
+		this.pageEvents.value = []
 		// Backend persists+commits clarify messages before emitting, so this is race-free.
 		this.ctx.reloadSession()
 	}

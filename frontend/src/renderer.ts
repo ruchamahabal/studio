@@ -10,6 +10,7 @@ import { spritePlugin } from "frappe-ui/icons"
 import { registerGlobalComponents, registerCustomVueComponents } from "@/globals"
 import { registerStudioPageScripts } from "@/data/studioPageScripts"
 import { initSocket } from "@/socket"
+import { installErrorReporter } from "@/utils/errorReporter"
 
 // For rendering apps built by studio
 const app = createApp(AppRenderer)
@@ -35,6 +36,8 @@ declare global {
 if (window.is_preview && typeof window.is_preview === "string") {
 	window.is_preview = window.is_preview === "1" || window.is_preview === "True"
 }
+
+installErrorReporter(app)
 
 const frappeApp = (window as any).frappe_app
 if (frappeApp) {
