@@ -15,26 +15,42 @@ class AISession:
 	# --- factories --------------------------------------------------------
 
 	@classmethod
-	def get_or_create(cls, page_id: str, model: str | None = None, user: str | None = None):
+	def get_or_create(
+		cls, app_id: str, model: str | None = None, user: str | None = None, page_id: str | None = None
+	):
+		"""The user's most recent Active session for this app, or a fresh one.
+		Sessions are app-scoped; `page_id` only updates the focus context."""
 		user = user or frappe.session.user
-
 		session_name = frappe.db.get_value(
 			cls.DOCTYPE,
-			{"page": page_id, "user": user},
+			{"app": app_id, "user": user, "status": ("!=", "Archived")},
 			"name",
+			order_by="last_interaction_on desc",
 		)
 		if session_name:
 			doc = frappe.get_doc(cls.DOCTYPE, str(session_name))
+			updates = {}
 			if model and not doc.selected_model:
-				doc.selected_model = model
+				updates["selected_model"] = model
+			if page_id and doc.page != page_id:
+				updates["page"] = page_id
+			if updates:
+				doc.update(updates)
 				doc.save(ignore_permissions=True)
 			return cls(doc)
+		return cls.create(app_id, model=model, user=user, page_id=page_id)
 
+	@classmethod
+	def create(
+		cls, app_id: str, model: str | None = None, user: str | None = None, page_id: str | None = None
+	):
 		doc = frappe.get_doc(
 			{
 				"doctype": cls.DOCTYPE,
-				"page": page_id,
-				"user": user,
+				"app": app_id,
+				"page": page_id or "",
+				"user": user or frappe.session.user,
+				"status": "Active",
 				"selected_model": model or "",
 				"last_interaction_on": frappe.utils.now_datetime(),
 			}
@@ -43,16 +59,24 @@ class AISession:
 		return cls(doc)
 
 	@classmethod
-	def get(cls, session_id: str, page_id: str | None = None, user: str | None = None):
+	def get(cls, session_id: str, user: str | None = None):
 		user = user or frappe.session.user
 		if not frappe.db.exists(cls.DOCTYPE, session_id):
 			frappe.throw(_("AI session not found"))
 		doc = frappe.get_doc(cls.DOCTYPE, session_id)
 		if doc.user != user:
 			frappe.throw(_("You do not have access to this AI session"))
-		if page_id and doc.page != page_id:
-			frappe.throw(_("AI session does not belong to this page"))
 		return cls(doc)
+
+	@classmethod
+	def list_for_app(cls, app_id: str, user: str | None = None) -> list[dict]:
+		return frappe.get_all(
+			cls.DOCTYPE,
+			filters={"app": app_id, "user": user or frappe.session.user},
+			fields=["name", "title", "status", "page", "last_interaction_on"],
+			order_by="last_interaction_on desc",
+			limit_page_length=50,
+		)
 
 	@classmethod
 	def try_append_message(cls, session_id: str | None, role: str, content: str, **kwargs):
@@ -75,6 +99,10 @@ class AISession:
 	@property
 	def name(self):
 		return self._doc.name
+
+	@property
+	def app(self):
+		return self._doc.app
 
 	@property
 	def page(self):
@@ -262,6 +290,39 @@ class AISession:
 			json.dumps(meta, separators=(",", ":")),
 			update_modified=False,
 		)
+
+	def maybe_name_session(self, model: str, api_key: str | None) -> None:
+		"""Give an untitled session a short LLM-written title after its first
+		completed turn. Fire-and-forget: a failure just leaves it untitled."""
+		if self._doc.title:
+			return
+		prompt = frappe.db.get_value(
+			self.MESSAGE_DOCTYPE,
+			{"session": self._doc.name, "role": "user"},
+			"content",
+			order_by="creation asc",
+		)
+		if not prompt:
+			return
+		try:
+			from studio.ai import llm
+
+			title = llm.complete(
+				model,
+				[
+					{
+						"role": "user",
+						"content": f"Name this app-building chat in 3-5 plain words, no quotes:\n{prompt[:500]}",
+					}
+				],
+				{"max_tokens": 24, "temperature": 0.2},
+				stream=False,
+				api_key=api_key,
+			)
+			if title := (title or "").strip().strip('"')[:60]:
+				frappe.db.set_value(self.DOCTYPE, self._doc.name, "title", title, update_modified=False)
+		except Exception:
+			pass
 
 	def truncate_from_turn(self, message_id: str):
 		"""Rewind the conversation to before the turn containing `message_id`:

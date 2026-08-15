@@ -128,6 +128,7 @@ class AgentRunner:
 		api_key: str,
 		*,
 		user: str | None = None,
+		app_id: str | None = None,
 		page_id: str | None = None,
 		session_id: str | None = None,
 		selected_block_ids: list[str] | None = None,
@@ -138,6 +139,9 @@ class AgentRunner:
 		self.model = model
 		self.api_key = api_key
 		self.user = user or frappe.session.user
+		self.app_id = app_id or (
+			page_id and frappe.db.get_value("Studio Page", page_id, "studio_app") or None
+		)
 		self.page_id = page_id
 		self.session_id = session_id
 		self.selected_block_ids = selected_block_ids or []
@@ -156,9 +160,13 @@ class AgentRunner:
 		self._open_thinking: dict | None = None
 
 	def is_standard(self) -> bool:
-		if not self.page_id:
-			return False
-		return bool(frappe.db.get_value("Studio Page", self.page_id, "is_standard"))
+		"""Pages inherit is_standard from their app, so the app answers for every
+		page this session might touch."""
+		if self.app_id:
+			return bool(frappe.db.get_value("Studio App", self.app_id, "is_standard"))
+		if self.page_id:
+			return bool(frappe.db.get_value("Studio Page", self.page_id, "is_standard"))
+		return False
 
 	# --- cancellation -----------------------------------------------------
 
@@ -623,6 +631,12 @@ class AgentRunner:
 		)
 		frappe.db.commit()  # commit before emit so the client's reload sees the final turn
 		self.emit("complete", message=summary_text or "Done")
+
+		if self.session_id and frappe.db.exists(AISession.DOCTYPE, self.session_id):
+			AISession(frappe.get_doc(AISession.DOCTYPE, self.session_id)).maybe_name_session(
+				self.model, self.api_key
+			)
+			frappe.db.commit()
 
 	def _classify(self, tool_operations: list[dict]) -> tuple[list, list, list, list]:
 		"""Split this round's calls. Artifact tools (generate_page) are handled by their
