@@ -193,13 +193,17 @@ class StudioPage(Document):
 		return False
 
 	def on_trash(self):
-		self.delete_ai_sessions()
+		self.cleanup_ai_records()
 		if can_export(self):
 			delete_folder(self.get_folder_path())
 
-	def delete_ai_sessions(self):
+	def cleanup_ai_records(self):
+		"""Snapshots belong to the page and go with it. Sessions belong to the APP —
+		this page is only their focus pointer, so unlink instead of deleting the
+		conversation."""
+		frappe.db.delete("Studio AI Snapshot", {"page": self.name})
 		for session in frappe.get_all("Studio AI Session", filters={"page": self.name}, pluck="name"):
-			frappe.delete_doc("Studio AI Session", session, ignore_missing=True)
+			frappe.db.set_value("Studio AI Session", session, "page", None, update_modified=False)
 
 	def validate_variables(self):
 		# check for duplicate variable names and show the duplicate variable name

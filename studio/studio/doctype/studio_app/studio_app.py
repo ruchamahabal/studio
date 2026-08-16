@@ -137,6 +137,11 @@ class StudioApp(WebsiteGenerator):
 		remove_null_fields(doc)
 
 	def on_trash(self):
+		# Sessions first: their on_trash clears messages and snapshots, so the
+		# page deletes below can't trip over snapshot links.
+		for session in frappe.get_all("Studio AI Session", filters={"app": self.name}, pluck="name"):
+			frappe.delete_doc("Studio AI Session", session, ignore_missing=True, force=True)
+
 		for page in self.pages:
 			frappe.delete_doc("Studio Page", page, force=True)
 

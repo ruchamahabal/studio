@@ -22,8 +22,7 @@ class StudioAISession(Document):
 	# end: auto-generated types
 
 	def on_trash(self):
-		self.delete_ai_messages()
-
-	def delete_ai_messages(self):
-		for message in frappe.get_all("Studio AI Message", filters={"session": self.name}, pluck="name"):
-			frappe.delete_doc("Studio AI Message", message, ignore_missing=True)
+		# Messages and revert snapshots exist only for their session — plain row
+		# deletes (neither doctype has controller logic to run).
+		frappe.db.delete("Studio AI Message", {"session": self.name})
+		frappe.db.delete("Studio AI Snapshot", {"session": self.name})
