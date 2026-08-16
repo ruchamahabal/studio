@@ -15,14 +15,17 @@ class AISession:
 	# --- factories --------------------------------------------------------
 
 	@classmethod
-	def get_or_create(cls, page_id: str, model: str | None = None, user: str | None = None):
-		"""The page's most recently used session for this user, creating the first
-		if none exist. A page can hold several parallel sessions."""
+	def get_or_create(
+		cls, app_id: str, model: str | None = None, user: str | None = None, page_id: str | None = None
+	):
+		"""The app's most recently used session for this user, creating the first
+		if none exist. An app can hold several parallel sessions; `page_id` seeds a
+		new session's focus page."""
 		user = user or frappe.session.user
 
 		session_name = frappe.db.get_value(
 			cls.DOCTYPE,
-			{"page": page_id, "user": user},
+			{"app": app_id, "user": user},
 			"name",
 			order_by="last_interaction_on desc",
 		)
@@ -32,14 +35,17 @@ class AISession:
 				doc.selected_model = model
 				doc.save(ignore_permissions=True)
 			return cls(doc)
-		return cls.create(page_id, model, user)
+		return cls.create(app_id, model, user, page_id)
 
 	@classmethod
-	def create(cls, page_id: str, model: str | None = None, user: str | None = None):
+	def create(
+		cls, app_id: str, model: str | None = None, user: str | None = None, page_id: str | None = None
+	):
 		doc = frappe.get_doc(
 			{
 				"doctype": cls.DOCTYPE,
-				"page": page_id,
+				"app": app_id,
+				"page": page_id or "",
 				"user": user or frappe.session.user,
 				"selected_model": model or "",
 				"last_interaction_on": frappe.utils.now_datetime(),
@@ -49,15 +55,15 @@ class AISession:
 		return cls(doc)
 
 	@classmethod
-	def get(cls, session_id: str, page_id: str | None = None, user: str | None = None):
+	def get(cls, session_id: str, app_id: str | None = None, user: str | None = None):
 		user = user or frappe.session.user
 		if not frappe.db.exists(cls.DOCTYPE, session_id):
 			frappe.throw(_("AI session not found"))
 		doc = frappe.get_doc(cls.DOCTYPE, session_id)
 		if doc.user != user:
 			frappe.throw(_("You do not have access to this AI session"))
-		if page_id and doc.page != page_id:
-			frappe.throw(_("AI session does not belong to this page"))
+		if app_id and doc.app != app_id:
+			frappe.throw(_("AI session does not belong to this app"))
 		return cls(doc)
 
 	@classmethod
@@ -78,8 +84,20 @@ class AISession:
 		return self._doc.name
 
 	@property
+	def app(self):
+		return self._doc.app
+
+	@property
 	def page(self):
+		"""The session's current focus page — the page its turns target."""
 		return self._doc.page
+
+	def set_focus_page(self, page_id: str) -> None:
+		"""Record which page this session is working on, so a reloaded editor knows
+		where a running turn's edits are landing."""
+		if page_id and self._doc.page != page_id:
+			self._doc.page = page_id
+			frappe.db.set_value(self.DOCTYPE, self._doc.name, "page", page_id, update_modified=False)
 
 	@property
 	def selected_model(self):

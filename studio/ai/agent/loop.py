@@ -11,7 +11,9 @@ second writer). Ops the tree rejects are never emitted, so canvas and draft can'
 diverge.
 
 Realtime event contract (consumed by the frontend). Every event name is
-suffixed with the page id, e.g. `ai_chat_stream_<page_id>`:
+suffixed with the SESSION id, e.g. `ai_chat_stream_<session_id>` — the chat
+follows the conversation, not the page, so the panel keeps receiving a running
+turn across navigation:
 
     ai_chat_progress    {message}
     ai_chat_stream      {chunk}      append to the chat reply text
@@ -19,9 +21,10 @@ suffixed with the page id, e.g. `ai_chat_stream_<page_id>`:
     ai_chat_complete    {message}
     ai_chat_error       {message}
 
-All events also carry {page_id}. `modified` is the draft's timestamp after the
-server persisted the batch — the editor adopts it so its next manual save doesn't
-raise a stale-write conflict.
+All events also carry {target_page_id} — the page this turn is editing. The
+editor mirrors canvas events only when that page is the one it shows. `modified`
+is the draft's timestamp after the server persisted the batch — the editor
+adopts it so its next manual save doesn't raise a stale-write conflict.
 """
 
 import json
@@ -119,9 +122,9 @@ class AgentRunner:
 
 	def emit(self, suffix: str, **kwargs):
 		event = f"{EVENT_PREFIX}_{suffix}"
-		if self.page_id:
-			event = f"{event}_{self.page_id}"
-		frappe.publish_realtime(event, {"page_id": self.page_id, **kwargs}, user=self.user)
+		if self.session_id:
+			event = f"{event}_{self.session_id}"
+		frappe.publish_realtime(event, {"target_page_id": self.page_id, **kwargs}, user=self.user)
 
 	# --- page state -------------------------------------------------------
 

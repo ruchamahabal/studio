@@ -239,6 +239,8 @@ const messagesEl = ref<HTMLElement | null>(null)
 const lastMessageId = computed(() => messages.value[messages.value.length - 1]?.id)
 
 const pageId = computed(() => store.activePage?.name ?? "")
+// Sessions are scoped to the app; the open page is just the turn's target.
+const appId = computed(() => store.activeApp?.name ?? "")
 
 const selectedBlock = computed(() => {
 	const block = canvasStore.activeCanvas?.selectedBlocks?.[0] ?? null
@@ -291,11 +293,13 @@ const sessionResource = createResource({
 	url: "studio.ai.api.get_ai_session",
 	onSuccess(data: any) {
 		messages.value = data.messages ?? []
-		controller.sessionId = data.session_id ?? ""
-		// A turn is mid-flight on this page (e.g. the editor reloaded during a build):
-		// the server owns the draft, so suspend autosave right away — tool batches and
-		// stream chunks re-assert this, but the first one may be seconds away.
-		canvasStore.isAIStreaming = !!data.is_running
+		// Events are keyed by session, so the chat keeps receiving a running turn
+		// wherever the user navigates within the app.
+		controller.ensureAttached(data.session_id ?? "")
+		// A turn is mid-flight targeting the page on the canvas (e.g. the editor reloaded
+		// during a build): the server owns that draft, so suspend autosave right away —
+		// tool batches and stream chunks re-assert this, but the first one may be seconds away.
+		canvasStore.isAIStreaming = !!data.is_running && data.page === pageId.value
 		if (data.selected_model) {
 			selectedModel.value = data.selected_model
 		} else if (modelOptions.value.length) {
@@ -306,12 +310,12 @@ const sessionResource = createResource({
 	},
 })
 
-// The page's chats for the session switcher in the panel header.
+// The app's chats for the session switcher in the panel header.
 const sessions = ref<any[]>([])
 
 async function reloadSessions() {
-	if (!pageId.value) return
-	sessions.value = (await call("studio.ai.api.list_page_ai_sessions", { page_id: pageId.value })) ?? []
+	if (!appId.value) return
+	sessions.value = (await call("studio.ai.api.list_app_ai_sessions", { app_id: appId.value })) ?? []
 }
 
 // Titles are first prompts, so cap them — the dropdown sizes to its longest
@@ -351,25 +355,26 @@ const sessionOptions = computed(() => {
 async function newSession() {
 	if (loading.value) return
 	const res: any = await call("studio.ai.api.new_ai_session", {
-		page_id: pageId.value,
+		app_id: appId.value,
 		model: selectedModel.value || undefined,
 	})
-	controller.sessionId = res.session_id ?? ""
+	controller.ensureAttached(res.session_id ?? "")
 	messages.value = res.messages ?? []
 	reloadSessions()
 }
 
 function switchSession(sessionId: string) {
 	if (loading.value || sessionId === controller.sessionId) return
-	sessionResource.submit({ page_id: pageId.value, session_id: sessionId })
+	sessionResource.submit({ app_id: appId.value, session_id: sessionId })
 }
 
 async function deleteSession() {
 	if (loading.value || !controller.sessionId) return
 	await call("studio.ai.api.delete_ai_session", { session_id: controller.sessionId })
+	controller.detach()
 	controller.sessionId = ""
-	// Falls to the page's most recent remaining chat, or a fresh one.
-	sessionResource.submit({ page_id: pageId.value })
+	// Falls to the app's most recent remaining chat, or a fresh one.
+	sessionResource.submit({ app_id: appId.value })
 }
 
 function scrollToBottom() {
@@ -384,8 +389,9 @@ function scrollToBottom() {
 }
 
 function reloadSession() {
-	if (pageId.value) {
-		sessionResource.submit({ page_id: pageId.value })
+	if (appId.value) {
+		// Stay on the current chat — a turn just finished or errored; re-pull its messages.
+		sessionResource.submit({ app_id: appId.value, session_id: controller.sessionId || undefined })
 	}
 }
 
@@ -463,29 +469,24 @@ function warnIfNoVision(): boolean {
 	return false
 }
 
-function setupListeners() {
-	if (!socket || !pageId.value) return
-	controller.attach(pageId.value)
-}
-
-function detachListeners() {
-	if (!socket || !pageId.value) return
-	controller.detach(pageId.value)
-}
+// Sessions are app-scoped: switching pages within the app keeps the chat (and any
+// running turn) — only an app change loads a different conversation.
+watch(
+	() => appId.value,
+	(newApp) => {
+		canvasStore.isAIStreaming = false
+		if (newApp) sessionResource.submit({ app_id: newApp })
+	},
+	{ immediate: true },
+)
 
 watch(
 	() => pageId.value,
-	(newId, oldId) => {
-		if (oldId) detachListeners()
-		// A turn left running on another page keeps building server-side; this page's
-		// autosave must not stay suspended by it.
+	() => {
+		// A turn targeting another page keeps building server-side; this page's autosave
+		// must not stay suspended by it. Events targeting THIS page re-assert the flag.
 		canvasStore.isAIStreaming = false
-		if (newId) {
-			setupListeners()
-			sessionResource.submit({ page_id: newId })
-		}
 	},
-	{ immediate: true },
 )
 
 async function generate() {

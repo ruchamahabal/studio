@@ -2,8 +2,10 @@
 
 A single conversational entry point — `run` — drives the unified agent loop for
 one user turn (generation and editing alike). `cancel` requests that a running turn
-abort at its next stream chunk. A page holds several parallel chat sessions per user:
-`get_ai_session` loads one, `new_ai_session` starts one, `list_page_ai_sessions`
+abort at its next stream chunk. Sessions are APP-scoped: a chat follows the user
+across the app's pages, with the open page as the turn's target (the session's
+`page` records the current focus). An app holds several parallel chat sessions per
+user: `get_ai_session` loads one, `new_ai_session` starts one, `list_app_ai_sessions`
 powers the switcher and `delete_ai_session` removes one for good.
 """
 
@@ -21,6 +23,14 @@ from studio.utils import has_page_write_perm
 
 logger = frappe.logger("studio.ai.api")
 logger.setLevel(logging.INFO)
+
+
+def resolve_app(page_id: str) -> str:
+	"""The Studio App a page belongs to — the scope its AI sessions live under."""
+	app_id = frappe.db.get_value("Studio Page", page_id, "studio_app")
+	if not app_id:
+		frappe.throw(_("Page {0} does not belong to a Studio app").format(page_id))
+	return str(app_id)
 
 
 def resolve_api_key(model: str | None = None) -> str:
@@ -68,15 +78,19 @@ def run(
 
 	image_url = BlockCodec.validate_image_data(image_data) if image_data else None
 
-	# The panel says which of the page's sessions this turn belongs to; a stale id
-	# (session deleted elsewhere) falls back to the page's current session.
+	app_id = resolve_app(page_id)
+	# The panel says which of the app's sessions this turn belongs to; a stale id
+	# (session deleted elsewhere) falls back to the app's current session.
 	if session_id and frappe.db.exists(AISession.DOCTYPE, session_id):
-		session = AISession.get(session_id, page_id=page_id)
+		session = AISession.get(session_id, app_id=app_id)
 	else:
-		session = AISession.get_or_create(page_id, resolved_model)
+		session = AISession.get_or_create(app_id, resolved_model, page_id=page_id)
 	if AISession.is_session_running(session.name):
 		frappe.local.response.http_status_code = 429
 		return {"status": "busy", "message": _("Another AI request is still processing. Please wait.")}
+	# The open page becomes this turn's target; record it so a reloaded editor knows
+	# where a running turn's edits are landing.
+	session.set_focus_page(page_id)
 
 	# Store the image on the user message so the chat thread can show a thumbnail on reload.
 	msg_meta = {"attachedImageUrl": image_url} if image_url else None
@@ -114,49 +128,51 @@ def cancel(session_id: str):
 
 @frappe.whitelist()
 @has_page_write_perm()
-def get_ai_session(page_id: str, model: str | None = None, session_id: str | None = None) -> dict:
-	"""With `session_id`, that specific chat; without, the page's most recently
+def get_ai_session(app_id: str, model: str | None = None, session_id: str | None = None) -> dict:
+	"""With `session_id`, that specific chat; without, the app's most recently
 	used one (creating the first if none exist)."""
 	if session_id and frappe.db.exists(AISession.DOCTYPE, session_id):
-		session = AISession.get(session_id, page_id=page_id)
+		session = AISession.get(session_id, app_id=app_id)
 	else:
-		session = AISession.get_or_create(page_id, model)
+		session = AISession.get_or_create(app_id, model)
 	# Return the session id so the client can cancel a turn it didn't start itself — e.g. when a
 	# page is opened while a previously-launched turn is still running in the background.
-	# `is_running` lets a freshly-(re)loaded editor stand its autosave down immediately: the
-	# server owns the draft while a turn runs, and a reload wipes the client-side flag.
+	# `is_running` + `page` (the running turn's target) let a freshly-(re)loaded editor stand
+	# its autosave down when the build is landing on the page it shows: the server owns that
+	# draft while the turn runs, and a reload wipes the client-side flag.
 	return {
 		"session_id": session.name,
 		"messages": session.get_messages(),
 		"selected_model": session.selected_model or "",
 		"is_running": AISession.is_session_running(session.name),
+		"page": session.page or "",
 	}
 
 
 @frappe.whitelist()
 @has_page_write_perm()
-def new_ai_session(page_id: str, model: str | None = None) -> dict:
-	"""Start a fresh chat on this page — existing sessions stay untouched and
+def new_ai_session(app_id: str, model: str | None = None) -> dict:
+	"""Start a fresh chat on this app — existing sessions stay untouched and
 	switchable. An empty session the user never used IS a fresh chat, so hand that
 	back rather than stacking up another: a few taps of New chat would otherwise
 	fill the switcher with identical blank entries."""
 	for name in frappe.get_all(
-		AISession.DOCTYPE, filters={"page": page_id, "user": frappe.session.user}, pluck="name"
+		AISession.DOCTYPE, filters={"app": app_id, "user": frappe.session.user}, pluck="name"
 	):
 		if not frappe.db.count(AISession.MESSAGE_DOCTYPE, {"session": name}):
 			return {"session_id": name, "messages": []}
-	session = AISession.create(page_id, model)
+	session = AISession.create(app_id, model)
 	return {"session_id": session.name, "messages": []}
 
 
 @frappe.whitelist()
 @has_page_write_perm()
-def list_page_ai_sessions(page_id: str, limit: int = 20) -> list:
-	"""This page's chats for the current user — powers the session switcher.
+def list_app_ai_sessions(app_id: str, limit: int = 20) -> list:
+	"""This app's chats for the current user — powers the session switcher.
 	A chat is titled by its first user message."""
 	rows = frappe.get_all(
 		AISession.DOCTYPE,
-		filters={"page": page_id, "user": frappe.session.user},
+		filters={"app": app_id, "user": frappe.session.user},
 		fields=["name", "last_interaction_on"],
 		order_by="last_interaction_on desc",
 		limit=min(int(limit), 50),

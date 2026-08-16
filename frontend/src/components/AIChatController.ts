@@ -42,6 +42,7 @@ export interface AIChatContext {
  */
 export class AIChatController {
 	sessionId = ""
+	private attachedSessionId = ""
 	// Optional screenshot/design attached to the next prompt (base64 data URL) — reproduced as a layout.
 	imageData = ref<string | null>(null)
 	imagePreviewUrl = ref<string | null>(null)
@@ -74,12 +75,26 @@ export class AIChatController {
 		}
 	}
 
-	attach(pageId: string) {
-		attachAIChatListeners(this.ctx.socket, pageId, this.handlers)
+	/** Listen on this session's event channel, detaching any previous one. Events are
+	 * keyed by session — the chat keeps receiving a running turn across page switches. */
+	ensureAttached(sessionId: string) {
+		if (!sessionId || sessionId === this.attachedSessionId) return
+		this.detach()
+		attachAIChatListeners(this.ctx.socket, sessionId, this.handlers)
+		this.attachedSessionId = sessionId
+		this.sessionId = sessionId
 	}
 
-	detach(pageId: string) {
-		detachAIChatListeners(this.ctx.socket, pageId, this.handlers)
+	detach() {
+		if (!this.attachedSessionId) return
+		detachAIChatListeners(this.ctx.socket, this.attachedSessionId, this.handlers)
+		this.attachedSessionId = ""
+	}
+
+	/** Canvas events carry the page the turn is editing; the editor mirrors them only
+	 * when that page is the one it shows. Everything else is a background build. */
+	private targetsOpenPage(data: any): boolean {
+		return !data.target_page_id || data.target_page_id === this.ctx.pageId()
 	}
 
 	async submit(promptText: string, model: string) {
@@ -106,7 +121,7 @@ export class AIChatController {
 				selected_block_ids: this.ctx.getSelectedBlockIds(),
 				image_data: image ?? undefined,
 			})
-			if (res?.session_id) this.sessionId = res.session_id
+			if (res?.session_id) this.ensureAttached(res.session_id)
 			if (res?.status === "busy") {
 				this.onError({ message: res.message || "Another AI request is still processing." })
 			}
@@ -135,9 +150,12 @@ export class AIChatController {
 	onStream = (data: any) => {
 		if (!data.chunk) return
 		if (data.kind === "page_json") {
-			// Stream chunks only arrive while a build runs on this page — re-assert ownership
-			// on every chunk so autosave stays down even if the editor reloaded mid-turn (a
-			// reload resets the flag; saving the throwaway preview races the server's write).
+			// A live preview only makes sense on the page being built; a background build's
+			// result shows up from the DB when that page is opened.
+			if (!this.targetsOpenPage(data)) return
+			// Re-assert ownership on every chunk so autosave stays down even if the editor
+			// reloaded mid-turn (a reload resets the flag; saving the throwaway preview
+			// races the server's write).
 			this.ctx.setAIOwnsCanvas(true)
 			this.pageBuffer += data.chunk
 			this.renderStreamedPage()
@@ -150,11 +168,13 @@ export class AIChatController {
 
 	onToolBatch = (data: any) => {
 		if (!data.operations?.length) return
-		// A batch only arrives while a turn is running on this page — re-assert ownership
-		// (covers returning to a page whose build is still in flight) so the editor's
-		// autosave doesn't react to the mirrored mutations.
+		// The server already applied + persisted these ops. Mirror them only when the
+		// canvas shows the page they landed on; a background page picks them up from the
+		// DB on navigation.
+		if (!this.targetsOpenPage(data)) return
+		// Re-assert ownership (covers returning to a page whose build is still in flight)
+		// so the editor's autosave doesn't react to the mirrored mutations.
 		this.ctx.setAIOwnsCanvas(true)
-		// The server already applied + persisted these ops — the canvas only mirrors them.
 		this.dispatcher.applyToolBatch(data.operations)
 		this.ctx.adoptServerWrite(data.modified)
 		this.ctx.scrollToBottom()
@@ -185,6 +205,8 @@ export class AIChatController {
 	onReload = (data: any) => {
 		// A server tool wrote page data (data sources / variables / script). Re-fetch so the
 		// canvas re-evaluates `{{ }}` bindings and re-runs setup() against the live state.
+		// Only meaningful when the written page is the one on the canvas.
+		if (!this.targetsOpenPage(data)) return
 		this.ctx.reloadPageData({
 			resources: !!data.resources,
 			variables: !!data.variables,
