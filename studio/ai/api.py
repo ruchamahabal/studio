@@ -107,6 +107,7 @@ def run(
 		model=resolved_model,
 		user=frappe.session.user,
 		page_id=page_id,
+		app_id=app_id,
 		session_id=session.name,
 		selected_block_ids=_parse_block_ids(selected_block_ids),
 		image_url=image_url,

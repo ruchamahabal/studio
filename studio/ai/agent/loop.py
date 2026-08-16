@@ -34,6 +34,7 @@ import time
 import frappe
 
 from studio.ai import llm
+from studio.ai.agent import locks
 from studio.ai.agent.registry import get_tool_registry_for_mode
 from studio.ai.agent.tree import WorkingTree
 from studio.ai.block_codec import BlockCodec
@@ -69,6 +70,7 @@ class AgentRunner:
 		*,
 		user: str | None = None,
 		page_id: str | None = None,
+		app_id: str | None = None,
 		session_id: str | None = None,
 		selected_block_ids: list[str] | None = None,
 		image_url: str | None = None,
@@ -78,7 +80,11 @@ class AgentRunner:
 		self.api_key = api_key
 		self.user = user or frappe.session.user
 		self.page_id = page_id
+		self.app_id = app_id or (
+			frappe.db.get_value("Studio Page", page_id, "studio_app") if page_id else None
+		)
 		self.session_id = session_id
+		self.locked_pages: set[str] = set()
 		self.selected_block_ids = selected_block_ids or []
 		# An optional screenshot/design (base64 data URL) to reproduce; attached to this turn's
 		# user message so the model can see it (see build_messages).
@@ -172,6 +178,38 @@ class AgentRunner:
 		"""The LIVE root of this turn's working tree — server tools read page state through
 		this, so they see edits already applied earlier in the turn."""
 		return self.tree.root if self.tree else None
+
+	def focus_page(self, page_id: str) -> str | None:
+		"""Re-point the turn at another page: take its run lock, release the old one, load
+		its tree, and re-resolve the toolset + system prompt for its mode (custom pages and
+		standard pages carry different tools). Returns an error string when another chat
+		holds the page, None on success."""
+		if page_id == self.page_id:
+			return None
+		if self.session_id and locks.acquire_page_lock(page_id, self.session_id):
+			return (
+				f"page '{page_id}' is being edited by another AI chat right now — "
+				"finish or cancel that chat first, or work on a different page."
+			)
+		if self.page_id and self.session_id:
+			locks.release_page_lock(self.page_id, self.session_id)
+			self.locked_pages.discard(self.page_id)
+		self.locked_pages.add(page_id)
+		self.page_id = page_id
+		self.tree = WorkingTree(self.load_page_root())
+		is_standard = self.is_standard()
+		self.registry = get_tool_registry_for_mode(is_standard)
+		self.system_prompt = get_system_prompt_for_mode(is_standard)
+		if self.session_id:
+			frappe.db.set_value(AISession.DOCTYPE, self.session_id, "page", page_id, update_modified=False)
+		return None
+
+	def release_locks(self) -> None:
+		if not self.session_id:
+			return
+		for page_id in self.locked_pages:
+			locks.release_page_lock(page_id, self.session_id)
+		self.locked_pages.clear()
 
 	# --- message construction --------------------------------------------
 
@@ -383,6 +421,20 @@ class AgentRunner:
 			return
 		self._set_running(True)
 
+		# One page has one AI writer: take the focus page's run lock before touching it.
+		# Another chat holding it gets a clear refusal, not a corrupted draft.
+		if self.page_id and self.session_id:
+			if locks.acquire_page_lock(self.page_id, self.session_id):
+				self._set_running(False)
+				msg = "Another AI chat is editing this page right now. Wait for it to finish or cancel it."
+				AISession.try_append_message(
+					self.session_id, "assistant", msg, message_type="status", metadata={"status": "error"}
+				)
+				frappe.db.commit()
+				self.emit("error", message=msg)
+				return
+			self.locked_pages.add(self.page_id)
+
 		# The authoritative page tree this turn: loaded from the DB, mutated by block ops,
 		# persisted after every round (see WorkingTree).
 		self.tree = WorkingTree(self.load_page_root())
@@ -392,29 +444,22 @@ class AgentRunner:
 
 		try:
 			for _round in range(MAX_ROUNDS):
+				# focus_page may have swapped the mode's system prompt mid-turn.
+				messages[0]["content"] = self.system_prompt
 				tool_operations, summary_text, raw_tool_calls = self.call_tool_llm(messages)
-				terminal_ops, artifact_ops = self._classify(tool_operations)
 
 				# A terminal tool ends the turn and hands control back to the user. If the
 				# model emits more than one, the first wins (the turn is over).
-				if terminal_ops:
+				if terminal_ops := self._terminal_ops(tool_operations):
 					self.handle_terminal(terminal_ops[0])
 					return
 
-				# An artifact tool (full-page generation) is the turn's work: its generator
-				# streams the artifact live on the heavy model and returns the canonical
-				# op(s), which replace the working tree. Generation ends the loop.
-				if artifact_ops:
-					for op in artifact_ops:
-						tool = self.registry.get(op["tool_name"])
-						if tool and tool.generator:
-							client_operations.extend(self.adopt_generated(tool.generator(self, op["args"])))
-					break
-
 				# Apply this round in call order: server tools run their handler, block ops
-				# mutate the working tree. Only accepted ops (no "FAILED" result) reach the
-				# canvas; every result feeds back so the model can continue or self-correct.
-				accepted, results = self.apply_round(tool_operations)
+				# mutate the working tree, generation streams + replaces it (the loop keeps
+				# going after — a multi-page turn generates, refocuses, generates again).
+				# Only accepted ops (no "FAILED" result) reach the canvas; every result
+				# feeds back so the model can continue or self-correct.
+				accepted, results = self.apply_round(tool_operations, client_operations)
 				if accepted:
 					client_operations.extend(accepted)
 					self.emit("tool_batch", operations=accepted, modified=self.persist_tree())
@@ -454,6 +499,7 @@ class AgentRunner:
 		finally:
 			self.clear_cancel_flag()
 			self._set_running(False)
+			self.release_locks()
 
 		if not client_operations and not summary_text:
 			logger.warning("Agent returned empty response (no tools, no text)")
@@ -477,26 +523,30 @@ class AgentRunner:
 		frappe.db.commit()  # commit before emit so the client's reload sees the final turn
 		self.emit("complete", message=summary_text or "Done")
 
-	def _classify(self, tool_operations: list[dict]) -> tuple[list, list]:
-		"""Pick out the calls that redirect the round: an artifact tool (generate_page) is
-		handled by its generator and takes precedence over its nominal side; a terminal op
-		ends the turn. Everything else is applied in order by apply_round."""
-		terminal_ops, artifact_ops = [], []
-		for op in tool_operations:
-			tool = self.registry.get(op["tool_name"])
-			if tool and tool.artifact:
-				artifact_ops.append(op)
-			elif self.registry.side(op["tool_name"]) == "terminal":
-				terminal_ops.append(op)
-		return terminal_ops, artifact_ops
+	def _terminal_ops(self, tool_operations: list[dict]) -> list[dict]:
+		return [op for op in tool_operations if self.registry.side(op["tool_name"]) == "terminal"]
 
-	def apply_round(self, tool_operations: list[dict]) -> tuple[list[dict], list[str]]:
-		"""Run one round's ops in call order against the server state. Returns (accepted
-		block ops to mirror on the canvas, one tool result per op to feed the model)."""
+	def apply_round(
+		self, tool_operations: list[dict], applied_log: list[dict]
+	) -> tuple[list[dict], list[str]]:
+		"""Run one round's ops in call order against the server state. An artifact op
+		(generate_page) streams on the heavy model, replaces + persists the working tree
+		(adopt_generated emits its own batch) and is recorded in `applied_log`. Returns
+		(accepted block ops for the round's canvas batch, one tool result per op)."""
 		accepted: list[dict] = []
 		results: list[str] = []
 		for op in tool_operations:
 			tool = self.registry.get(op["tool_name"])
+			if tool and tool.artifact and tool.generator:
+				generated = self.adopt_generated(tool.generator(self, op["args"]))
+				applied_log.extend(generated)
+				results.append(
+					"Generated and persisted the page — it replaces the previous structure. "
+					"Continue with any remaining work, or finish with a one-line summary."
+					if generated
+					else "FAILED: generation produced no usable page. Retry with a clearer brief."
+				)
+				continue
 			if tool and tool.side == "server" and tool.handler:
 				results.append(tool.handler(self, op["args"]))
 				continue

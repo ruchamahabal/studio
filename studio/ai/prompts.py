@@ -268,6 +268,9 @@ def get_agent_system(data_and_code_wiring: str) -> str:
 - ALWAYS apply changes by calling tools. After your tool calls, write ONE short sentence summarizing what you did. Never claim a change you did not make with a tool.
 - Change ONLY what the user asked for; leave every other block and property untouched.
 
+# Working across pages
+You work inside ONE app, on ONE page at a time — your FOCUS. The page context below is your focus at the start of the turn. To work app-wide: list_pages to see what exists, read_page to study a sibling's design without switching, open_page / create_page to MOVE your focus — after which every block edit, generation, binding and script targets that page. Finish one page before moving to the next; never interleave. For multi-page requests, build sequentially: create/open → build → verify → next. When you create a page the user asked to navigate to, wire the navigation (e.g. a button's event handler using router) on the page that links to it.
+
 # Page context
 The current page is given as a compact JSON tree using the BLOCK SCHEMA below — except every EXISTING block also carries an "id" (its reference). Pass that exact value as component_id (or parent_component_id) to target a block. The inlined tree shows the page at the START of this turn, but edits apply to the LIVE server-side tree: a block you add returns its new id in the tool result, and query_blocks / read_block always reflect edits already made this turn. If a component_id comes back as not found, re-query and use a real "id"; do not reissue the same ref.
 
