@@ -52,6 +52,9 @@ def fetch_openrouter_catalog() -> dict:
 		catalog[f"openrouter/{m['id']}"] = {
 			"max_tokens": m.get("context_length"),
 			"vision": "image" in modalities,
+			# OpenRouter names read "Google: Gemini 3.1 Pro Preview" — the part
+			# after the vendor is the display label a new row gets.
+			"label": (m.get("name") or "").split(": ", 1)[-1] or None,
 		}
 	return catalog
 
@@ -149,8 +152,17 @@ class ModelRegistry:
 			live = fetch_openrouter_catalog()
 		except Exception as e:
 			logger.warning(f"OpenRouter catalog fetch failed, using stored values: {e}")
+		# Only the factual fields merge over the row — the label stays whatever
+		# the row says, so a user's rename survives.
 		return [
-			{**m, **{k: v for k, v in (live.get(m["name"]) or {}).items() if v is not None}}
+			{
+				**m,
+				**{
+					k: v
+					for k, v in (live.get(m["name"]) or {}).items()
+					if k in ("max_tokens", "vision") and v is not None
+				},
+			}
 			for m in load_models()
 		]
 

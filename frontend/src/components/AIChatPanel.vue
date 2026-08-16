@@ -159,45 +159,25 @@
 
 			<div class="mt-2 flex items-center justify-between gap-2">
 				<div class="flex items-center gap-0.5">
-					<Popover placement="top-start" :offset="6">
-						<template #target="{ togglePopover }">
+					<Combobox
+						v-model="selectedModel"
+						trigger="button"
+						size="sm"
+						side="top"
+						align="start"
+						:disabled="loading"
+						:options="modelComboOptions"
+					>
+						<template #trigger="{ open, setOpen }">
 							<button
 								class="flex h-7 max-w-[9rem] items-center gap-1.5 rounded px-1.5 text-ink-gray-5 transition-colors hover:bg-surface-gray-2 hover:text-ink-gray-8"
-								@click="togglePopover"
+								@click="setOpen(!open)"
 							>
 								<FeatherIcon name="cpu" class="h-3.5 w-3.5 shrink-0" />
 								<span class="truncate text-xs">{{ modelLabel }}</span>
 							</button>
 						</template>
-						<template #body="{ close }">
-							<div class="min-w-40 rounded-lg border border-outline-gray-2 bg-surface-base py-1 shadow-lg">
-								<button
-									v-for="option in modelOptions"
-									:key="option.value"
-									class="flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left text-sm text-ink-gray-7 hover:bg-surface-gray-2"
-									:class="{
-										'font-medium text-ink-gray-9': option.value === selectedModel,
-										'opacity-50': !option.ready,
-									}"
-									:title="option.ready ? undefined : 'Its provider has no API key yet'"
-									@click="
-										() => {
-											selectedModel = option.value
-											close()
-										}
-									"
-								>
-									<span>{{ option.label }}</span>
-									<FeatherIcon
-										v-if="option.vision"
-										name="image"
-										class="h-3.5 w-3.5 shrink-0 text-ink-gray-4"
-										title="Supports image attachments"
-									/>
-								</button>
-							</div>
-						</template>
-					</Popover>
+					</Combobox>
 
 					<button
 						v-if="isVisionModel"
@@ -223,13 +203,13 @@
 			</div>
 		</div>
 
-		<AIProvidersDialog v-model="showProviders" @changed="aiModels.reload()" />
+		<AIProvidersDialog ref="providersDialog" v-model="showProviders" @changed="aiModels.reload()" />
 	</div>
 </template>
 
 <script lang="ts" setup>
 import { ref, computed, inject, watch, nextTick } from "vue"
-import { ErrorMessage, Button, Badge, FeatherIcon, call, createResource, Popover, toast } from "frappe-ui"
+import { ErrorMessage, Button, Badge, Combobox, FeatherIcon, call, createResource, toast } from "frappe-ui"
 import { marked } from "marked"
 import DOMPurify from "dompurify"
 import useStudioStore from "@/stores/studioStore"
@@ -249,6 +229,7 @@ const socket = inject<any>("socket")
 // The assistant works when any model's provider is ready (a stored key, an
 // OAuth sign-in, or a keyless self-hosted gateway). Managed from the dialog.
 const showProviders = ref(false)
+const providersDialog = ref<InstanceType<typeof AIProvidersDialog> | null>(null)
 const isAIEnabled = computed(() => modelOptions.value.some((m: any) => m.ready))
 
 const prompt = ref("")
@@ -286,6 +267,21 @@ const modelOptions = computed(() =>
 		ready: !!m.ready,
 	})),
 )
+
+const modelComboOptions = computed(() => [
+	...modelOptions.value.map((m: any) => ({
+		label: m.label,
+		value: m.value,
+		disabled: !m.ready,
+	})),
+	{
+		type: "custom" as const,
+		key: "add-model",
+		label: "Add model",
+		icon: "lucide-plus",
+		onClick: () => providersDialog.value?.openForAddModel(),
+	},
+])
 
 const modelLabel = computed(() => {
 	const selected = modelOptions.value.find((m: any) => m.value === selectedModel.value)

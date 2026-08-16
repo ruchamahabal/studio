@@ -108,16 +108,34 @@ def add_provider_model(provider: str, model_id: str, label: str = "") -> dict:
 	if not frappe.has_permission("Studio AI Model", "create"):
 		frappe.throw(_("You are not permitted to manage AI models"), frappe.PermissionError)
 
+	doc = frappe.get_doc("Studio AI Provider", provider)
 	model_id = (model_id or "").strip().strip("/")
+	# Pasting the fully-qualified name is natural — don't double the prefix.
+	if model_id.startswith(f"{doc.route_prefix}/"):
+		model_id = model_id[len(doc.route_prefix) + 1 :]
 	if not model_id:
 		frappe.throw(_("Enter a model id"))
 
-	doc = frappe.get_doc("Studio AI Provider", provider)
-	presets.add_model(doc.name, doc.route_prefix, model_id, (label or "").strip() or model_id)
+	presets.add_model(doc.name, doc.route_prefix, model_id, (label or "").strip())
 	ModelRegistry.clear_cache()
 
 	qualified = f"{doc.route_prefix}/{model_id}"
 	return {"name": qualified, "known": bool(lookup_metadata(qualified, model_id))}
+
+
+@frappe.whitelist()
+@has_page_write_perm()
+def delete_provider_model(provider: str, model_id: str) -> dict:
+	"""Remove a model row entirely (vs. just disabling it), from the dialog's list."""
+	if not frappe.has_permission("Studio AI Model", "delete"):
+		frappe.throw(_("You are not permitted to manage AI models"), frappe.PermissionError)
+
+	prefix = frappe.db.get_value("Studio AI Provider", provider, "route_prefix")
+	name = f"{prefix}/{(model_id or '').strip().strip('/')}"
+	if frappe.db.exists("Studio AI Model", name):
+		frappe.delete_doc("Studio AI Model", name, ignore_permissions=True)
+		ModelRegistry.clear_cache()
+	return {"deleted": name}
 
 
 @frappe.whitelist()

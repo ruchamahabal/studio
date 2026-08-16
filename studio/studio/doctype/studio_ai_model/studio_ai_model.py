@@ -27,13 +27,16 @@ class StudioAIModel(Document):
 			frappe.rename_doc(self.doctype, self.name, self.qualified_name(), force=True)
 
 	def detect_metadata(self) -> None:
-		"""Fill in what can be looked up — context window and vision — so adding a
-		model only asks for its id. OpenRouter answers for its own models, litellm's
+		"""Fill in what can be looked up — label, context window, vision — so adding
+		a model only asks for its id. OpenRouter answers for its own models, litellm's
 		model map for the rest. Anything already filled in is left alone, so an edit
 		(or a model nobody knows) stands."""
 		from studio.ai.models import lookup_metadata
 
 		found = lookup_metadata(self.qualified_name(), self.model_id)
+		if self.label == self.model_id:
+			# The raw id is a poor display name; take the catalog's, else prettify.
+			self.label = found.get("label") or prettify_model_id(self.model_id)
 		if not found:
 			return
 		if not self.max_tokens and found.get("max_tokens"):
@@ -51,3 +54,9 @@ class StudioAIModel(Document):
 		from studio.ai.models import ModelRegistry
 
 		ModelRegistry.clear_cache()
+
+
+def prettify_model_id(model_id: str) -> str:
+	"""'google/gemini-3.1-pro-preview' -> 'Gemini 3.1 Pro Preview'."""
+	tail = model_id.split("/")[-1]
+	return " ".join(word.capitalize() if word.islower() else word for word in tail.replace("-", " ").split())

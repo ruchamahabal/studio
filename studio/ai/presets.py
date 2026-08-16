@@ -165,39 +165,57 @@ def public_preset(preset: dict) -> dict:
 		"needs_name": custom,
 		"needs_api_base": custom,
 		"configured": bool(existing),
+		# The actual prefix once connected (derive_routing may have deduped it),
+		# so the client can show each model's qualified name.
+		"route_prefix": (
+			frappe.db.get_value("Studio AI Provider", existing, "route_prefix")
+			if existing
+			else preset["route_prefix"]
+		),
 		"models": preset_models(preset, existing),
 	}
 
 
 def preset_models(preset: dict, existing: str | None) -> list[dict]:
-	"""Every model the dialog should offer: the curated shortlist, then any other
-	rows this provider already has (imported or added by id). Each carries its
-	live enabled state, so the ticks show what is actually switched on — not the
-	shortlist's recommendations."""
+	"""What the dialog's model list shows. Once the provider has rows, the rows
+	ARE the list — deleting one really removes it (Builder's behaviour), instead
+	of the shortlist re-offering it as an unticked ghost. The curated shortlist
+	only appears while there are no rows yet: a first-time setup, a provider
+	fresh from an OAuth sign-in, or one whose every model was deleted."""
 	rows = (
 		frappe.get_all(
-			"Studio AI Model", filters={"provider": existing}, fields=["model_id", "label", "enabled"]
+			"Studio AI Model",
+			filters={"provider": existing},
+			fields=["model_id", "label", "enabled", "supports_vision"],
+			order_by="creation asc",
 		)
 		if existing
 		else []
 	)
-	enabled = {r.model_id: bool(r.enabled) for r in rows}
-	shortlist = [
-		{"model_id": mid, "label": label, "recommended": rec, "enabled": enabled.get(mid, False)}
-		for mid, label, rec in preset["models"]
-	]
-	listed = {m["model_id"] for m in shortlist}
-	extras = [
+	if not rows:
+		return [
+			{
+				"model_id": mid,
+				"label": label,
+				"recommended": rec,
+				"enabled": False,
+				"vision": False,
+				# A shortlist entry is just an offer — there is no row to delete.
+				"exists": False,
+			}
+			for mid, label, rec in preset["models"]
+		]
+	return [
 		{
 			"model_id": r.model_id,
 			"label": r.label or r.model_id,
 			"recommended": False,
 			"enabled": bool(r.enabled),
+			"vision": bool(r.supports_vision),
+			"exists": True,
 		}
 		for r in rows
-		if r.model_id not in listed
 	]
-	return shortlist + extras
 
 
 def install_preset(
