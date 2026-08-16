@@ -119,7 +119,7 @@ BLOCK_SCHEMA = """BLOCK SCHEMA (each block is a JSON object with these optional 
 - "style": { }                  — camelCase CSS (see STYLE PROPERTY ROUTING below)
 - "mstyle": { }                 — mobile style overrides
 - "tstyle": { }                 — tablet style overrides
-- "events": { }                 — event handlers, eventName → JS script, e.g. {"click":"counter.value++"}. Variables are refs (write with .value); the script also sees data sources and route/router.
+- "events": { }                 — event handlers, eventName → JS script, e.g. {"click":"counter.value++"}. Variables are refs (write with .value); the script also sees data sources and route/router. `$event` is the event's first argument (as in Vue); define `function handleEvent(...args) { … }` to read multiple arguments by name. For preventDefault/stopPropagation prefer event MODIFIERS on the event name: "dragover.prevent", "submit.prevent.stop", "keydown.enter".
 - "visibility": "expr"          — render the block only when a {{ }} expression is truthy, e.g. "{{ todos.data.length > 0 }}"
 - "c": [ ]                       — children list (array of block objects). These are the block's DEFAULT-slot content (e.g. a Dialog's body, a ContextMenu's target surface).
 - "slots": { }                  — NAMED slots only, for components that expose them: {"<slotName>": [ ...child block objects... ]} (each value is a block list in THIS same schema — a slot holds blocks only, so use a TextBlock for a plain label). Default content goes in "c" — use "slots" only for a component's named slots. On an EXISTING block, fill a named slot with set_slot(component_id, slot_name, blocks) and drop a wrong one with remove_slot(component_id, slot_name).
@@ -230,6 +230,7 @@ Two-way inputs (v-model): to make a form input's value mirror a piece of reactiv
 
 Interactivity (events & visibility) — same new-vs-existing rule as bindings:
 - Make a block DO something on interaction with an event handler. New block → put it in the block's `events` field at creation, e.g. a button with {"events":{"click":"counter.value++"}}. Existing block → set_event_handler(component_id, event, script). The script is JS with the page context in scope; reactive state is refs, so write them via .value (increment a counter: counter.value++; reset: counter.value = 0).
+- THE DOM EVENT: `$event` is the event's FIRST argument, as in Vue (e.g. `taskId.value = $event.dataTransfer.getData('text')`). A component event emitting several arguments → define `function handleEvent(a, b) { … }` to name them all. For preventDefault/stopPropagation, don't write code at all: put a MODIFIER on the event name — "dragover.prevent", "drop.prevent", "submit.prevent.stop", "keydown.enter", "click.stop".
 - Show/hide a block conditionally: new block → its `visibility` field, e.g. "{{ todos.data.length > 0 }}". Existing block → set_visibility(component_id, expression) with the expression WITHOUT braces.
 """
 )

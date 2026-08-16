@@ -129,7 +129,7 @@ add_block = Tool(
 					"tstyle": {"type": "object", "description": "Tablet style overrides."},
 					"events": {
 						"type": "object",
-						"description": 'Event handlers: eventName → JS script, e.g. {"click":"counter.value++"}. Variables are refs (write with .value).',
+						"description": 'Event handlers: eventName → JS script, e.g. {"click":"counter.value++"}. Variables are refs (write with .value). `$event` = the event\'s first argument (as in Vue); use modifiers on the name for prevent/stop ("dragover.prevent", "keydown.enter").',
 					},
 					"visibility": {
 						"type": "string",
