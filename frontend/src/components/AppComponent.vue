@@ -58,6 +58,7 @@ import { createResource } from "frappe-ui"
 import { getComponentRoot, isObjectEmpty } from "@/utils/helpers"
 import { useScreenSize } from "@/utils/useScreenSize"
 import { isDynamicValue } from "@/utils/code"
+import { getNativeElementComponent } from "@/utils/nativeElements"
 import { resolveEventListener } from "@/utils/eventModifiers"
 import useComponentInstance from "@/utils/useComponentInstance"
 
@@ -77,7 +78,9 @@ const props = defineProps<{
 }>()
 
 const componentName = computed(() => {
-	if (props.block.isContainer()) return props.block.originalElement || "div"
+	if (props.block.isRoot()) return getNativeElementComponent("div")
+	if (props.block.isContainer()) return getNativeElementComponent(props.block.originalElement || "div")
+	if (props.block.isNativeElement()) return getNativeElementComponent(props.block.componentName)
 	let name = props.block.componentName
 	if (window.is_preview && props.block.isCustomVueComponent) {
 		name = customVueComponentsRegistry.value[name]

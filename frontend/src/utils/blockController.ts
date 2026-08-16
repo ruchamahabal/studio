@@ -153,7 +153,7 @@ const blockController = {
 		});
 		return keyValue;
 	},
-	setKeyValue: (key: "visibilityCondition", value: string) => {
+	setKeyValue: (key: "visibilityCondition" | "componentName", value: string) => {
 		canvasStore.activeCanvas?.selectedBlocks.forEach((block) => {
 			block[key] = value;
 		});
@@ -171,6 +171,14 @@ const blockController = {
 	},
 	isText: () => {
 		return blockController.isAnyBlockSelected() && blockController.getFirstSelectedBlock().isText();
+	},
+	isNativeElement: () => {
+		return blockController.isAnyBlockSelected() && blockController.getFirstSelectedBlock().isNativeElement();
+	},
+	supportsTextStyles: () => {
+		if (!blockController.isAnyBlockSelected()) return false;
+		const block = blockController.getFirstSelectedBlock();
+		return block.isText() || block.isNativeTextElement();
 	},
 	isContainer: () => {
 		return blockController.isAnyBlockSelected() && blockController.getFirstSelectedBlock().isContainer();

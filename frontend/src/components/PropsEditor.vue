@@ -129,6 +129,7 @@ import { useStudioCompletions } from "@/utils/useStudioCompletions"
 import type { CompletionContext } from "@codemirror/autocomplete"
 import useComponentStore from "@/stores/componentStore"
 import { getComponentProps } from "@/utils/components"
+import { getNativeElementProps } from "@/data/nativeElements"
 import { isDynamicValue } from "@/utils/code"
 import useCanvasStore from "@/stores/canvasStore"
 import blockController from "@/utils/blockController"
@@ -169,6 +170,9 @@ const propConfigs = computed<ComponentProps>(() => {
 		const componentStore = useComponentStore()
 		const componentDoc = componentStore.getComponentDoc(props.block.componentName)
 		return componentDoc?.inputs ? getStudioComponentProps(componentDoc.inputs) : {}
+	}
+	if (props.block.isNativeElement()) {
+		return getNativeElementProps(props.block.componentName)
 	}
 	if (componentInstance.value) {
 		return getComponentProps(props.block.componentName, componentInstance.value)

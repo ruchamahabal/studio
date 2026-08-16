@@ -446,7 +446,7 @@ const typographySectionProperties = [
 		},
 		searchKeyWords: "Font, Size, FontSize",
 		usedStyleProperties: ["font-size"],
-		condition: () => blockController.isText(),
+		condition: () => blockController.supportsTextStyles(),
 		allowDynamicValue: true,
 	},
 	{
@@ -464,7 +464,7 @@ const typographySectionProperties = [
 		},
 		searchKeyWords: "Font, Height, LineHeight, Line Height",
 		usedStyleProperties: ["line-height"],
-		condition: () => blockController.isText(),
+		condition: () => blockController.supportsTextStyles(),
 		allowDynamicValue: true,
 	},
 	{
@@ -498,7 +498,7 @@ const typographySectionProperties = [
 		},
 		searchKeyWords: "Font, Letter, LetterSpacing, Letter Spacing",
 		usedStyleProperties: ["letter-spacing"],
-		condition: () => blockController.isText(),
+		condition: () => blockController.supportsTextStyles(),
 		allowDynamicValue: true,
 	},
 	{
@@ -533,7 +533,7 @@ const typographySectionProperties = [
 		},
 		searchKeyWords: "Font, Transform, TextTransform, Text Transform, Capitalize, Uppercase, Lowercase",
 		usedStyleProperties: ["text-transform"],
-		condition: () => blockController.isText(),
+		condition: () => blockController.supportsTextStyles(),
 		allowDynamicValue: true,
 	},
 	{
@@ -571,7 +571,7 @@ const typographySectionProperties = [
 		},
 		searchKeyWords: "Font, Align, TextAlign, Text Align, Left, Center, Right, Justify",
 		usedStyleProperties: ["text-align"],
-		condition: () => blockController.isText(),
+		condition: () => blockController.supportsTextStyles(),
 		allowDynamicValue: true,
 	},
 ]
@@ -861,12 +861,12 @@ const sections = [
 		name: "Layout",
 		properties: layoutSectionProperties,
 		condition: () => !blockController.multipleBlocksSelected(),
-		collapsed: computed(() => blockController.isText()),
+		collapsed: computed(() => blockController.supportsTextStyles()),
 	},
 	{
 		name: "Typography",
 		properties: typographySectionProperties,
-		condition: () => blockController.isText(),
+		condition: () => blockController.supportsTextStyles(),
 	},
 	{
 		name: "Dimension",

@@ -1,5 +1,6 @@
 import type { BlockOptions, BlockStyleMap } from "@/types";
 import { familyTemplates } from "./familyTemplates";
+import { nativeTemplates, type NativeTemplate } from "./nativeTemplates";
 
 
 type CoreTemplate =
@@ -13,7 +14,10 @@ type CoreTemplate =
 type FamilyTemplate = keyof typeof familyTemplates;
 
 
-function getBlockTemplate(type: CoreTemplate | FamilyTemplate): BlockOptions {
+function getBlockTemplate(type: CoreTemplate | FamilyTemplate | NativeTemplate): BlockOptions {
+	if (type in nativeTemplates) {
+		return nativeTemplates[type as NativeTemplate]();
+	}
 	if (type in familyTemplates) {
 		return familyTemplates[type as FamilyTemplate]();
 	}

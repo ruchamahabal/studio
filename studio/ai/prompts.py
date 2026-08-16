@@ -133,6 +133,11 @@ LAYOUT CONTAINERS (CRITICAL — originalElement is required or children won't re
 - Use container for all inner layout wrappers — never use "div" as name for inner blocks
 - flexDirection "row" for horizontal layouts, "column" for vertical
 - Use gap, padding for spacing. width "100%" for full-width sections. flex "1" to fill space.
+
+NATIVE HTML ELEMENTS:
+- "name" may also be a plain lowercase HTML tag (e.g. "button", "input", "section", "p", "span", "pre", "a", "img", "form") — it renders as that native DOM element. Do NOT set originalElement on these.
+- props on a native element become HTML attributes (e.g. {"name":"input","props":{"type":"email","placeholder":"Email"}}). For the element's text content use the "textContent" prop (e.g. {"name":"button","props":{"textContent":"Save"}}); child blocks in "c" take precedence over textContent.
+- Prefer frappe-ui/catalog components; reach for native elements only when the user asks for a plain HTML tag or no component fits.
 """
 
 BUILD_RULES = """BUILDING BLOCKS RULES:

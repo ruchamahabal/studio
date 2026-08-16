@@ -1,6 +1,7 @@
 import { defineAsyncComponent } from "vue"
 import { FRAPPE_UI_COMPONENTS, FRAPPE_UI_MOLECULES, FRAMEWORK_UI_COMPONENTS } from "@/utils/constants"
 import { COMPONENT_FAMILIES } from "@/data/componentFamilies"
+import { NATIVE_ELEMENTS, NATIVE_ELEMENT_NAMES } from "@/data/nativeElements"
 
 import type { FrappeUIComponents, FrappeUIComponent } from "@/types"
 
@@ -1158,6 +1159,7 @@ export const COMPONENTS: FrappeUIComponents = {
 			side: "right",
 		},
 	},
+	...NATIVE_ELEMENTS,
 	...COMPONENT_FAMILIES,
 }
 
@@ -1186,9 +1188,11 @@ function isFrameworkUIAvailable() {
 function getComponentGroups(list: FrappeUIComponent[]) {
 	const inFrappe = (c: FrappeUIComponent) => isFrappeUIComponent(c.name)
 	const inFramework = (c: FrappeUIComponent) => isFrameworkUIComponent(c.name)
+	const inNative = (c: FrappeUIComponent) => NATIVE_ELEMENT_NAMES.includes(c.name)
 
 	const groups = [
-		{ label: "Core", components: list.filter((c) => !inFrappe(c) && !inFramework(c)) },
+		{ label: "Core", components: list.filter((c) => !inFrappe(c) && !inFramework(c) && !inNative(c)) },
+		{ label: "HTML Elements", components: list.filter(inNative) },
 		{ label: "Frappe UI", components: list.filter(inFrappe) },
 	]
 	if (isFrameworkUIAvailable()) {

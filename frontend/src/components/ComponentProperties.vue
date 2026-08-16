@@ -3,6 +3,18 @@
 		<EmptyState v-if="mixedTypeSelection" message="Select blocks of the same component to edit properties" />
 		<EmptyState v-else-if="!block?.componentName" message="Select a block to edit properties" />
 		<div v-else class="flex flex-col gap-3">
+			<!-- tag (native HTML elements) -->
+			<SectionContainer title="Tag" v-show="filteredSections.includes('tag')">
+				<Combobox
+					:key="block?.componentName"
+					:options="tagOptions"
+					:modelValue="block?.componentName"
+					:allowCustomValue="true"
+					placeholder="HTML tag"
+					@update:modelValue="(tag: string) => setTag(tag)"
+				/>
+			</SectionContainer>
+
 			<!-- props -->
 			<SectionContainer title="Props" v-show="filteredSections.includes('props')">
 				<PropsEditor ref="propsEditor" :block="block" :multiEdit="multipleBlocksSelected" />
@@ -109,9 +121,10 @@
 
 <script setup lang="ts">
 import { ref, computed, toValue, watchEffect } from "vue"
-import { Combobox, Button, Tooltip, Badge, FeatherIcon } from "frappe-ui"
+import { Combobox, Button, Tooltip, Badge, FeatherIcon, toast } from "frappe-ui"
 import Block from "@/utils/block"
 import { getComponentSlots } from "@/utils/components"
+import { isNativeTag, isVoidTag, TAG_OPTIONS } from "@/utils/nativeElements"
 import PropsEditor from "@/components/PropsEditor.vue"
 import ObjectEditor from "@/components/ObjectEditor.vue"
 import EmptyState from "@/components/EmptyState.vue"
@@ -193,7 +206,27 @@ const selectSlot = (slotName: string) => {
 	if (slot) canvasStore.activeCanvas?.selectSlot(slot)
 }
 
+const tagOptions = TAG_OPTIONS.map((tag) => ({ label: tag, value: tag }))
+
+const setTag = (tag: string) => {
+	tag = tag?.trim().toLowerCase()
+	if (!tag || tag === props.block?.componentName) return
+	if (!isNativeTag(tag)) {
+		toast.warning(`"${tag}" is not a valid HTML tag`)
+		return
+	}
+	if (isVoidTag(tag) && props.block?.hasChildren()) {
+		toast.warning(`<${tag}> cannot have child blocks`)
+		return
+	}
+	blockController.setKeyValue("componentName", tag)
+}
+
 const sections: Record<string, { condition?: any; collapsed?: any; searchKeyWords: string }> = {
+	tag: {
+		condition: computed(() => props.block?.isNativeElement()),
+		searchKeyWords: "Tag, Element, HTML, Native, HTML Tag",
+	},
 	props: {
 		condition: computed(() => !props.block?.isContainer()),
 		searchKeyWords: "Props, Properties, Inputs",

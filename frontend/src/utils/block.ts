@@ -12,6 +12,7 @@ import LucideCode from "~icons/lucide/code"
 import { generateId, isObjectEmpty, kebabToCamelCase, numberToPx } from "./helpers";
 import { copyObject, getBlockCopy, getComponentBlock } from "@/utils/serializer"
 import { componentHasDefaultSlot, getComponentSlots } from "@/utils/components"
+import { isNativeTag, isNativeTextTag, isVoidTag } from "@/utils/nativeElements"
 import { mergeLegacyRawStyles } from "@/patches/mergeLegacyRawStyles"
 
 import type { StyleValue, FrappeUIComponent, FrappeUIComponents } from "@/types"
@@ -214,6 +215,7 @@ class Block implements BlockOptions {
 	}
 
 	canHaveChildren() {
+		if (this.isNativeElement()) return !isVoidTag(this.componentName)
 		if (
 			this.isRoot() ||
 			this.isContainer() ||
@@ -467,6 +469,21 @@ class Block implements BlockOptions {
 
 	isText() {
 		return this.componentName === "TextBlock"
+	}
+
+	// a plain HTML/SVG/MathML tag rendered as a DOM element, not a registered Vue component
+	isNativeElement() {
+		return (
+			!this.isStudioComponent &&
+			!this.isCustomVueComponent &&
+			!this.isRoot() &&
+			!this.isContainer() &&
+			isNativeTag(this.componentName)
+		)
+	}
+
+	isNativeTextElement() {
+		return this.isNativeElement() && isNativeTextTag(this.componentName)
 	}
 
 	isSVG() {

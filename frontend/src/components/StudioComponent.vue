@@ -112,6 +112,7 @@ import Block from "@/utils/block"
 import useCanvasStore from "@/stores/canvasStore"
 import { getComponentRoot, isObjectEmpty } from "@/utils/helpers"
 import { isDynamicValue } from "@/utils/code"
+import { getNativeElementComponent, getEditorSafetyAttributes } from "@/utils/nativeElements"
 
 import type { CanvasProps } from "@/types/StudioCanvas"
 import type { SlotScope } from "@/types"
@@ -176,7 +177,9 @@ const isOverlayNode = computed(() => {
 })
 
 const componentName = computed(() => {
-	if (props.block.isContainer()) return props.block.originalElement || "div"
+	if (props.block.isRoot()) return getNativeElementComponent("div")
+	if (props.block.isContainer()) return getNativeElementComponent(props.block.originalElement || "div")
+	if (props.block.isNativeElement()) return getNativeElementComponent(props.block.componentName)
 
 	let name = rendersProxy.value ? props.block.getProxyComponent() : props.block.componentName
 
@@ -233,10 +236,14 @@ const componentProps = computed(() => {
 	// exclude class/style here so they don't clobber the block's own
 	// class/style props (e.g. an icon's `h-6 w-6` sizing), which would render it invisible.
 	const { class: _class, style: _style, ...restAttrs } = attrs
-	return {
+	const merged: Record<string, any> = {
 		...getComponentProps(),
 		...restAttrs,
 	}
+	if (props.block.isNativeElement()) {
+		Object.assign(merged, getEditorSafetyAttributes(props.block.componentName))
+	}
+	return merged
 })
 
 const componentRef = ref<ComponentPublicInstance | null>(null)
