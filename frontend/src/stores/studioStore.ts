@@ -275,7 +275,10 @@ const useStudioStore = defineStore("store", () => {
 	}
 
 	function handlePageWriteConflict(error: any) {
-		if (error?.exc_type === "TimestampMismatchError") {
+		// QueryDeadlockError covers MariaDB 1020 snapshot conflicts — same meaning
+		// as a timestamp mismatch here: someone else (usually the AI worker) wrote
+		// the page after we read it.
+		if (error?.exc_type === "TimestampMismatchError" || error?.exc_type === "QueryDeadlockError") {
 			if (pageConflict.value) return
 			pageConflict.value = true
 			showPageOptions.value = false
