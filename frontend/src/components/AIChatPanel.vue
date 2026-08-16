@@ -4,20 +4,13 @@
 			class="flex shrink-0 items-center justify-between border-b border-outline-gray-1 bg-surface-base px-3 py-2.5"
 		>
 			<div class="text-[11px] leading-4 text-ink-gray-5">Session persists for this page</div>
-			<button
-				v-if="messages.length"
-				class="text-xs text-ink-gray-4 hover:text-ink-gray-9"
-				@click="clearSession"
-			>
-				Clear
-			</button>
 		</div>
 
 		<div v-if="!isAIEnabled" class="flex flex-1 flex-col items-start gap-3 p-4">
 			<p class="text-p-xs text-ink-gray-6">
-				Configure an AI API key in Studio Settings to use the AI assistant.
+				Connect an AI provider — an API key or your ChatGPT subscription — to use the assistant.
 			</p>
-			<Button variant="subtle" label="Open Settings" @click="store.showStudioSettingsDialog = true" />
+			<Button variant="solid" label="Connect a provider" @click="showProviders = true" />
 		</div>
 
 		<div v-else ref="messagesEl" class="no-scrollbar flex-1 space-y-4 overflow-y-auto px-4 py-4">
@@ -182,7 +175,11 @@
 									v-for="option in modelOptions"
 									:key="option.value"
 									class="flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left text-sm text-ink-gray-7 hover:bg-surface-gray-2"
-									:class="{ 'font-medium text-ink-gray-9': option.value === selectedModel }"
+									:class="{
+										'font-medium text-ink-gray-9': option.value === selectedModel,
+										'opacity-50': !option.ready,
+									}"
+									:title="option.ready ? undefined : 'Its provider has no API key yet'"
 									@click="
 										() => {
 											selectedModel = option.value
@@ -225,6 +222,8 @@
 				/>
 			</div>
 		</div>
+
+		<AIProvidersDialog v-model="showProviders" @changed="aiModels.reload()" />
 	</div>
 </template>
 
@@ -237,9 +236,9 @@ import useStudioStore from "@/stores/studioStore"
 import useCanvasStore from "@/stores/canvasStore"
 import useCodeStore from "@/stores/codeStore"
 import { AIChatController } from "@/components/AIChatController"
+import AIProvidersDialog from "@/components/AIProvidersDialog.vue"
 import { getBlockInstance, getBlockString } from "@/utils/serializer"
 import type { BlockOptions } from "@/types"
-import { studioSettings } from "@/data/studioSettings"
 import LucideSparkle from "~icons/lucide/sparkle"
 
 const store = useStudioStore()
@@ -247,7 +246,10 @@ const canvasStore = useCanvasStore()
 const codeStore = useCodeStore()
 const socket = inject<any>("socket")
 
-const isAIEnabled = computed(() => !!studioSettings.doc?.ai_api_key)
+// The assistant works when any model's provider is ready (a stored key, an
+// OAuth sign-in, or a keyless self-hosted gateway). Managed from the dialog.
+const showProviders = ref(false)
+const isAIEnabled = computed(() => modelOptions.value.some((m: any) => m.ready))
 
 const prompt = ref("")
 const loading = ref(false)
@@ -277,7 +279,12 @@ const aiModels = createResource({
 })
 
 const modelOptions = computed(() =>
-	(aiModels.data ?? []).map((m: any) => ({ label: m.label, value: m.id, vision: !!m.vision_capable })),
+	(aiModels.data ?? []).map((m: any) => ({
+		label: m.label,
+		value: m.id,
+		vision: !!m.vision_capable,
+		ready: !!m.ready,
+	})),
 )
 
 const modelLabel = computed(() => {
@@ -442,4 +449,12 @@ async function clearSession() {
 	await call("studio.ai.api.clear_ai_session", { page_id: pageId.value })
 	messages.value = []
 }
+
+// Header actions for this panel render in StudioLeftPanel's title row, which
+// reaches them through a template ref on the (always-mounted) panel.
+defineExpose({
+	hasMessages: computed(() => messages.value.length > 0),
+	clearSession,
+	openProviders: () => (showProviders.value = true),
+})
 </script>

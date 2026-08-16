@@ -35,14 +35,32 @@
 					@resize="(width) => (store.studioLayout.leftPanelWidth = width)"
 				/>
 				<div
-					class="text-base-semibold sticky left-0 top-0 z-[12] flex w-full shrink-0 justify-between border-b-[1px] border-outline-elevation-2 bg-surface-base p-3 text-ink-gray-7"
+					class="text-base-semibold sticky left-0 top-0 z-[12] flex w-full shrink-0 items-center justify-between border-b-[1px] border-outline-elevation-2 bg-surface-base p-3 text-ink-gray-7"
 				>
 					{{ activeTab }}
-					<IconButton
-						:icon="LucideChevronsLeft"
-						label="Collapse"
-						@click="store.studioLayout.showLeftPanel = false"
-					/>
+					<div class="flex items-center gap-1">
+						<template v-if="activeTab === 'AI Assistant'">
+							<Button
+								v-if="aiPanel?.hasMessages"
+								variant="ghost"
+								size="sm"
+								label="Clear"
+								@click="aiPanel?.clearSession()"
+							/>
+							<Button
+								variant="ghost"
+								size="sm"
+								icon="lucide-settings"
+								title="AI providers & models"
+								@click="aiPanel?.openProviders()"
+							/>
+						</template>
+						<IconButton
+							:icon="LucideChevronsLeft"
+							label="Collapse"
+							@click="store.studioLayout.showLeftPanel = false"
+						/>
+					</div>
 				</div>
 
 				<PagesPanel v-show="activeTab === 'Pages'" class="mx-2 my-3" />
@@ -62,14 +80,14 @@
 					<CodePanel class="p-3" v-if="store.activePage" />
 				</div>
 
-				<AIChatPanel v-show="activeTab === 'AI Assistant'" />
+				<AIChatPanel ref="aiPanel" v-show="activeTab === 'AI Assistant'" />
 			</div>
 		</transition>
 	</div>
 </template>
 
 <script setup lang="ts">
-import { watch, computed, nextTick } from "vue"
+import { watch, computed, nextTick, ref } from "vue"
 import { Tooltip, Button } from "frappe-ui"
 
 import PagesPanel from "@/components/PagesPanel.vue"
@@ -116,6 +134,7 @@ const sidebarMenu = [
 const store = useStudioStore()
 const canvasStore = useCanvasStore()
 
+const aiPanel = ref<InstanceType<typeof AIChatPanel> | null>(null)
 const activeTab = computed(() => store.studioLayout.leftPanelActiveTab)
 
 const setActiveTab = (tab: LeftPanelOptions) => {

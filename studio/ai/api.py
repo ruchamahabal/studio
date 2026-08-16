@@ -12,7 +12,6 @@ import logging
 import frappe
 from frappe import _
 
-from studio.ai import llm
 from studio.ai.agent.loop import run_agent_job
 from studio.ai.block_codec import BlockCodec
 from studio.ai.models import ModelRegistry
@@ -21,6 +20,27 @@ from studio.utils import has_page_write_perm
 
 logger = frappe.logger("studio.ai.api")
 logger.setLevel(logging.INFO)
+
+
+def resolve_api_key(model: str | None = None) -> str:
+	"""The key to call `model` with: the one stored on its provider. OAuth
+	providers (codex) carry their own credential and need no key here. A local
+	gateway with no key at all is fine too — litellm sends what it gets."""
+	if model:
+		from studio.ai.llm import codex_route, provider_api_key
+
+		if codex_route(model):
+			return ""
+		info = ModelRegistry.find(model)
+		if info:
+			if key := provider_api_key(info):
+				return key
+			# A self-hosted gateway (api_base set) often needs no key at all;
+			# a hosted provider without one can't be called.
+			if info.get("api_base"):
+				return ""
+			frappe.throw(_("Add an API key for {0} in the AI providers dialog").format(info["provider"]))
+	frappe.throw(_("Connect an AI provider to use the assistant"))
 
 
 @frappe.whitelist()
@@ -42,10 +62,11 @@ def run(
 	except (json.JSONDecodeError, TypeError):
 		frappe.throw(_("Invalid page context JSON"))
 
-	resolved_model = model or ModelRegistry.DEFAULT
-	api_key = llm.get_api_key()
-	if not api_key:
-		frappe.throw(_("OpenRouter API key is not configured. Please set it in Studio Settings."))
+	resolved_model = ModelRegistry.get_default(model)
+	# Fail fast when nothing is configured — but the key itself is re-resolved
+	# INSIDE the job: enqueue kwargs sit in Redis and get dumped verbatim into
+	# worker logs on failure, which is no place for a secret.
+	resolve_api_key(resolved_model)
 
 	image_url = BlockCodec.validate_image_data(image_data) if image_data else None
 
@@ -68,7 +89,6 @@ def run(
 		prompt=prompt,
 		page_context_json=page_context,
 		model=resolved_model,
-		api_key=api_key,
 		user=frappe.session.user,
 		page_id=page_id,
 		session_id=session.name,

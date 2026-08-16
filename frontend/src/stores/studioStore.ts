@@ -54,7 +54,6 @@ const useStudioStore = defineStore("store", () => {
 
 	// dialogs
 	const showSearchBlock = ref(false)
-	const showStudioSettingsDialog = ref(false)
 	const showPageOptions = ref(false)
 
 	// studio apps
@@ -651,7 +650,6 @@ const useStudioStore = defineStore("store", () => {
 		componentContextMenu,
 		// dialogs
 		showSearchBlock,
-		showStudioSettingsDialog,
 		showPageOptions,
 		// studio app
 		activeApp,

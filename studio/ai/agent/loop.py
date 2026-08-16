@@ -488,5 +488,10 @@ class AgentRunner:
 			tool.handler(self, op["args"])
 
 
-def run_agent_job(prompt: str, page_context_json: str, model: str, api_key: str, **kwargs):
+def run_agent_job(prompt: str, page_context_json: str, model: str, **kwargs):
+	# The key is resolved HERE, not passed through enqueue kwargs — those sit in
+	# Redis and get dumped verbatim into worker logs when a job fails.
+	from studio.ai.api import resolve_api_key
+
+	api_key = resolve_api_key(model)
 	AgentRunner(prompt, page_context_json, model, api_key, **kwargs).run()
