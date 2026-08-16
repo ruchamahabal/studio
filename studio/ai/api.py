@@ -80,7 +80,10 @@ def run(
 
 	app_id = resolve_app(app_id, page_id)
 	resolved_model = ModelRegistry.get_default(model)
-	api_key = resolve_api_key(resolved_model)
+	# Fail fast when nothing is configured — but the key itself is re-resolved
+	# INSIDE the job: enqueue kwargs sit in Redis and get dumped verbatim into
+	# worker logs on failure, which is no place for a secret.
+	resolve_api_key(resolved_model)
 
 	image_url = BlockCodec.validate_image_data(image_data) if image_data else None
 
@@ -106,7 +109,6 @@ def run(
 		prompt=prompt,
 		page_context_json=page_context,
 		model=resolved_model,
-		api_key=api_key,
 		user=frappe.session.user,
 		app_id=app_id,
 		page_id=page_id,

@@ -601,6 +601,16 @@ function warnIfNoVision(): boolean {
 	return false
 }
 
+// While a turn runs, the AI is the page's writer (the server persists every
+// op) — suppress the editor's deep-watch autosave so streamed/applied canvas
+// mutations don't race the worker's draft saves (MariaDB 1020).
+watch(loading, (running) => {
+	canvasStore.isAIStreaming = running
+})
+onUnmounted(() => {
+	canvasStore.isAIStreaming = false
+})
+
 // Realtime listeners are keyed by SESSION, not page: a running turn keeps
 // streaming into this panel across page navigation, and the canvas mirror is
 // gated per-event by target_page_id (see AIChatController.onToolBatch).

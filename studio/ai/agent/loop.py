@@ -64,6 +64,15 @@ class CancelledError(Exception):
 	"""Raised inside the stream loop when the user cancels the turn."""
 
 
+def is_write_conflict(exc: Exception) -> bool:
+	"""A concurrent write beat ours: MariaDB 1020 under snapshot isolation, or
+	Frappe's own timestamp check. Both are safely retried with a fresh read."""
+	if isinstance(exc, frappe.TimestampMismatchError):
+		return True
+	text = str(exc)
+	return "1020" in text and "changed since last read" in text.lower()
+
+
 # Tools that shouldn't appear in the visible timeline (they render as their own
 # chat card instead).
 ACTIVITY_SILENT = frozenset(
@@ -311,12 +320,28 @@ class AgentRunner:
 		"""Write the applied tree to the target page's draft. Agent writes land in
 		the DB — the page they are ADDRESSED to — never in "whatever canvas is
 		open"; an editor showing this page syncs its timestamp from the page event
-		and mirrors the ops live, any other editor state is simply unaffected."""
+		and mirrors the ops live, any other editor state is simply unaffected.
+
+		Commit first: a generation round can run for a minute, and under MariaDB
+		snapshot isolation a page save inside that old snapshot dies with 1020
+		("Record has changed since last read") if anything touched the row
+		meanwhile. The commit starts a fresh snapshot (and only makes durable what
+		checkpoint() would commit moments later anyway); the retry covers a write
+		landing in the remaining get→save window."""
 		if not self.target_page_id or self.tree is None or self.tree.root is None:
 			return
-		doc = frappe.get_doc("Studio Page", self.target_page_id)
-		doc.draft_blocks = BlockCodec.to_json([self.tree.root])
-		doc.save(ignore_permissions=True)
+		frappe.db.commit()  # nosemgrep
+		for attempt in (1, 2):
+			try:
+				doc = frappe.get_doc("Studio Page", self.target_page_id)
+				doc.draft_blocks = BlockCodec.to_json([self.tree.root])
+				doc.save(ignore_permissions=True)
+				break
+			except Exception as e:
+				frappe.db.rollback()
+				if attempt == 2 or not is_write_conflict(e):
+					raise
+				logger.warning("persist_tree hit a write conflict on %s — retrying", self.target_page_id)
 		self._persisted_pages.add(self.target_page_id)
 		self.note_page_event("updated", doc)
 
@@ -858,5 +883,10 @@ class AgentRunner:
 			frappe.db.commit()
 
 
-def run_agent_job(prompt: str, page_context_json: str, model: str, api_key: str, **kwargs):
+def run_agent_job(prompt: str, page_context_json: str, model: str, **kwargs):
+	# The key is resolved HERE, not passed through enqueue kwargs — those sit in
+	# Redis and get dumped verbatim into worker logs when a job fails.
+	from studio.ai.api import resolve_api_key
+
+	api_key = resolve_api_key(model)
 	AgentRunner(prompt, page_context_json, model, api_key, **kwargs).run()
