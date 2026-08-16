@@ -3,10 +3,13 @@
 Follows the `.agents/skills/<name>/SKILL.md` convention (YAML frontmatter with
 name + description), so the same skill files serve three consumers: this
 runtime agent, Claude Code, and Codex-style CLIs working on the repo. Two
-roots ship with Studio: the repo's own `.agents/skills/` and the frappe-ui
-submodule's `skills/`. The prompt carries only a compact index; bodies and
-reference files are fetched through the read_skill tool, jailed to the skill's
-own directory.
+roots ship with Studio: the frappe-ui submodule's `skills/` and the repo's own
+`.agents/skills/` — which carries a vendored copy of the frappe-ui skill,
+because the submodule is only initialized on dev setups (`yarn dev:frappe-ui`);
+when both exist the live submodule wins (first root, deduped by name), and
+`yarn upgrade-frappeui-submodule` refreshes the vendored copy. The prompt
+carries only a compact index; bodies and reference files are fetched through
+the read_skill tool, jailed to the skill's own directory.
 """
 
 import os
@@ -22,14 +25,18 @@ FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 
 
 def skill_roots() -> list[Path]:
+	"""Ordered by freshness: the frappe-ui submodule (when initialized) beats the
+	vendored copy in .agents/skills — discover() keeps the first of a name."""
 	app_root = Path(frappe.get_app_path("studio")).parent
-	return [app_root / ".agents" / "skills", app_root / "frappe-ui" / "skills"]
+	return [app_root / "frappe-ui" / "skills", app_root / ".agents" / "skills"]
 
 
 def discover() -> list[dict]:
 	"""Every valid skill: {name, description, path}. Cheap enough to run per
-	turn (a handful of stat calls); invalid entries are skipped silently."""
-	skills = []
+	turn (a handful of stat calls); invalid entries are skipped silently, and a
+	name found in an earlier root shadows the same name in a later one."""
+	skills: list[dict] = []
+	seen: set[str] = set()
 	for root in skill_roots():
 		if not root.is_dir():
 			continue
@@ -41,10 +48,11 @@ def discover() -> list[dict]:
 			if not meta:
 				continue
 			name = meta.get("name") or entry.name
-			if name != entry.name or not NAME_RE.match(name):
+			if name != entry.name or not NAME_RE.match(name) or name in seen:
 				continue
 			if not meta.get("description"):
 				continue
+			seen.add(name)
 			skills.append({"name": name, "description": meta["description"], "path": entry})
 	return skills
 
