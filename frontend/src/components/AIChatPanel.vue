@@ -1,11 +1,5 @@
 <template>
 	<div class="flex flex-1 flex-col overflow-hidden bg-surface-base">
-		<div
-			class="flex shrink-0 items-center justify-between border-b border-outline-gray-1 bg-surface-base px-3 py-2.5"
-		>
-			<div class="text-[11px] leading-4 text-ink-gray-5">Session persists for this page</div>
-		</div>
-
 		<div v-if="!isAIEnabled" class="flex flex-1 flex-col items-start gap-3 p-4">
 			<p class="text-p-xs text-ink-gray-6">
 				Connect an AI provider — an API key or your ChatGPT subscription — to use the assistant.
@@ -304,8 +298,75 @@ const sessionResource = createResource({
 			selectedModel.value = modelOptions.value[0].value
 		}
 		scrollToBottom()
+		reloadSessions()
 	},
 })
+
+// The page's chats for the session switcher in the panel header.
+const sessions = ref<any[]>([])
+
+async function reloadSessions() {
+	if (!pageId.value) return
+	sessions.value = (await call("studio.ai.api.list_page_ai_sessions", { page_id: pageId.value })) ?? []
+}
+
+// Titles are first prompts, so cap them — the dropdown sizes to its longest
+// label and would sprawl across the canvas.
+const truncateTitle = (title: string, max = 44) =>
+	title.length > max ? title.slice(0, max - 1).trimEnd() + "…" : title
+
+const sessionOptions = computed(() => {
+	if (!sessions.value.length) return []
+	// Delete sits in its own group so it reads as an action on the current chat
+	// rather than another chat to switch to — frappe-ui draws the divider.
+	return [
+		{
+			group: "Chats",
+			hideLabel: true,
+			options: sessions.value.map((s: any) => ({
+				label: truncateTitle(s.title || "New chat"),
+				icon: s.name === controller.sessionId ? "lucide-check" : "lucide-message-circle",
+				onClick: () => switchSession(s.name),
+			})),
+		},
+		{
+			group: "Manage",
+			hideLabel: true,
+			options: [
+				{
+					label: "Delete current chat",
+					icon: "lucide-trash-2",
+					theme: "red",
+					onClick: deleteSession,
+				},
+			],
+		},
+	]
+})
+
+async function newSession() {
+	if (loading.value) return
+	const res: any = await call("studio.ai.api.new_ai_session", {
+		page_id: pageId.value,
+		model: selectedModel.value || undefined,
+	})
+	controller.sessionId = res.session_id ?? ""
+	messages.value = res.messages ?? []
+	reloadSessions()
+}
+
+function switchSession(sessionId: string) {
+	if (loading.value || sessionId === controller.sessionId) return
+	sessionResource.submit({ page_id: pageId.value, session_id: sessionId })
+}
+
+async function deleteSession() {
+	if (loading.value || !controller.sessionId) return
+	await call("studio.ai.api.delete_ai_session", { session_id: controller.sessionId })
+	controller.sessionId = ""
+	// Falls to the page's most recent remaining chat, or a fresh one.
+	sessionResource.submit({ page_id: pageId.value })
+}
 
 function scrollToBottom() {
 	nextTick(() => {
@@ -429,6 +490,8 @@ async function generate() {
 	prompt.value = ""
 	// An attached design with no words is still a valid instruction: reproduce it.
 	await controller.submit(text || "Reproduce this attached design as a page.", selectedModel.value)
+	// A chat is titled by its first prompt — this turn may have just named it.
+	reloadSessions()
 }
 
 function stop() {
@@ -441,16 +504,11 @@ function sendPrompt(text: string) {
 	controller.submit(text, selectedModel.value)
 }
 
-async function clearSession() {
-	await call("studio.ai.api.clear_ai_session", { page_id: pageId.value })
-	messages.value = []
-}
-
 // Header actions for this panel render in StudioLeftPanel's title row, which
 // reaches them through a template ref on the (always-mounted) panel.
 defineExpose({
-	hasMessages: computed(() => messages.value.length > 0),
-	clearSession,
+	sessionOptions,
+	newSession,
 	openProviders: () => (showProviders.value = true),
 })
 </script>

@@ -95,6 +95,7 @@ export class AIChatController {
 				page_id: this.ctx.pageId(),
 				page_context: this.ctx.getPageContext(),
 				model,
+				session_id: this.sessionId || undefined,
 				selected_block_ids: this.ctx.getSelectedBlockIds(),
 				image_data: image ?? undefined,
 			})

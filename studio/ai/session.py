@@ -16,12 +16,15 @@ class AISession:
 
 	@classmethod
 	def get_or_create(cls, page_id: str, model: str | None = None, user: str | None = None):
+		"""The page's most recently used session for this user, creating the first
+		if none exist. A page can hold several parallel sessions."""
 		user = user or frappe.session.user
 
 		session_name = frappe.db.get_value(
 			cls.DOCTYPE,
 			{"page": page_id, "user": user},
 			"name",
+			order_by="last_interaction_on desc",
 		)
 		if session_name:
 			doc = frappe.get_doc(cls.DOCTYPE, str(session_name))
@@ -29,12 +32,15 @@ class AISession:
 				doc.selected_model = model
 				doc.save(ignore_permissions=True)
 			return cls(doc)
+		return cls.create(page_id, model, user)
 
+	@classmethod
+	def create(cls, page_id: str, model: str | None = None, user: str | None = None):
 		doc = frappe.get_doc(
 			{
 				"doctype": cls.DOCTYPE,
 				"page": page_id,
-				"user": user,
+				"user": user or frappe.session.user,
 				"selected_model": model or "",
 				"last_interaction_on": frappe.utils.now_datetime(),
 			}
@@ -271,19 +277,3 @@ class AISession:
 		if not session_id or not frappe.db.exists(cls.DOCTYPE, session_id):
 			return False
 		return bool(frappe.db.get_value(cls.DOCTYPE, session_id, "is_running"))
-
-	# --- lifecycle --------------------------------------------------------
-
-	def clear(self):
-		"""Wipe all messages for this session and reset transient state."""
-		frappe.db.delete(self.MESSAGE_DOCTYPE, {"session": self._doc.name})
-		frappe.db.set_value(
-			self.DOCTYPE,
-			self._doc.name,
-			{
-				"is_running": 0,
-				"last_task_type": None,
-				"last_interaction_on": frappe.utils.now_datetime(),
-			},
-			update_modified=False,
-		)

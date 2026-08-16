@@ -41,12 +41,15 @@
 					<div class="flex items-center gap-1">
 						<template v-if="activeTab === 'AI Assistant'">
 							<Button
-								v-if="aiPanel?.hasMessages"
 								variant="ghost"
 								size="sm"
-								label="Clear"
-								@click="aiPanel?.clearSession()"
+								icon="lucide-plus"
+								title="New chat"
+								@click="aiPanel?.newSession()"
 							/>
+							<Dropdown v-if="aiPanel?.sessionOptions?.length" :options="aiPanel.sessionOptions" :offset="6">
+								<Button variant="ghost" size="sm" icon="lucide-history" title="Chats on this page" />
+							</Dropdown>
 							<Button
 								variant="ghost"
 								size="sm"
@@ -88,7 +91,7 @@
 
 <script setup lang="ts">
 import { watch, computed, nextTick, ref } from "vue"
-import { Tooltip, Button } from "frappe-ui"
+import { Tooltip, Button, Dropdown } from "frappe-ui"
 
 import PagesPanel from "@/components/PagesPanel.vue"
 import PanelResizer from "@/components/PanelResizer.vue"

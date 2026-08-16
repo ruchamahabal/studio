@@ -2,8 +2,9 @@
 
 A single conversational entry point — `run` — drives the unified agent loop for
 one user turn (generation and editing alike). `cancel` requests that a running turn
-abort at its next stream chunk; `get_ai_session`/`clear_ai_session` read and reset the
-per-page chat history.
+abort at its next stream chunk. A page holds several parallel chat sessions per user:
+`get_ai_session` loads one, `new_ai_session` starts one, `list_page_ai_sessions`
+powers the switcher and `delete_ai_session` removes one for good.
 """
 
 import json
@@ -50,6 +51,7 @@ def run(
 	page_context: str,
 	page_id: str,
 	model: str | None = None,
+	session_id: str | None = None,
 	selected_block_ids: list | str | None = None,
 	image_data: str | None = None,
 ):
@@ -70,7 +72,12 @@ def run(
 
 	image_url = BlockCodec.validate_image_data(image_data) if image_data else None
 
-	session = AISession.get_or_create(page_id, resolved_model)
+	# The panel says which of the page's sessions this turn belongs to; a stale id
+	# (session deleted elsewhere) falls back to the page's current session.
+	if session_id and frappe.db.exists(AISession.DOCTYPE, session_id):
+		session = AISession.get(session_id, page_id=page_id)
+	else:
+		session = AISession.get_or_create(page_id, resolved_model)
 	if AISession.is_session_running(session.name):
 		frappe.local.response.http_status_code = 429
 		return {"status": "busy", "message": _("Another AI request is still processing. Please wait.")}
@@ -112,8 +119,13 @@ def cancel(session_id: str):
 
 @frappe.whitelist()
 @has_page_write_perm()
-def get_ai_session(page_id: str, model: str | None = None) -> dict:
-	session = AISession.get_or_create(page_id, model)
+def get_ai_session(page_id: str, model: str | None = None, session_id: str | None = None) -> dict:
+	"""With `session_id`, that specific chat; without, the page's most recently
+	used one (creating the first if none exist)."""
+	if session_id and frappe.db.exists(AISession.DOCTYPE, session_id):
+		session = AISession.get(session_id, page_id=page_id)
+	else:
+		session = AISession.get_or_create(page_id, model)
 	# Return the session id so the client can cancel a turn it didn't start itself — e.g. when a
 	# page is opened while a previously-launched turn is still running in the background.
 	return {
@@ -125,9 +137,48 @@ def get_ai_session(page_id: str, model: str | None = None) -> dict:
 
 @frappe.whitelist()
 @has_page_write_perm()
-def clear_ai_session(page_id: str) -> dict:
-	session = AISession.get_or_create(page_id)
-	session.clear()
+def new_ai_session(page_id: str, model: str | None = None) -> dict:
+	"""Start a fresh chat on this page — existing sessions stay untouched and
+	switchable. An empty session the user never used IS a fresh chat, so hand that
+	back rather than stacking up another: a few taps of New chat would otherwise
+	fill the switcher with identical blank entries."""
+	for name in frappe.get_all(
+		AISession.DOCTYPE, filters={"page": page_id, "user": frappe.session.user}, pluck="name"
+	):
+		if not frappe.db.count(AISession.MESSAGE_DOCTYPE, {"session": name}):
+			return {"session_id": name, "messages": []}
+	session = AISession.create(page_id, model)
+	return {"session_id": session.name, "messages": []}
+
+
+@frappe.whitelist()
+@has_page_write_perm()
+def list_page_ai_sessions(page_id: str, limit: int = 20) -> list:
+	"""This page's chats for the current user — powers the session switcher.
+	A chat is titled by its first user message."""
+	rows = frappe.get_all(
+		AISession.DOCTYPE,
+		filters={"page": page_id, "user": frappe.session.user},
+		fields=["name", "last_interaction_on"],
+		order_by="last_interaction_on desc",
+		limit=min(int(limit), 50),
+	)
+	for row in rows:
+		row["title"] = frappe.db.get_value(
+			AISession.MESSAGE_DOCTYPE,
+			{"session": row["name"], "role": "user"},
+			"content",
+			order_by="creation asc",
+		)
+	return rows
+
+
+@frappe.whitelist()
+@has_page_write_perm()
+def delete_ai_session(session_id: str) -> dict:
+	AISession.get(session_id)  # asserts ownership
+	# The session's on_trash takes its messages with it.
+	frappe.delete_doc(AISession.DOCTYPE, session_id, ignore_permissions=True)
 	return {"status": "ok"}
 
 
