@@ -167,7 +167,13 @@ class BlockCodec:
 		cleaned = BlockCodec.strip_fences(content)
 		try:
 			parsed = json.loads(cleaned, strict=False)
-		except json.JSONDecodeError:
+		except json.JSONDecodeError as e:
+			# Repair recovers a page from broken JSON, but lossily: a missing bracket
+			# can close a container early and flatten its children into siblings.
+			# Never let that happen silently — it looks like a "successful" build.
+			frappe.logger("studio.ai.block_codec").warning(
+				f"parse_blocks: model JSON invalid ({e}) — recovered via json_repair; structure may be lossy"
+			)
 			parsed = repair_json(cleaned, return_objects=True)
 
 		if isinstance(parsed, list):

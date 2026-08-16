@@ -122,6 +122,21 @@ UNBACKED_CORRECTION = (
 	"Never describe work you did not do."
 )
 
+# Ending a turn ANNOUNCING imminent work ("Now I'll generate the layout.") instead of
+# doing it. Deliberately narrow — imminence phrasings only — so honest closings
+# ("let me know if…") and conditional offers never trigger it.
+INTENT_CLAIM_RE = re.compile(
+	r"\b(?:now,?\s+(?:I(?:'|’)ll|I\s+will|let\s+me)|I(?:'|’)ll\s+now|I\s+will\s+now|"
+	r"let\s+me\s+now|next,?\s+I(?:'|’)ll)\b",
+	re.IGNORECASE,
+)
+
+INTENT_CORRECTION = (
+	"CORRECTION: you ended your turn announcing what you are about to do, without doing it. "
+	"Do it NOW, in this same turn, by calling the tools. Only stop when the work is done or you "
+	"are genuinely blocked on the user — and then say that plainly instead of promising action."
+)
+
 TOOL_LABELS = {
 	"generate_page": "Building the page",
 	"query_blocks": "Scanned the page",
@@ -680,6 +695,7 @@ class AgentRunner:
 		client_operations: list[dict] = []
 		summary_text = ""
 		corrected_unbacked = False
+		corrected_intent = False
 
 		try:
 			for _round in range(MAX_ROUNDS):
@@ -692,13 +708,19 @@ class AgentRunner:
 					self.handle_terminal(terminal_ops[0])
 					return
 
-				# An artifact tool (full-page generation) is the turn's work: its generator
-				# streams the artifact live on the heavy model and returns the canonical client
-				# op(s), persisted server-side and mirrored to the canvas. Generation ends the loop.
+				# An artifact tool (full-page generation) streams the artifact live on the
+				# heavy model; its ops are persisted server-side and mirrored to the canvas.
+				# The turn CONTINUES afterwards — the tool result tells the model to look at
+				# what it built (preview_page) and fix real issues before summarising.
 				if artifact_ops:
-					for op in artifact_ops:
+					if summary_text:
+						self.add_step("text", text=summary_text, status="done")
+					messages.append(
+						{"role": "assistant", "content": summary_text or None, "tool_calls": raw_tool_calls}
+					)
+					for tc_dict, op in zip(raw_tool_calls, tool_operations, strict=True):
 						tool = self.registry.get(op["tool_name"])
-						if tool and tool.generator:
+						if tool and tool.artifact and tool.generator:
 							entry = self.begin_activity(op["tool_name"], op["args"])
 							ops = tool.generator(self, op["args"])
 							self.end_activity(entry)
@@ -707,7 +729,25 @@ class AgentRunner:
 								self.apply_generated(gen_op)
 							if ops:
 								self.emit("tool_batch", operations=ops)
-					break
+								content = (
+									"Generated and saved the page. Now LOOK at it: call preview_page to "
+									"review the rendered result — check layout structure (nesting, empty "
+									"regions, squeezed content) — and fix real issues with the block tools "
+									"before writing your summary."
+								)
+							else:
+								content = (
+									"FAILED: generation produced no usable page JSON. Tell the user the "
+									"build failed and to try again — do NOT claim any page was built."
+								)
+						else:
+							content = (
+								"NOT RUN: generate_page takes the whole round; call this tool again "
+								"next round if still needed."
+							)
+						messages.append({"role": "tool", "tool_call_id": tc_dict["id"], "content": content})
+					self.checkpoint()
+					continue
 
 				# Live narration: surface what the model said / did THIS round, and keep
 				# it on the timeline so a reload can replay it.
@@ -721,6 +761,13 @@ class AgentRunner:
 
 				# The model ENDS the turn by replying with a final summary and NO tool calls.
 				if not tool_operations:
+					# One corrective round when the reply announces imminent work instead of
+					# doing it ("Now I'll generate the full page layout." — then silence).
+					if not corrected_intent and summary_text and INTENT_CLAIM_RE.search(summary_text):
+						corrected_intent = True
+						messages.append({"role": "assistant", "content": summary_text})
+						messages.append({"role": "user", "content": INTENT_CORRECTION})
+						continue
 					# One corrective round when the summary claims work nothing backs.
 					if (
 						not corrected_unbacked
