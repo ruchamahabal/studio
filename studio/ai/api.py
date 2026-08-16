@@ -89,8 +89,9 @@ def run(
 		frappe.local.response.http_status_code = 429
 		return {"status": "busy", "message": _("Another AI request is still processing. Please wait.")}
 	# The open page becomes this turn's target; record it so a reloaded editor knows
-	# where a running turn's edits are landing.
+	# where a running turn's edits are landing. The model choice sticks to the chat too.
 	session.set_focus_page(page_id)
+	session.set_selected_model(resolved_model)
 
 	# Store the image on the user message so the chat thread can show a thumbnail on reload.
 	msg_meta = {"attachedImageUrl": image_url} if image_url else None

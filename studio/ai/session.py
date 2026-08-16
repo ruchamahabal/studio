@@ -92,6 +92,13 @@ class AISession:
 		"""The session's current focus page — the page its turns target."""
 		return self._doc.page
 
+	def set_selected_model(self, model: str | None) -> None:
+		"""Remember the model the user last ran this chat with, so the picker doesn't
+		snap back to a stale choice when the session reloads after a turn."""
+		if model and self._doc.selected_model != model:
+			self._doc.selected_model = model
+			frappe.db.set_value(self.DOCTYPE, self._doc.name, "selected_model", model, update_modified=False)
+
 	def set_focus_page(self, page_id: str) -> None:
 		"""Record which page this session is working on, so a reloaded editor knows
 		where a running turn's edits are landing."""
