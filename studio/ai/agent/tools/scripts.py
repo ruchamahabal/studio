@@ -78,7 +78,7 @@ def _write_db_script(ctx, page, source: str) -> str:
 	page.script = source
 	if error := save_page(page):
 		return f"FAILED: {error}"
-	ctx.emit("reload", script=True)
+	ctx.emit("reload", script=True, modified=page.modified)
 	return "Updated the page script. It runs live on the canvas now."
 
 

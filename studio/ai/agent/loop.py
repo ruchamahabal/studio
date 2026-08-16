@@ -4,16 +4,24 @@
 one tool-calling loop until the model stops requesting server/terminal tools.
 Tool *behaviour* lives in the registry; this file only orchestrates.
 
+The server is authoritative for every turn: the page is loaded from the DB into a
+mutating `WorkingTree`, ops are applied there first and persisted after each round,
+and only the accepted ops are mirrored to the editor canvas (a live view, not a
+second writer). Ops the tree rejects are never emitted, so canvas and draft can't
+diverge.
+
 Realtime event contract (consumed by the frontend). Every event name is
 suffixed with the page id, e.g. `ai_chat_stream_<page_id>`:
 
     ai_chat_progress    {message}
     ai_chat_stream      {chunk}      append to the chat reply text
-    ai_chat_tool_batch  {operations: [{tool_name, args}]}   apply to the canvas
+    ai_chat_tool_batch  {operations: [{tool_name, args}], modified}   mirror on the canvas
     ai_chat_complete    {message}
     ai_chat_error       {message}
 
-All events also carry {page_id}.
+All events also carry {page_id}. `modified` is the draft's timestamp after the
+server persisted the batch — the editor adopts it so its next manual save doesn't
+raise a stale-write conflict.
 """
 
 import json
@@ -53,7 +61,6 @@ class AgentRunner:
 	def __init__(
 		self,
 		prompt: str,
-		page_context_json: str,
 		model: str,
 		api_key: str,
 		*,
@@ -64,7 +71,6 @@ class AgentRunner:
 		image_url: str | None = None,
 	):
 		self.prompt = prompt
-		self.page_context_json = page_context_json
 		self.model = model
 		self.api_key = api_key
 		self.user = user or frappe.session.user
@@ -117,20 +123,57 @@ class AgentRunner:
 			event = f"{event}_{self.page_id}"
 		frappe.publish_realtime(event, {"page_id": self.page_id, **kwargs}, user=self.user)
 
-	# --- message construction --------------------------------------------
+	# --- page state -------------------------------------------------------
 
-	def _page_root(self) -> dict | None:
-		"""Parse page_context_json into the root block dict, or None if empty/invalid."""
+	def load_page_root(self) -> dict | None:
+		"""The page's current working tree from the DB (draft wins over published). The
+		editor flushes unsaved canvas changes before the turn starts, so this is exactly
+		what the user sees."""
+		if not self.page_id:
+			return None
+		draft, published = frappe.db.get_value("Studio Page", self.page_id, ["draft_blocks", "blocks"])
 		try:
-			data = json.loads(self.page_context_json)
+			data = json.loads(draft or published or "[]")
 		except (json.JSONDecodeError, TypeError):
 			return None
 		if isinstance(data, list):
 			data = data[0] if data else None
 		return data if isinstance(data, dict) else None
 
+	def persist_tree(self) -> str | None:
+		"""Write the working tree as the page's draft and checkpoint-commit, so a cancelled
+		or crashed turn keeps every applied round. `set_value`, not doc.save: the server owns
+		the draft during a turn; the editor's own saves are stamp-guarded against it (see
+		StudioPage.reject_if_stale). Returns the new modified stamp for the editor to adopt."""
+		if not (self.page_id and self.tree and self.tree.root):
+			return None
+		# End the read transaction first: a generation stream keeps this worker's snapshot
+		# open for minutes, and any concurrent save of the page (editor autosave, disk sync)
+		# makes the UPDATE fail with 1020 "record has changed since last read". A fresh
+		# transaction sees the current row; retry once more if a writer still races us —
+		# the tree is authoritative and must land regardless.
+		frappe.db.commit()
+		try:
+			frappe.db.set_value(
+				"Studio Page", self.page_id, "draft_blocks", BlockCodec.to_json([self.tree.root])
+			)
+		except frappe.QueryDeadlockError:
+			frappe.db.rollback()
+			frappe.db.set_value(
+				"Studio Page", self.page_id, "draft_blocks", BlockCodec.to_json([self.tree.root])
+			)
+		frappe.db.commit()
+		return str(frappe.db.get_value("Studio Page", self.page_id, "modified"))
+
+	def page_root(self) -> dict | None:
+		"""The LIVE root of this turn's working tree — server tools read page state through
+		this, so they see edits already applied earlier in the turn."""
+		return self.tree.root if self.tree else None
+
+	# --- message construction --------------------------------------------
+
 	def build_page_context(self) -> str:
-		root = self._page_root()
+		root = self.page_root()
 		if root is None:
 			return ""
 		structure = BlockCodec.to_json(BlockCodec.compress(root))
@@ -337,17 +380,17 @@ class AgentRunner:
 			return
 		self._set_running(True)
 
+		# The authoritative page tree this turn: loaded from the DB, mutated by block ops,
+		# persisted after every round (see WorkingTree).
+		self.tree = WorkingTree(self.load_page_root())
 		messages = self.build_messages()
-		# Mirror of the page tree this turn. Client ops are validated against it so the tool
-		# result fed back is the truth, not a blanket "Applied." (see WorkingTree).
-		self.tree = WorkingTree(self._page_root())
 		client_operations: list[dict] = []
 		summary_text = ""
 
 		try:
 			for _round in range(MAX_ROUNDS):
 				tool_operations, summary_text, raw_tool_calls = self.call_tool_llm(messages)
-				terminal_ops, artifact_ops, server_ops, client_ops = self._classify(tool_operations)
+				terminal_ops, artifact_ops = self._classify(tool_operations)
 
 				# A terminal tool ends the turn and hands control back to the user. If the
 				# model emits more than one, the first wins (the turn is over).
@@ -356,29 +399,27 @@ class AgentRunner:
 					return
 
 				# An artifact tool (full-page generation) is the turn's work: its generator
-				# streams the artifact live on the heavy model and returns the canonical client
-				# op(s). Generation ends the loop.
+				# streams the artifact live on the heavy model and returns the canonical
+				# op(s), which replace the working tree. Generation ends the loop.
 				if artifact_ops:
 					for op in artifact_ops:
 						tool = self.registry.get(op["tool_name"])
 						if tool and tool.generator:
-							ops = tool.generator(self, op["args"])
-							client_operations.extend(ops)
-							if ops:
-								self.emit("tool_batch", operations=ops)
+							client_operations.extend(self.adopt_generated(tool.generator(self, op["args"])))
 					break
 
-				# Apply this round's edits immediately so the canvas updates live and the user
-				# sees progress during a long multi-block change. Server ops are NOT emitted —
-				# they run via their handler below.
-				if client_ops:
-					client_operations.extend(client_ops)
-					self.emit("tool_batch", operations=client_ops)
+				# Apply this round in call order: server tools run their handler, block ops
+				# mutate the working tree. Only accepted ops (no "FAILED" result) reach the
+				# canvas; every result feeds back so the model can continue or self-correct.
+				accepted, results = self.apply_round(tool_operations)
+				if accepted:
+					client_operations.extend(accepted)
+					self.emit("tool_batch", operations=accepted, modified=self.persist_tree())
 
 				# Live narration: surface what the model said / did THIS round.
 				if tool_operations:
 					note = (summary_text or "").strip() or (
-						self.describe_operations(client_ops) if client_ops else ""
+						self.describe_operations(accepted) if accepted else ""
 					)
 					if note:
 						self.emit("progress", message=note)
@@ -387,20 +428,10 @@ class AgentRunner:
 				if not tool_operations:
 					break
 
-				# Feed each tool's result back so the model can continue or self-correct.
 				messages.append(
 					{"role": "assistant", "content": summary_text or None, "tool_calls": raw_tool_calls}
 				)
-				for tc_dict, op in zip(raw_tool_calls, tool_operations, strict=True):
-					tool = self.registry.get(op["tool_name"])
-					if tool and tool.side == "server" and tool.handler:
-						content = tool.handler(self, op["args"])
-					else:
-						content = self.tree.apply(op["tool_name"], op["args"])
-						# "FAILED" (hard miss) or "NOT FOUND" (partial bulk miss) — a correction
-						# the model is now being asked to make. Log so it's not invisible.
-						if "FAILED" in content or "NOT FOUND" in content:
-							logger.warning("Client op rejected — %s: %s", op["tool_name"], content)
+				for tc_dict, content in zip(raw_tool_calls, results, strict=True):
 					messages.append({"role": "tool", "tool_call_id": tc_dict["id"], "content": content})
 
 		except CancelledError:
@@ -443,24 +474,50 @@ class AgentRunner:
 		frappe.db.commit()  # commit before emit so the client's reload sees the final turn
 		self.emit("complete", message=summary_text or "Done")
 
-	def _classify(self, tool_operations: list[dict]) -> tuple[list, list, list, list]:
-		"""Split this round's calls. Artifact tools (generate_page) are handled by their
-		generator and take precedence over their nominal side; client ops are emitted to the
-		canvas; server ops run via their handler; a terminal op ends the turn."""
-		terminal_ops, artifact_ops, server_ops, client_ops = [], [], [], []
+	def _classify(self, tool_operations: list[dict]) -> tuple[list, list]:
+		"""Pick out the calls that redirect the round: an artifact tool (generate_page) is
+		handled by its generator and takes precedence over its nominal side; a terminal op
+		ends the turn. Everything else is applied in order by apply_round."""
+		terminal_ops, artifact_ops = [], []
 		for op in tool_operations:
 			tool = self.registry.get(op["tool_name"])
 			if tool and tool.artifact:
 				artifact_ops.append(op)
-				continue
-			side = self.registry.side(op["tool_name"])
-			if side == "terminal":
+			elif self.registry.side(op["tool_name"]) == "terminal":
 				terminal_ops.append(op)
-			elif side == "server":
-				server_ops.append(op)
+		return terminal_ops, artifact_ops
+
+	def apply_round(self, tool_operations: list[dict]) -> tuple[list[dict], list[str]]:
+		"""Run one round's ops in call order against the server state. Returns (accepted
+		block ops to mirror on the canvas, one tool result per op to feed the model)."""
+		accepted: list[dict] = []
+		results: list[str] = []
+		for op in tool_operations:
+			tool = self.registry.get(op["tool_name"])
+			if tool and tool.side == "server" and tool.handler:
+				results.append(tool.handler(self, op["args"]))
+				continue
+			content = self.tree.apply(op["tool_name"], op["args"])
+			if content.startswith("FAILED"):
+				# A correction the model is now being asked to make. Log so it's not invisible.
+				logger.warning("Block op rejected — %s: %s", op["tool_name"], content)
 			else:
-				client_ops.append(op)
-		return terminal_ops, artifact_ops, server_ops, client_ops
+				accepted.append(op)
+				if "NOT FOUND" in content:
+					logger.warning("Block op partially applied — %s: %s", op["tool_name"], content)
+			results.append(content)
+		return accepted, results
+
+	def adopt_generated(self, ops: list[dict]) -> list[dict]:
+		"""Make a generator's output the page: stamp ids on the generated tree, point the
+		working tree at it (so later rounds could edit it), persist, and mirror the op —
+		the authoritative apply that replaces the client's throwaway streamed preview."""
+		for op in ops:
+			if isinstance(op.get("args", {}).get("block"), dict):
+				self.tree = WorkingTree(BlockCodec.ensure_ids(op["args"]["block"]))
+		if ops:
+			self.emit("tool_batch", operations=ops, modified=self.persist_tree())
+		return ops
 
 	def _set_running(self, running: bool) -> None:
 		if not self.session_id:
@@ -488,10 +545,10 @@ class AgentRunner:
 			tool.handler(self, op["args"])
 
 
-def run_agent_job(prompt: str, page_context_json: str, model: str, **kwargs):
+def run_agent_job(prompt: str, model: str, **kwargs):
 	# The key is resolved HERE, not passed through enqueue kwargs — those sit in
 	# Redis and get dumped verbatim into worker logs when a job fails.
 	from studio.ai.api import resolve_api_key
 
 	api_key = resolve_api_key(model)
-	AgentRunner(prompt, page_context_json, model, api_key, **kwargs).run()
+	AgentRunner(prompt, model, api_key, **kwargs).run()

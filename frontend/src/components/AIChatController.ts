@@ -17,10 +17,14 @@ export interface AIChatContext {
 	error: Ref<string>
 	pageId: () => string
 	getCanvas: () => any
-	getPageContext: () => string
 	getSelectedBlockIds: () => string[]
 	setRootBlock: (block: BlockOptions) => void
-	savePage: () => void
+	/** Flush unsaved canvas changes so the server-side turn starts from what the user sees. */
+	savePage: () => Promise<any> | void
+	/** The server persisted the draft: adopt its modified stamp + local draft marker. */
+	adoptServerWrite: (modified?: string) => void
+	/** While a turn runs, the server owns this page's draft — the editor's autosave stands down. */
+	setAIOwnsCanvas: (owned: boolean) => void
 	reloadSession: () => void
 	scrollToBottom: () => void
 	reloadPageData: (opts: {
@@ -90,10 +94,13 @@ export class AIChatController {
 		this.pendingAssistantId = this.pushMessage("assistant", "Thinking…")
 		this.ctx.scrollToBottom()
 		try {
+			// The server edits the page authoritatively from its saved draft — flush any
+			// unsaved canvas changes first so the turn starts from exactly what the user sees.
+			await this.ctx.savePage()
+			this.ctx.setAIOwnsCanvas(true)
 			const res: any = await call("studio.ai.api.run", {
 				prompt: promptText,
 				page_id: this.ctx.pageId(),
-				page_context: this.ctx.getPageContext(),
 				model,
 				session_id: this.sessionId || undefined,
 				selected_block_ids: this.ctx.getSelectedBlockIds(),
@@ -128,6 +135,10 @@ export class AIChatController {
 	onStream = (data: any) => {
 		if (!data.chunk) return
 		if (data.kind === "page_json") {
+			// Stream chunks only arrive while a build runs on this page — re-assert ownership
+			// on every chunk so autosave stays down even if the editor reloaded mid-turn (a
+			// reload resets the flag; saving the throwaway preview races the server's write).
+			this.ctx.setAIOwnsCanvas(true)
 			this.pageBuffer += data.chunk
 			this.renderStreamedPage()
 			return
@@ -139,12 +150,18 @@ export class AIChatController {
 
 	onToolBatch = (data: any) => {
 		if (!data.operations?.length) return
+		// A batch only arrives while a turn is running on this page — re-assert ownership
+		// (covers returning to a page whose build is still in flight) so the editor's
+		// autosave doesn't react to the mirrored mutations.
+		this.ctx.setAIOwnsCanvas(true)
+		// The server already applied + persisted these ops — the canvas only mirrors them.
 		this.dispatcher.applyToolBatch(data.operations)
-		this.ctx.savePage()
+		this.ctx.adoptServerWrite(data.modified)
 		this.ctx.scrollToBottom()
 	}
 
 	onComplete = (data: any) => {
+		this.ctx.setAIOwnsCanvas(false)
 		this.ctx.loading.value = false
 		this.ctx.statusMessage.value = ""
 		this.updatePending(this.summary || data.message || "Done")
@@ -155,6 +172,7 @@ export class AIChatController {
 	}
 
 	onError = (data: any) => {
+		this.ctx.setAIOwnsCanvas(false)
 		this.ctx.loading.value = false
 		this.ctx.statusMessage.value = ""
 		this.ctx.error.value = data.message || "Request failed."
@@ -176,6 +194,7 @@ export class AIChatController {
 	}
 
 	onClarify = (data: any) => {
+		this.ctx.setAIOwnsCanvas(false)
 		this.ctx.loading.value = false
 		this.ctx.statusMessage.value = ""
 		if (data.plan_summary) {

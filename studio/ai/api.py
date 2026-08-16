@@ -48,21 +48,17 @@ def resolve_api_key(model: str | None = None) -> str:
 @has_page_write_perm()
 def run(
 	prompt: str,
-	page_context: str,
 	page_id: str,
 	model: str | None = None,
 	session_id: str | None = None,
 	selected_block_ids: list | str | None = None,
 	image_data: str | None = None,
 ):
-	"""Single entry point: run the agent for one user turn. `image_data` is an optional base64
-	image data URL (a screenshot/design) the model should reproduce as a layout."""
+	"""Single entry point: run the agent for one user turn. The page state is read from the
+	DB (the editor flushes unsaved canvas changes before calling this), edited server-side,
+	and mirrored to the canvas — the client sends no page context. `image_data` is an
+	optional base64 image data URL (a screenshot/design) the model should reproduce."""
 	logger.info(f"run: page_id={page_id}, model={model}")
-
-	try:
-		json.loads(page_context)
-	except (json.JSONDecodeError, TypeError):
-		frappe.throw(_("Invalid page context JSON"))
 
 	resolved_model = ModelRegistry.get_default(model)
 	# Fail fast when nothing is configured — but the key itself is re-resolved
@@ -94,7 +90,6 @@ def run(
 		queue="long",
 		timeout=600,
 		prompt=prompt,
-		page_context_json=page_context,
 		model=resolved_model,
 		user=frappe.session.user,
 		page_id=page_id,
@@ -128,10 +123,13 @@ def get_ai_session(page_id: str, model: str | None = None, session_id: str | Non
 		session = AISession.get_or_create(page_id, model)
 	# Return the session id so the client can cancel a turn it didn't start itself — e.g. when a
 	# page is opened while a previously-launched turn is still running in the background.
+	# `is_running` lets a freshly-(re)loaded editor stand its autosave down immediately: the
+	# server owns the draft while a turn runs, and a reload wipes the client-side flag.
 	return {
 		"session_id": session.name,
 		"messages": session.get_messages(),
 		"selected_model": session.selected_model or "",
+		"is_running": AISession.is_session_running(session.name),
 	}
 
 

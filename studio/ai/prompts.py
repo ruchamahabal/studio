@@ -201,7 +201,7 @@ DATA_WIRING = (
 	"""# Wiring live data & variables
 A binding is a `{{ }}` expression sitting in a block prop. Its context: data sources (`{{ <source>.data }}` for a Document-List/API result, `{{ <source>.doc }}` for a single Document), variables (`{{ counter }}`), page-script bindings, and `route`/`router`.
 
-THE ONE RULE — bake bindings in at creation. A block you add gets its id on the CANVAS, so you cannot reference it later this turn. Put every binding straight into the block's props in the SAME add_block / generate_page call — never add a block and then bind it, and never ask the user to paste the page. bind_prop / set_repeater_data are ONLY for blocks that ALREADY EXIST in the page structure.
+THE ONE RULE — bake bindings in at creation. Put every binding straight into the block's props in the SAME add_block / generate_page call — never add a block and then bind it afterwards, and never ask the user to paste the page. bind_prop / set_repeater_data are for blocks that already exist on the page (add_block's result does name the new block's id, so use it only to FIX a block you added earlier this turn, not as a two-step habit).
 
 Build a data-driven view — BACKEND FIRST, then layout:
   1. Introspect — get_doctype_fields (and list_doctypes if unsure of the DocType) to fix the DocType and the REAL field names.
@@ -269,7 +269,7 @@ def get_agent_system(data_and_code_wiring: str) -> str:
 - Change ONLY what the user asked for; leave every other block and property untouched.
 
 # Page context
-The current page is given as a compact JSON tree using the BLOCK SCHEMA below — except every EXISTING block also carries an "id" (its reference). Pass that exact value as component_id (or parent_component_id) to target a block. The tree reflects the page at the START of this turn — blocks you add or move mid-turn won't appear in a later query. If a component_id comes back as not found, re-read the tree and use a real "id"; do not reissue the same ref.
+The current page is given as a compact JSON tree using the BLOCK SCHEMA below — except every EXISTING block also carries an "id" (its reference). Pass that exact value as component_id (or parent_component_id) to target a block. The inlined tree shows the page at the START of this turn, but edits apply to the LIVE server-side tree: a block you add returns its new id in the tool result, and query_blocks / read_block always reflect edits already made this turn. If a component_id comes back as not found, re-query and use a real "id"; do not reissue the same ref.
 
 # Choosing the right tool
 - Empty page, or the user asks to create a new page or fully redesign/restructure it → call generate_page with a concise BRIEF (not JSON) — but only AFTER a plan has been approved (see Asking vs proceeding).

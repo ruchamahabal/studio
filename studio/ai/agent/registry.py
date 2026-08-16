@@ -3,8 +3,9 @@
 Every capability the agent has is a `Tool`. A tool declares its OpenAI-style
 function schema and a *side* that tells the loop how to handle a call to it:
 
-  - "client":   the operation is applied in the browser (block edits, scripts).
-                The loop batches these and emits them to the frontend.
+  - "client":   a block op. The loop applies it to the server-side WorkingTree
+                (the authoritative page state, persisted every round) and mirrors
+                the accepted op to the editor canvas, which only replays it.
   - "server":   the loop runs `handler(ctx, args)` immediately and feeds the
                 returned string back to the model as a tool result, then loops.
   - "terminal": the call ends the turn and hands control back to the user

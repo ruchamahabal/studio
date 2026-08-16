@@ -211,7 +211,7 @@ import useCanvasStore from "@/stores/canvasStore"
 import useCodeStore from "@/stores/codeStore"
 import { AIChatController } from "@/components/AIChatController"
 import AIProvidersDialog from "@/components/AIProvidersDialog.vue"
-import { getBlockInstance, getBlockString } from "@/utils/serializer"
+import { getBlockInstance } from "@/utils/serializer"
 import type { BlockOptions } from "@/types"
 import LucideSparkle from "~icons/lucide/sparkle"
 
@@ -292,6 +292,10 @@ const sessionResource = createResource({
 	onSuccess(data: any) {
 		messages.value = data.messages ?? []
 		controller.sessionId = data.session_id ?? ""
+		// A turn is mid-flight on this page (e.g. the editor reloaded during a build):
+		// the server owns the draft, so suspend autosave right away — tool batches and
+		// stream chunks re-assert this, but the first one may be seconds away.
+		canvasStore.isAIStreaming = !!data.is_running
 		if (data.selected_model) {
 			selectedModel.value = data.selected_model
 		} else if (modelOptions.value.length) {
@@ -398,10 +402,6 @@ const controller = new AIChatController({
 	error,
 	pageId: () => pageId.value,
 	getCanvas: () => canvasStore.activeCanvas,
-	getPageContext: () => {
-		const root = store.pageBlocks?.[0] ?? canvasStore.activeCanvas?.getRootBlock()
-		return root ? getBlockString(root) : "[]"
-	},
 	getSelectedBlockIds: () => (selectedBlock.value ? [selectedBlock.value.componentId] : []),
 	setRootBlock: (block: BlockOptions) => {
 		const rootBlock = getBlockInstance(block)
@@ -409,6 +409,8 @@ const controller = new AIChatController({
 		canvasStore.activeCanvas?.setRootBlock(rootBlock, false)
 	},
 	savePage: () => store.savePage(),
+	adoptServerWrite: (modified?: string) => store.adoptServerSave(modified),
+	setAIOwnsCanvas: (owned: boolean) => (canvasStore.isAIStreaming = owned),
 	reloadSession,
 	scrollToBottom,
 	reloadPageData: ({ resources, variables, script, modified }) => {
@@ -475,6 +477,9 @@ watch(
 	() => pageId.value,
 	(newId, oldId) => {
 		if (oldId) detachListeners()
+		// A turn left running on another page keeps building server-side; this page's
+		// autosave must not stay suspended by it.
+		canvasStore.isAIStreaming = false
 		if (newId) {
 			setupListeners()
 			sessionResource.submit({ page_id: newId })
