@@ -1,5 +1,6 @@
 /** The unified `ai_chat_*` realtime event family. Each event name is suffixed
- * with the page id by the backend (see studio/ai/agent/loop.py). */
+ * with the SESSION id by the backend (see studio/ai/agent/loop.py) — the panel
+ * follows its session, so page navigation never detaches a running turn. */
 
 type Handler = (data: any) => void
 
@@ -34,14 +35,14 @@ function listenerMap(h: AIChatHandlers): Record<string, Handler> {
 	}
 }
 
-const eventName = (base: string, pageId: string) => (pageId ? `${base}_${pageId}` : base)
+const eventName = (base: string, channel: string) => (channel ? `${base}_${channel}` : base)
 
-export function attachAIChatListeners(realtime: Realtime, pageId: string, handlers: AIChatHandlers) {
+export function attachAIChatListeners(realtime: Realtime, channel: string, handlers: AIChatHandlers) {
 	const map = listenerMap(handlers)
-	Object.entries(map).forEach(([base, handler]) => realtime.on(eventName(base, pageId), handler))
+	Object.entries(map).forEach(([base, handler]) => realtime.on(eventName(base, channel), handler))
 }
 
-export function detachAIChatListeners(realtime: Realtime, pageId: string, handlers: AIChatHandlers) {
+export function detachAIChatListeners(realtime: Realtime, channel: string, handlers: AIChatHandlers) {
 	const map = listenerMap(handlers)
-	Object.entries(map).forEach(([base, handler]) => realtime.off(eventName(base, pageId), handler))
+	Object.entries(map).forEach(([base, handler]) => realtime.off(eventName(base, channel), handler))
 }

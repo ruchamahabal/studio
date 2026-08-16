@@ -20,7 +20,9 @@ export interface AIChatContext {
 	getPageContext: () => string
 	getSelectedBlockIds: () => string[]
 	setRootBlock: (block: BlockOptions) => void
-	savePage: () => void
+	/** The server persisted the OPEN page's draft (agent write) — sync the editor's
+	 * timestamp/draft marker so the user's next manual save doesn't conflict. */
+	syncPersistedPage: (modified?: string) => void
 	reloadSession: () => void
 	scrollToBottom: () => void
 	reloadPageData: (opts: {
@@ -33,11 +35,14 @@ export interface AIChatContext {
 
 /**
  * Orchestrates one Studio AI agent turn: sends the user prompt to
- * `studio.ai.api.run` and reacts to the `ai_chat_*` realtime events. Block-tree
- * mutation lives in ToolDispatcher; full-page generation streams as `page_json`.
+ * `studio.ai.api.run` and reacts to the `ai_chat_*` realtime events (keyed by
+ * session, so the turn keeps streaming across page navigation). The server
+ * applies and persists every op to its TARGET page; the canvas here only
+ * mirrors ops whose target is the page currently open. Block-tree mutation
+ * lives in ToolDispatcher; full-page generation streams as `page_json`.
  */
 export class AIChatController {
-	sessionId = ""
+	sessionId = ref("")
 	// Optional screenshot/design attached to the next prompt (base64 data URL) — reproduced as a layout.
 	imageData = ref<string | null>(null)
 	imagePreviewUrl = ref<string | null>(null)
@@ -77,12 +82,19 @@ export class AIChatController {
 		}
 	}
 
-	attach(pageId: string) {
-		attachAIChatListeners(this.ctx.socket, pageId, this.handlers)
+	attach(channel: string) {
+		attachAIChatListeners(this.ctx.socket, channel, this.handlers)
 	}
 
-	detach(pageId: string) {
-		detachAIChatListeners(this.ctx.socket, pageId, this.handlers)
+	detach(channel: string) {
+		detachAIChatListeners(this.ctx.socket, channel, this.handlers)
+	}
+
+	/** Whether an incoming canvas op targets the page open in the editor. Ops for
+	 * any other page were already persisted server-side — mirroring them here would
+	 * paint them onto the wrong canvas (the original cross-page bug). */
+	private targetsOpenPage(data: any): boolean {
+		return !data.target_page_id || data.target_page_id === this.ctx.pageId()
 	}
 
 	async submit(promptText: string, model: string) {
@@ -102,13 +114,13 @@ export class AIChatController {
 			const res: any = await call("studio.ai.api.run", {
 				prompt: promptText,
 				page_id: this.ctx.pageId(),
-				session_id: this.sessionId || undefined,
+				session_id: this.sessionId.value || undefined,
 				page_context: this.ctx.getPageContext(),
 				model,
 				selected_block_ids: this.ctx.getSelectedBlockIds(),
 				image_data: image ?? undefined,
 			})
-			if (res?.session_id) this.sessionId = res.session_id
+			if (res?.session_id) this.sessionId.value = res.session_id
 			if (res?.status === "busy") {
 				this.onError({ message: res.message || "Another AI request is still processing." })
 			}
@@ -122,7 +134,7 @@ export class AIChatController {
 		this.ctx.loading.value = true
 		try {
 			const res: any = await call("studio.ai.api.confirm_pending_action", {
-				session_id: this.sessionId,
+				session_id: this.sessionId.value,
 				message_id: messageId,
 				apply,
 			})
@@ -139,7 +151,7 @@ export class AIChatController {
 	async revertTo(messageId: string) {
 		try {
 			const res: any = await call("studio.ai.api.revert_to_message", {
-				session_id: this.sessionId,
+				session_id: this.sessionId.value,
 				message_id: messageId,
 			})
 			if (res?.messages) this.ctx.messages.value = res.messages
@@ -149,10 +161,10 @@ export class AIChatController {
 	}
 
 	cancel = async () => {
-		if (!this.sessionId) return
+		if (!this.sessionId.value) return
 		this.ctx.statusMessage.value = "Cancelling…"
 		try {
-			await call("studio.ai.api.cancel", { session_id: this.sessionId })
+			await call("studio.ai.api.cancel", { session_id: this.sessionId.value })
 		} catch {
 			// Ignore — the user will see the cancelled event when it arrives.
 		}
@@ -168,6 +180,9 @@ export class AIChatController {
 	onStream = (data: any) => {
 		if (!data.chunk) return
 		if (data.kind === "page_json") {
+			// A generation for a page open elsewhere still streams (progress lives in
+			// the timeline) but must not paint THIS canvas.
+			if (!this.targetsOpenPage(data)) return
 			this.pageBuffer += data.chunk
 			this.renderStreamedPage()
 			return
@@ -182,6 +197,7 @@ export class AIChatController {
 		const index = this.steps.value.findIndex((s) => s.id === data.id)
 		const step = { ...data }
 		delete step.page_id
+		delete step.target_page_id
 		if (index === -1) this.steps.value = [...this.steps.value, step]
 		else {
 			const next = [...this.steps.value]
@@ -192,6 +208,11 @@ export class AIChatController {
 	}
 
 	onPage = (data: any) => {
+		// The server saved this page's draft. If it's the page open in the editor,
+		// sync the stamp so the user's next save doesn't hit a timestamp conflict.
+		if (data.action === "updated" && data.name && data.name === this.ctx.pageId()) {
+			this.ctx.syncPersistedPage(data.modified)
+		}
 		this.pageEvents.value = [
 			...this.pageEvents.value.filter((p) => p.name !== data.name),
 			{ action: data.action, name: data.name, title: data.title, route: data.route },
@@ -200,8 +221,10 @@ export class AIChatController {
 
 	onToolBatch = (data: any) => {
 		if (!data.operations?.length) return
+		// The server already applied + persisted these ops on their target page.
+		// Mirror them here only when that page is the one on screen.
+		if (!this.targetsOpenPage(data)) return
 		this.dispatcher.applyToolBatch(data.operations)
-		this.ctx.savePage()
 		this.ctx.scrollToBottom()
 	}
 
@@ -232,6 +255,7 @@ export class AIChatController {
 	onReload = (data: any) => {
 		// A server tool wrote page data (data sources / variables / script). Re-fetch so the
 		// canvas re-evaluates `{{ }}` bindings and re-runs setup() against the live state.
+		if (!this.targetsOpenPage(data)) return
 		this.ctx.reloadPageData({
 			resources: !!data.resources,
 			variables: !!data.variables,

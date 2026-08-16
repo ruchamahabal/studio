@@ -29,7 +29,7 @@
 							v-for="s in sessions"
 							:key="s.name"
 							class="flex w-full flex-col px-3 py-1.5 text-left hover:bg-surface-gray-2"
-							:class="{ 'bg-surface-gray-1': s.name === controller.sessionId }"
+							:class="{ 'bg-surface-gray-1': s.name === sessionId }"
 							@click="switchSession(s.name, close)"
 						>
 							<span class="truncate text-xs text-ink-gray-8">{{ s.title || "Untitled chat" }}</span>
@@ -95,9 +95,9 @@
 					/>
 
 					<!-- Pages this turn created/updated — open them in the editor -->
-					<div v-if="msg.metadata?.pages?.length" class="flex flex-wrap gap-1.5">
+					<div v-if="otherPages(msg.metadata?.pages).length" class="flex flex-wrap gap-1.5">
 						<button
-							v-for="page in msg.metadata.pages"
+							v-for="page in otherPages(msg.metadata?.pages)"
 							:key="page.name"
 							class="flex items-center gap-1 rounded-md border border-outline-gray-2 bg-surface-gray-1 px-2 py-1 text-[11px] text-ink-gray-7 hover:bg-surface-gray-2"
 							:title="page.route"
@@ -207,9 +207,9 @@
 			<!-- Live turn: the steps streaming in right now, then the status line -->
 			<div v-if="loading" class="flex flex-col gap-2">
 				<AITurnTimeline :steps="liveSteps" />
-				<div v-if="livePages.length" class="flex flex-wrap gap-1.5">
+				<div v-if="otherPages(livePages).length" class="flex flex-wrap gap-1.5">
 					<button
-						v-for="page in livePages"
+						v-for="page in otherPages(livePages)"
 						:key="page.name"
 						class="flex items-center gap-1 rounded-md border border-outline-gray-2 bg-surface-gray-1 px-2 py-1 text-[11px] text-ink-gray-7 hover:bg-surface-gray-2"
 						@click="openPage(page)"
@@ -333,7 +333,7 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, computed, inject, watch, nextTick } from "vue"
+import { ref, computed, inject, watch, nextTick, onUnmounted } from "vue"
 import { useRouter } from "vue-router"
 import { ErrorMessage, Button, Badge, FeatherIcon, call, createResource, Popover, toast } from "frappe-ui"
 import { marked } from "marked"
@@ -399,13 +399,17 @@ const isVisionModel = computed(() => {
 
 const sessionTitle = ref("")
 const sessions = ref<any[]>([])
+// The app whose session is loaded — navigation within the same app keeps the
+// session (and its running turn) untouched.
+const loadedAppId = ref("")
 
 const sessionResource = createResource({
 	url: "studio.ai.api.get_ai_session",
 	onSuccess(data: any) {
 		messages.value = data.messages ?? []
-		controller.sessionId = data.session_id ?? ""
+		controller.sessionId.value = data.session_id ?? ""
 		sessionTitle.value = data.title ?? ""
+		loadedAppId.value = data.app ?? ""
 		if (data.selected_model) {
 			selectedModel.value = data.selected_model
 		} else if (modelOptions.value.length) {
@@ -436,9 +440,15 @@ async function newSession(close: () => void) {
 		page_id: pageId.value,
 		model: selectedModel.value,
 	})
-	controller.sessionId = data?.session_id ?? ""
+	controller.sessionId.value = data?.session_id ?? ""
+	loadedAppId.value = data?.app ?? appId.value
 	sessionTitle.value = ""
 	messages.value = []
+}
+
+function otherPages(pages: any[] | undefined): any[] {
+	// A chip for the page already on screen is noise (opening it is a no-op).
+	return (pages ?? []).filter((p) => p.name !== pageId.value)
 }
 
 function openPage(page: { name: string }) {
@@ -464,7 +474,11 @@ function scrollToBottom() {
 }
 
 function reloadSession() {
-	if (pageId.value) {
+	// Reload the SAME session (not the page's latest) — after a turn ends the panel
+	// may be on another page of the app.
+	if (controller.sessionId.value) {
+		sessionResource.submit({ session_id: controller.sessionId.value })
+	} else if (pageId.value) {
 		sessionResource.submit({ page_id: pageId.value })
 	}
 }
@@ -472,6 +486,11 @@ function reloadSession() {
 function renderMarkdown(content: string): string {
 	if (!content) return ""
 	return DOMPurify.sanitize(marked.parse(content, { gfm: true, breaks: true }) as string)
+}
+
+function getPageContext() {
+	const root = store.pageBlocks?.[0] ?? canvasStore.activeCanvas?.getRootBlock()
+	return root ? getBlockString(root) : "[]"
 }
 
 const controller = new AIChatController({
@@ -482,17 +501,20 @@ const controller = new AIChatController({
 	error,
 	pageId: () => pageId.value,
 	getCanvas: () => canvasStore.activeCanvas,
-	getPageContext: () => {
-		const root = store.pageBlocks?.[0] ?? canvasStore.activeCanvas?.getRootBlock()
-		return root ? getBlockString(root) : "[]"
-	},
+	getPageContext,
 	getSelectedBlockIds: () => (selectedBlock.value ? [selectedBlock.value.componentId] : []),
 	setRootBlock: (block: BlockOptions) => {
 		const rootBlock = getBlockInstance(block)
 		store.pageBlocks = [rootBlock]
 		canvasStore.activeCanvas?.setRootBlock(rootBlock, false)
 	},
-	savePage: () => store.savePage(),
+	syncPersistedPage: (modified?: string) => {
+		// The agent saved this page's draft server-side; adopt its timestamp so the
+		// user's next manual save doesn't hit a conflict, and mark the draft state
+		// for the publish indicator.
+		store.syncPageModified({ modified })
+		if (store.activePage) store.activePage.draft_blocks = getPageContext()
+	},
 	reloadSession,
 	scrollToBottom,
 	reloadPageData: ({ resources, variables, script, modified }) => {
@@ -505,9 +527,10 @@ const controller = new AIChatController({
 	},
 })
 
-// Live turn state (streamed steps + page chips), exposed for the template.
+// Live turn state (streamed steps + page chips + session id), exposed for the template.
 const liveSteps = controller.steps
 const livePages = controller.pageEvents
+const sessionId = controller.sessionId
 
 watch(isVisionModel, (vision) => {
 	if (!vision) controller.clearImage()
@@ -549,24 +572,30 @@ function warnIfNoVision(): boolean {
 	return false
 }
 
-function setupListeners() {
-	if (!socket || !pageId.value) return
-	controller.attach(pageId.value)
+// Realtime listeners are keyed by SESSION, not page: a running turn keeps
+// streaming into this panel across page navigation, and the canvas mirror is
+// gated per-event by target_page_id (see AIChatController.onToolBatch).
+let attachedChannel = ""
+function ensureListeners() {
+	if (!socket) return
+	const channel = controller.sessionId.value
+	if (channel === attachedChannel) return
+	if (attachedChannel) controller.detach(attachedChannel)
+	if (channel) controller.attach(channel)
+	attachedChannel = channel
 }
-
-function detachListeners() {
-	if (!socket || !pageId.value) return
-	controller.detach(pageId.value)
-}
+watch(() => controller.sessionId.value, ensureListeners)
+onUnmounted(() => {
+	if (attachedChannel) controller.detach(attachedChannel)
+})
 
 watch(
 	() => pageId.value,
-	(newId, oldId) => {
-		if (oldId) detachListeners()
-		if (newId) {
-			setupListeners()
-			sessionResource.submit({ page_id: newId })
-		}
+	(newId) => {
+		if (!newId) return
+		// Same app → same session: keep the chat (and any running turn) untouched.
+		if (controller.sessionId.value && loadedAppId.value && loadedAppId.value === appId.value) return
+		sessionResource.submit({ page_id: newId })
 	},
 	{ immediate: true },
 )
@@ -592,7 +621,7 @@ function sendPrompt(text: string) {
 
 async function clearSession() {
 	await call("studio.ai.api.clear_ai_session", {
-		session_id: controller.sessionId || undefined,
+		session_id: controller.sessionId.value || undefined,
 		page_id: pageId.value,
 	})
 	messages.value = []

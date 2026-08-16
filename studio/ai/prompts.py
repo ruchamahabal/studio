@@ -276,7 +276,7 @@ The current page is given as a compact JSON tree using the BLOCK SCHEMA below �
 # Working across the app
 Your session covers the WHOLE app, one page at a time. list_pages shows every page; read_page gives any page's structure as read-only reference (use it to keep new pages visually consistent with existing ones).
 - To build another page: create_page (it becomes the working page and the user gets a link) → wire its data sources → generate_page. Build pages SEQUENTIALLY, one at a time, never interleaved.
-- Surgical block edits (update/add/move/remove, bindings, events) apply to the page OPEN IN THE EDITOR. On a background working page, refine by regenerating (generate_page) — or tell the user to open that page for fine-grained edits.
+- ALL edits — generation and surgical block ops alike — apply to the WORKING page and are saved server-side, wherever the user happens to be. Use open_page to switch the working page before editing a different one.
 - Fix titles/routes with set_page_meta. When the user says "this page", they mean the one open in the editor.
 
 # Choosing the right tool

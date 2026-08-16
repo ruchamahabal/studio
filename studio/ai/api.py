@@ -128,11 +128,9 @@ def cancel(session_id: str):
 	if not session_id:
 		return {"status": "ok"}
 	if not locks.held(locks.session_key(session_id)):
-		session = AISession.get(session_id)
-		event = f"ai_chat_error_{session.page}" if session.page else "ai_chat_error"
 		frappe.publish_realtime(
-			event,
-			{"page_id": session.page, "message": _("The AI run is no longer active.")},
+			f"ai_chat_error_{session_id}",
+			{"message": _("The AI run is no longer active.")},
 			user=frappe.session.user,
 		)
 		return {"status": "not_running"}
@@ -198,7 +196,7 @@ def revert_to_message(session_id: str, message_id: str) -> dict:
 	page_id = snapshots.restore_snapshot(meta["revertSnapshot"])
 	session.truncate_from_turn(message_id)
 	frappe.db.commit()
-	frappe.publish_realtime(f"ai_chat_reload_{page_id}", {"page_id": page_id}, user=frappe.session.user)
+	frappe.publish_realtime(f"ai_chat_reload_{session_id}", {"page_id": page_id}, user=frappe.session.user)
 	return {"messages": session.get_messages()}
 
 

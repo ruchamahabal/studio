@@ -1,11 +1,11 @@
 """App-wide page tools: list, read, create, open, and rename the app's pages.
 
 Sessions are app-scoped; these tools let one conversation work across the whole
-app. The deep-editing rule (learned the hard way by Builder, which shipped
-multi-page fan-out and reverted it): the agent builds ONE page at a time. It can
-create a sibling page and generate it whole, read any page as reference, and fix
-titles/routes — but surgical block edits ride the editor's canvas, so they apply
-to the page the user has open.
+app. Every block tool works on the working page — edits are applied and saved
+server-side (see WorkingTree), so it doesn't matter which page the user is
+looking at. One rule stands (learned the hard way by Builder, which shipped
+multi-page fan-out and reverted it): the agent builds ONE page at a time,
+sequentially.
 """
 
 import json
@@ -52,7 +52,7 @@ def run_read_page(ctx, args: dict) -> str:
 			"title": doc.page_title,
 			"route": doc.route,
 			"structure": structure,
-			"note": "Read-only reference. To edit it whole, open_page then generate_page.",
+			"note": "Read-only reference. To edit this page, open_page first.",
 		}
 	)
 
@@ -87,13 +87,8 @@ def run_open_page(ctx, args: dict) -> str:
 	if isinstance(page, str):
 		return page
 	ctx.switch_target(page)
-	where = "the page open in the editor" if page == ctx.page_id else "a background page"
-	abilities = (
-		"all block tools work on it"
-		if page == ctx.page_id
-		else "generate_page rebuilds it whole; block-level edits need the user to open it in the editor"
-	)
-	return f"Working page is now '{page}' ({where} — {abilities})."
+	where = "open in the editor" if page == ctx.page_id else "edited in the background"
+	return f"Working page is now '{page}' ({where}). All block tools apply to it."
 
 
 def run_set_page_meta(ctx, args: dict) -> str:
@@ -183,7 +178,7 @@ TOOLS = [
 	Tool(
 		name="open_page",
 		side="server",
-		description="Switch the working page. The page open in the editor supports every block tool; any other page supports whole-page generation (generate_page) and reading.",
+		description="Switch the working page. Every block tool then applies to it, whether or not the user has it open — edits are saved server-side.",
 		parameters={
 			"type": "object",
 			"properties": {
