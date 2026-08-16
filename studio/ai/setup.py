@@ -116,6 +116,9 @@ def add_provider_model(provider: str, model_id: str, label: str = "") -> dict:
 	if not model_id:
 		frappe.throw(_("Enter a model id"))
 
+	# If this is the provider's very first row (say, right after an OAuth sign-in),
+	# bring the preset shortlist along as disabled rows so it stays on offer.
+	presets.materialize_shortlist(doc)
 	presets.add_model(doc.name, doc.route_prefix, model_id, (label or "").strip())
 	ModelRegistry.clear_cache()
 

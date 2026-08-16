@@ -250,17 +250,21 @@ def install_preset(
 		doc = frappe.get_doc({"doctype": "Studio AI Provider", **fields}).insert(ignore_permissions=True)
 
 	known = {m[0]: m[1] for m in preset["models"]}
+	if model_ids:
+		materialize_shortlist(doc, model_ids)
 	for model_id in model_ids:
 		add_model(doc.name, doc.route_prefix, model_id, known.get(model_id, model_id))
-	# For a known preset the ticks are the whole truth: every row the dialog
-	# offered and the user left unticked is switched off, so the picker matches
-	# the dialog. A custom endpoint's textarea is additive — reconfiguring it
-	# must not silently disable models imported earlier. An empty selection is
+	# For a known preset the ticks are the whole truth: every enabled row the
+	# dialog offered and the user left unticked is switched off, so the picker
+	# matches the dialog. A custom endpoint's textarea is additive — reconfiguring
+	# it must not silently disable models imported earlier. An empty selection is
 	# never "disable all": it only happens on flows that don't pick models at
 	# all, like a Codex re-login.
 	if model_ids and not preset.get("custom"):
 		for row in frappe.get_all(
-			"Studio AI Model", filters={"provider": doc.name}, fields=["name", "model_id"]
+			"Studio AI Model",
+			filters={"provider": doc.name, "enabled": 1},
+			fields=["name", "model_id"],
 		):
 			if row.model_id not in model_ids:
 				frappe.db.set_value("Studio AI Model", row.name, "enabled", 0)
@@ -268,10 +272,23 @@ def install_preset(
 	return doc.name
 
 
-def add_model(provider: str, route_prefix: str, model_id: str, label: str) -> None:
+def materialize_shortlist(doc, chosen: list[str] | None = None) -> None:
+	"""Turn a preset's unchosen shortlist entries into disabled rows the first time
+	a provider gains any row. The dialog lists rows only (so delete can be real),
+	which means an offer that never becomes a row would silently vanish — as a
+	disabled row it stays visible until explicitly deleted."""
+	preset = next((p for p in PRESETS if p["name"] == doc.name), None)
+	if not preset or frappe.db.exists("Studio AI Model", {"provider": doc.name}):
+		return
+	for model_id, label, _recommended in preset["models"]:
+		if model_id not in (chosen or []):
+			add_model(doc.name, doc.route_prefix, model_id, label, enabled=0)
+
+
+def add_model(provider: str, route_prefix: str, model_id: str, label: str, enabled: int = 1) -> None:
 	full_name = f"{route_prefix}/{model_id}"
 	if frappe.db.exists("Studio AI Model", full_name):
-		frappe.db.set_value("Studio AI Model", full_name, "enabled", 1)
+		frappe.db.set_value("Studio AI Model", full_name, "enabled", enabled)
 		return
 	frappe.get_doc(
 		{
@@ -279,7 +296,7 @@ def add_model(provider: str, route_prefix: str, model_id: str, label: str) -> No
 			"provider": provider,
 			"model_id": model_id,
 			"label": label,
-			"enabled": 1,
+			"enabled": enabled,
 		}
 	).insert(ignore_permissions=True)
 
