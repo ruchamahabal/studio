@@ -9,11 +9,19 @@ it shows, so background pages build quietly and appear from the DB on navigation
 """
 
 import json
+import re
 
 import frappe
 
 from studio.ai.agent.registry import Tool
 from studio.ai.block_codec import BlockCodec
+
+# What Studio's auto-titler produces (StudioPage.before_insert): "My Page", "My Page-1", …
+# (append_number_if_name_exists, "-" separator) and the route derived from it:
+# "/my-page[-N]-<4 alnum>". Any user edit breaks the pattern, so a user-chosen
+# title/route is never flagged as default.
+DEFAULT_TITLE = re.compile(r"^My Page([ -]\d+)?$")
+DEFAULT_ROUTE = re.compile(r"^/my-page(-\d+)?-[0-9a-z]{4}$")
 
 # Matches the editor's "body" block template (frontend/src/utils/blockTemplate).
 STARTER_ROOT = {
@@ -42,9 +50,16 @@ def run_list_pages(ctx, args: dict) -> str:
 		fields=["name", "page_title", "route", "published"],
 		order_by="creation asc",
 	)
+	app_home = frappe.db.get_value("Studio App", ctx.app_id, "app_home")
 	for page in pages:
 		if page["name"] == ctx.page_id:
 			page["focused"] = True
+		if page["name"] == app_home:
+			page["app_home"] = True
+		if DEFAULT_TITLE.match(page["page_title"] or ""):
+			page["title_is_default"] = True
+		if DEFAULT_ROUTE.match(page["route"] or ""):
+			page["route_is_default"] = True
 	return f"Pages in this app ('name' is what open_page/read_page take):\n{BlockCodec.to_json(pages)}"
 
 
@@ -65,6 +80,7 @@ def run_open_page(ctx, args: dict) -> str:
 		return f"Already focused on '{page.name}'."
 	if error := ctx.focus_page(page.name):
 		return f"FAILED: {error}"
+	_emit_page_event(ctx, "focused", page)
 	ctx.emit("progress", message=f"Working on page '{page.page_title}'…")
 	return (
 		f"Focused on page '{page.name}' ({page.page_title}, route {page.route}). All block "
@@ -99,10 +115,50 @@ def run_create_page(ctx, args: dict) -> str:
 
 	if error := ctx.focus_page(page.name):
 		return f"Created page '{page.name}' ({page.route}), but could not focus it: {error}"
+	_emit_page_event(ctx, "created", page)
 	ctx.emit("progress", message=f"Created page '{page.page_title}' — building it…")
 	return (
 		f"Created page '{page.name}' ({page.page_title}, route {page.route}) and focused it. "
 		"It's empty (a bare body block) — build it now: all block edits target THIS page."
+	)
+
+
+def run_set_page_meta(ctx, args: dict) -> str:
+	if not (ctx.page_id and ctx.app_id):
+		return "FAILED: no page in focus."
+	title = (args.get("title") or "").strip()
+	route = _normalize_route(args.get("route") or "")
+	if not title and not route:
+		return "FAILED: pass a title and/or a route — nothing to change."
+	if route and frappe.db.exists(
+		"Studio Page", {"studio_app": ctx.app_id, "route": route, "name": ["!=", ctx.page_id]}
+	):
+		return f"FAILED: route '{route}' already belongs to another page in this app."
+
+	page = frappe.get_doc("Studio Page", ctx.page_id)
+	if title:
+		page.page_title = title
+	if route:
+		page.route = route
+	page._skip_validate = True  # meta only — same fast path as the editor's save_page_field
+	page.save()
+	frappe.db.commit()
+	_emit_page_event(ctx, "updated", page)
+	return f"Page is now titled '{page.page_title}' with route {page.route}."
+
+
+def _emit_page_event(ctx, action: str, page) -> None:
+	"""Tell the editor the turn's focus moved or its meta changed: it refreshes the pages
+	list (an agent-created page is otherwise invisible until reload), shows a "building
+	this page" chip linking to the target, and — for the open page — adopts the new
+	title/route/modified so its next save doesn't conflict."""
+	ctx.emit(
+		"page",
+		action=action,
+		page_name=page.name,
+		page_title=page.page_title,
+		route=page.route,
+		modified=str(page.modified),
 	)
 
 
@@ -196,8 +252,9 @@ create_page = Tool(
 	side="server",
 	handler=run_create_page,
 	description=(
-		"Create a NEW page in this app and switch your working focus to it. Use when the user asks "
-		"for a page that doesn't exist yet (check list_pages first). Give a clear title and a short "
+		"Create a NEW page in this app and switch your working focus to it. ONLY for a page that "
+		"doesn't exist yet (check list_pages first) — if the focused page or the app home is empty, "
+		"build the main content THERE instead of creating a duplicate. Give a clear title and a short "
 		"kebab-case route (e.g. '/orders'); the route must be unique within the app. The new page "
 		"starts empty — build it right after, and wire navigation to it from other pages if asked."
 	),
@@ -214,4 +271,24 @@ create_page = Tool(
 	},
 )
 
-TOOLS = [list_pages, read_page, open_page, create_page]
+set_page_meta = Tool(
+	name="set_page_meta",
+	side="server",
+	handler=run_set_page_meta,
+	description=(
+		"Rename the FOCUSED page and/or change its route (unique within the app). Use it when "
+		"list_pages flags the page's title_is_default / route_is_default (auto-generated, never "
+		"touched by the user) after building content on it, and whenever the user asks to rename "
+		"or re-route. NEVER replace a title the user chose — if only route_is_default, update just "
+		"the route to match the existing title."
+	),
+	parameters={
+		"type": "object",
+		"properties": {
+			"title": {"type": "string", "description": "New page title, e.g. 'Dashboard'."},
+			"route": {"type": "string", "description": "New route, e.g. '/overview'."},
+		},
+	},
+)
+
+TOOLS = [list_pages, read_page, open_page, create_page, set_page_meta]

@@ -25,6 +25,15 @@ export interface AIChatContext {
 	adoptServerWrite: (modified?: string) => void
 	/** While a turn runs, the server owns this page's draft — the editor's autosave stands down. */
 	setAIOwnsCanvas: (owned: boolean) => void
+	/** The turn created, focused, or retitled a page: refresh the pages list, adopt new
+	 * meta for the open page, and surface a chip linking to a background build. */
+	onPageEvent: (data: {
+		action: string
+		page_name: string
+		page_title: string
+		route: string
+		modified?: string
+	}) => void
 	reloadSession: () => void
 	scrollToBottom: () => void
 	reloadPageData: (opts: {
@@ -68,6 +77,7 @@ export class AIChatController {
 			onProgress: this.onProgress,
 			onStream: this.onStream,
 			onToolBatch: this.onToolBatch,
+			onPage: this.onPage,
 			onClarify: this.onClarify,
 			onComplete: this.onComplete,
 			onError: this.onError,
@@ -150,14 +160,20 @@ export class AIChatController {
 	onStream = (data: any) => {
 		if (!data.chunk) return
 		if (data.kind === "page_json") {
-			// A live preview only makes sense on the page being built; a background build's
-			// result shows up from the DB when that page is opened.
-			if (!this.targetsOpenPage(data)) return
-			// Re-assert ownership on every chunk so autosave stays down even if the editor
-			// reloaded mid-turn (a reload resets the flag; saving the throwaway preview
-			// races the server's write).
-			this.ctx.setAIOwnsCanvas(true)
+			// Buffer EVERY chunk, whatever page is open: the user may click "Open" on a
+			// background build mid-stream, and the preview only renders from a complete
+			// buffer. offset 0 starts a fresh generation (a multi-page turn streams
+			// several); a gap means we missed chunks (e.g. a reload) — skip the preview,
+			// the final authoritative op lands regardless.
+			if (typeof data.offset === "number") {
+				if (data.offset === 0) this.pageBuffer = ""
+				else if (data.offset !== this.pageBuffer.length) return
+			}
 			this.pageBuffer += data.chunk
+			// Render (and suspend autosave — the preview must never be saved) only on the
+			// page being built.
+			if (!this.targetsOpenPage(data)) return
+			this.ctx.setAIOwnsCanvas(true)
 			this.renderStreamedPage()
 			return
 		}
@@ -200,6 +216,10 @@ export class AIChatController {
 		this.summary = ""
 		this.pageBuffer = ""
 		this.ctx.reloadSession()
+	}
+
+	onPage = (data: any) => {
+		if (data?.page_name) this.ctx.onPageEvent(data)
 	}
 
 	onReload = (data: any) => {

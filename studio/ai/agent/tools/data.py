@@ -19,6 +19,32 @@ from studio.ai.prompt_fragments import FILTER_FORMAT_RULE, ON_ERROR_RULE, ON_SUC
 
 RESOURCE_TYPES = ("Document List", "Document", "API Resource")
 
+# Operators Frappe's query engine accepts as the first element of a [operator, value]
+# filter. A list whose first element isn't one of these is a bare value-list the model
+# meant as "in" — it would crash every fetch with KeyError at runtime, so refuse it here.
+FILTER_OPERATORS = {
+	"=", "!=", "<", ">", "<=", ">=",
+	"like", "not like", "in", "not in", "is", "is not", "not is",
+	"between", "timespan", "previous", "next",
+	"descendants of", "not descendants of", "ancestors of", "not ancestors of",
+}  # fmt: skip
+
+
+def invalid_filter_message(filters) -> str | None:
+	if not isinstance(filters, dict):
+		return None
+	for field, value in filters.items():
+		if isinstance(value, list | tuple):
+			operator = str(value[0]).casefold() if value else ""
+			if operator not in FILTER_OPERATORS:
+				return (
+					f"FAILED: filter for '{field}' is a bare list {list(value)} — Frappe reads a list as "
+					f"[operator, value], so this crashes at fetch time. For multiple values use "
+					f'{{"{field}": ["in", {list(value)}]}}; for one value pass it directly or with an '
+					f'explicit operator like ["!=", "Closed"].'
+				)
+	return None
+
 
 def run_add_data_source(ctx, args: dict) -> str:
 	name = text_arg(args.get("data_source_name"))
@@ -27,6 +53,9 @@ def run_add_data_source(ctx, args: dict) -> str:
 		return "FAILED: data_source_name is required."
 	if source_type not in RESOURCE_TYPES:
 		return f"FAILED: data_source_type must be one of {list(RESOURCE_TYPES)}."
+
+	if error := invalid_filter_message(args.get("filters")):
+		return error
 
 	page = load_page(ctx)
 	if page is None:
@@ -53,6 +82,8 @@ def run_list_data_sources(ctx, args: dict) -> str:
 
 def run_update_data_source(ctx, args: dict) -> str:
 	name = text_arg(args.get("data_source_name"))
+	if error := invalid_filter_message(args.get("filters")):
+		return error
 	page = load_page(ctx)
 	if page is None:
 		return "FAILED: no page in context."

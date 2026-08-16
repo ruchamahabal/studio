@@ -69,8 +69,11 @@ def generate_page_json(ctx, args: dict) -> list[dict]:
 			finish_reason = fr
 		delta = chunk.choices[0].delta.content
 		if delta:
+			# offset = position of this chunk in the artifact. The client resets its
+			# preview buffer at 0 (a multi-page turn streams several generations) and
+			# drops chunks that don't append cleanly (e.g. after a mid-stream reload).
+			ctx.emit("stream", chunk=delta, kind="page_json", offset=len(content))
 			content += delta
-			ctx.emit("stream", chunk=delta, kind="page_json")
 
 	if finish_reason == "length":
 		logger.warning("generate_page hit max_tokens — the page may be truncated")

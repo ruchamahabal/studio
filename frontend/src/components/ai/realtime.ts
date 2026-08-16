@@ -8,6 +8,7 @@ export interface AIChatHandlers {
 	onProgress: Handler
 	onStream: Handler
 	onToolBatch: Handler
+	onPage: Handler
 	onClarify: Handler
 	onComplete: Handler
 	onError: Handler
@@ -24,6 +25,7 @@ function listenerMap(h: AIChatHandlers): Record<string, Handler> {
 		ai_chat_progress: h.onProgress,
 		ai_chat_stream: h.onStream,
 		ai_chat_tool_batch: h.onToolBatch,
+		ai_chat_page: h.onPage,
 		ai_chat_clarify: h.onClarify,
 		ai_chat_complete: h.onComplete,
 		ai_chat_error: h.onError,

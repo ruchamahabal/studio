@@ -109,6 +109,27 @@
 		<div v-if="isAIEnabled" class="shrink-0 border-t border-outline-gray-1 bg-surface-base p-4">
 			<ErrorMessage v-if="error" :message="error" class="mb-2" />
 
+			<!-- A background page the turn is (or was) building — jump there to watch it stream -->
+			<div
+				v-if="buildingPage && buildingPage.name !== pageId"
+				class="mb-2 flex items-center justify-between gap-2 rounded border border-outline-gray-1 bg-surface-gray-1 px-2 py-1.5"
+			>
+				<span class="flex min-w-0 items-center gap-1.5 text-xs text-ink-gray-6">
+					<LucideSparkle v-if="loading" class="h-3 w-3 shrink-0 animate-pulse text-ink-gray-5" />
+					<span class="truncate">{{ loading ? "Building" : "Built" }} “{{ buildingPage.title }}”</span>
+				</span>
+				<div class="flex shrink-0 items-center gap-1">
+					<Button size="sm" variant="outline" @click="openBuildingPage">Open</Button>
+					<button
+						class="rounded p-1 text-ink-gray-5 hover:bg-surface-gray-2 hover:text-ink-gray-7"
+						title="Dismiss"
+						@click="buildingPage = null"
+					>
+						<FeatherIcon name="x" class="h-3.5 w-3.5" />
+					</button>
+				</div>
+			</div>
+
 			<div v-if="isModifyMode" class="mb-2 flex items-center gap-1.5 rounded py-1">
 				<span class="truncate text-xs text-ink-gray-5">Editing:</span>
 				<Badge variant="subtle" size="sm">
@@ -203,6 +224,7 @@
 
 <script lang="ts" setup>
 import { ref, computed, inject, watch, nextTick } from "vue"
+import { useRouter } from "vue-router"
 import { ErrorMessage, Button, Badge, Combobox, FeatherIcon, call, createResource, toast } from "frappe-ui"
 import { marked } from "marked"
 import DOMPurify from "dompurify"
@@ -241,6 +263,19 @@ const lastMessageId = computed(() => messages.value[messages.value.length - 1]?.
 const pageId = computed(() => store.activePage?.name ?? "")
 // Sessions are scoped to the app; the open page is just the turn's target.
 const appId = computed(() => store.activeApp?.name ?? "")
+const router = useRouter()
+
+// The page a running turn is building when it isn't the one on the canvas — rendered
+// as a chip with an Open button so the user can jump there and watch it stream.
+const buildingPage = ref<{ name: string; title: string; action: string } | null>(null)
+
+function openBuildingPage() {
+	if (!buildingPage.value) return
+	router.push({
+		name: "StudioPage",
+		params: { appID: appId.value, pageID: buildingPage.value.name },
+	})
+}
 
 const selectedBlock = computed(() => {
 	const block = canvasStore.activeCanvas?.selectedBlocks?.[0] ?? null
@@ -365,6 +400,7 @@ async function newSession() {
 
 function switchSession(sessionId: string) {
 	if (loading.value || sessionId === controller.sessionId) return
+	buildingPage.value = null
 	sessionResource.submit({ app_id: appId.value, session_id: sessionId })
 }
 
@@ -417,6 +453,27 @@ const controller = new AIChatController({
 	savePage: () => store.savePage(),
 	adoptServerWrite: (modified?: string) => store.adoptServerSave(modified),
 	setAIOwnsCanvas: (owned: boolean) => (canvasStore.isAIStreaming = owned),
+	onPageEvent: (data) => {
+		// A page the agent just created is invisible to the pages panel until refetched.
+		store.setAppPages(appId.value)
+		if (data.page_name === pageId.value) {
+			// The agent retitled/re-routed the page on the canvas (set_page_meta saved the
+			// doc): adopt the new meta + stamp so the header updates and the user's next
+			// save doesn't conflict.
+			if (data.action === "updated" && store.activePage) {
+				store.activePage.page_title = data.page_title
+				store.activePage.route = data.route
+				store.syncPageModified({ modified: data.modified })
+			}
+			buildingPage.value = null
+			return
+		}
+		buildingPage.value = {
+			name: data.page_name,
+			title: data.page_title || data.page_name,
+			action: data.action,
+		}
+	},
 	reloadSession,
 	scrollToBottom,
 	reloadPageData: ({ resources, variables, script, modified }) => {
@@ -475,6 +532,10 @@ watch(
 	() => appId.value,
 	(newApp) => {
 		canvasStore.isAIStreaming = false
+		buildingPage.value = null
+		controller.detach()
+		controller.sessionId = ""
+		messages.value = []
 		if (newApp) sessionResource.submit({ app_id: newApp })
 	},
 	{ immediate: true },
@@ -494,6 +555,7 @@ async function generate() {
 	const hasImage = !!controller.imageData.value
 	if (!text && !hasImage) return
 	prompt.value = ""
+	buildingPage.value = null
 	// An attached design with no words is still a valid instruction: reproduce it.
 	await controller.submit(text || "Reproduce this attached design as a page.", selectedModel.value)
 	// A chat is titled by its first prompt — this turn may have just named it.
@@ -507,6 +569,7 @@ function stop() {
 // A clarification option or plan approval is just the user's next message.
 function sendPrompt(text: string) {
 	if (loading.value) return
+	buildingPage.value = null
 	controller.submit(text, selectedModel.value)
 }
 

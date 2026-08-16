@@ -18,6 +18,7 @@ turn across navigation:
     ai_chat_progress    {message}
     ai_chat_stream      {chunk}      append to the chat reply text
     ai_chat_tool_batch  {operations: [{tool_name, args}], modified}   mirror on the canvas
+    ai_chat_page        {action: created|focused|updated, page_name, page_title, route, modified}
     ai_chat_complete    {message}
     ai_chat_error       {message}
 
