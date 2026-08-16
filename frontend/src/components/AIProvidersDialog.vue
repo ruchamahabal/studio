@@ -53,7 +53,7 @@
 						v-if="oauthStatus === 'connected' || (selected.configured && oauthStatus === 'idle')"
 						class="flex items-center gap-2 rounded-md border border-outline-gray-1 bg-surface-gray-1 px-3 py-2.5 text-p-sm text-ink-gray-7"
 					>
-						<FeatherIcon name="check-circle" class="h-4 w-4 text-ink-green-3" />
+						<span class="lucide-check-circle h-4 w-4 text-ink-green-6" />
 						Signed in with ChatGPT
 					</div>
 					<Button
