@@ -1,6 +1,7 @@
 import re
 from pathlib import Path
 
+from studio.ai.component_registry import uncataloged_appendix
 from studio.ai.prompt_fragments import ON_ERROR_RULE, ON_SUCCESS_RULE, TRANSFORM_RULE
 
 
@@ -95,6 +96,11 @@ DATA DISPLAY:
 AUTOCOMPLETE:
 - Combobox: {label: "string", modelValue: "string", placeholder: "string", options: [{group: "string", options: [{label, value}]}]} # slots: prefix, suffix, item-label, empty, footer
 """
+
+# Registered components the curated catalog doesn't document — COMPUTED from the
+# editor's registration constants + distilled frappe-ui API data (see
+# component_registry.py), so the prompt can never silently miss a component again.
+UNCATALOGED_COMPONENTS = uncataloged_appendix(COMPONENT_CATALOG)
 
 STYLING_RULES = """COMPONENT STYLING RULES:
 STYLE PROPERTY ROUTING — use the correct key:
@@ -207,6 +213,8 @@ SYSTEM_PROMPT = f"""You are an expert UI Web developer & designer specializing i
 
 {COMPONENT_CATALOG}
 
+{UNCATALOGED_COMPONENTS}
+
 {OUTPUT_FORMAT_RULES}
 
 EXAMPLE — "A login form with email, password and a submit button":
@@ -302,6 +310,7 @@ The current page is given as a compact JSON tree using the BLOCK SCHEMA below �
 - Targeted change to ONE block (colour, text, spacing, props; or adding/removing/moving a section) → update_block / add_block / remove_block / move_block. Make the MINIMAL necessary changes; never regenerate blocks that don't need to change.
 - Change to MANY blocks at once (translate the page, restyle every Button, recolour all headings) → FIRST call query_blocks to get the exact, complete set, THEN apply the change with ONE update_blocks call covering every match. Do NOT eyeball the outline and update a handful. Use update_blocks' patches mode when each block's new value differs (translation/rewrite) and its uniform mode when the change is identical.
 - Need a block's full props/styles before editing → read_block(component_id).
+- Need a component beyond the catalog, or its exact props/slots/emits → list_components / describe_component. Before FIRST use of a non-catalog component, describe it; to use it in generate_page, put the exact props into the BRIEF (the generator can't call tools).
 
 # Editing with update_block / update_blocks
 Send ONLY the fields you are changing — merges are shallow:
@@ -336,6 +345,8 @@ After EVERY generate_page build — and after a substantial visual overhaul — 
 {DESIGN_LANGUAGE}
 
 {COMPONENT_CATALOG}
+
+{UNCATALOGED_COMPONENTS}
 """
 
 

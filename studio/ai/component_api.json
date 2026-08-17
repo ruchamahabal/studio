@@ -1,0 +1,5088 @@
+{
+	"Alert": {
+		"props": [
+			{
+				"name": "title",
+				"type": "string",
+				"required": true,
+				"description": "Main heading text of the alert"
+			},
+			{
+				"name": "theme",
+				"type": "Theme",
+				"description": "Color theme of the alert"
+			},
+			{
+				"name": "variant",
+				"type": "\"subtle\" | \"outline\"",
+				"default": "\"subtle\"",
+				"description": "Visual style of the alert container"
+			},
+			{
+				"name": "description",
+				"type": "string",
+				"description": "Optional supporting text shown below the title"
+			},
+			{
+				"name": "dismissible",
+				"type": "boolean",
+				"default": "true",
+				"description": "Whether the alert can be closed by the user"
+			},
+			{
+				"name": "modelValue",
+				"type": "boolean",
+				"default": "true",
+				"description": "Controls the visibility of the alert for dismissing or toggling it"
+			}
+		],
+		"slots": [
+			{
+				"name": "icon",
+				"type": "any",
+				"description": "Custom icon shown before the content"
+			},
+			{
+				"name": "description",
+				"type": "any",
+				"description": "Custom description content"
+			},
+			{
+				"name": "footer",
+				"type": "any",
+				"description": "Footer content shown at the bottom of the alert"
+			}
+		],
+		"emits": [
+			{
+				"name": "update:modelValue",
+				"type": "[value: boolean]",
+				"description": "Fired when the model value changes."
+			},
+			{
+				"name": "dismiss",
+				"type": "any[]",
+				"description": "Fired when the component is dismissed."
+			}
+		]
+	},
+	"Avatar": {
+		"props": [
+			{
+				"name": "image",
+				"type": "string",
+				"description": "Image URL used for the avatar"
+			},
+			{
+				"name": "label",
+				"type": "string",
+				"description": "Fallback text shown when the image is missing"
+			},
+			{
+				"name": "size",
+				"type": "\"md\" | \"xs\" | \"sm\" | \"lg\" | \"xl\" | \"2xl\" | \"3xl\"",
+				"default": "\"md\"",
+				"description": "Controls the overall size of the avatar"
+			},
+			{
+				"name": "shape",
+				"type": "\"circle\" | \"square\"",
+				"default": "\"circle\"",
+				"description": "Defines the avatar shape"
+			},
+			{
+				"name": "theme",
+				"type": "\"gray\" | \"blue\" | \"green\" | \"amber\" | \"red\" | \"violet\"",
+				"default": "\"gray\"",
+				"description": "Visual color theme used for the fallback avatar"
+			}
+		],
+		"slots": [
+			{
+				"name": "default",
+				"type": "any",
+				"description": "Custom content shown inside the avatar (icon / initials replacement)"
+			},
+			{
+				"name": "indicator",
+				"type": "any",
+				"description": "Small indicator shown at the bottom-right of the avatar"
+			}
+		]
+	},
+	"Badge": {
+		"props": [
+			{
+				"name": "theme",
+				"type": "\"blue\" | \"red\" | \"green\" | \"gray\" | \"amber\" | \"violet\" | \"orange\"",
+				"default": "\"gray\"",
+				"description": "Visual color theme of the badge"
+			},
+			{
+				"name": "size",
+				"type": "\"md\" | \"sm\" | \"lg\"",
+				"default": "\"md\"",
+				"description": "Controls the size of the badge"
+			},
+			{
+				"name": "variant",
+				"type": "\"subtle\" | \"outline\" | \"solid\" | \"ghost\"",
+				"default": "\"subtle\"",
+				"description": "Visual style of the badge"
+			},
+			{
+				"name": "label",
+				"type": "string | number | Label",
+				"description": "Content displayed inside the badge"
+			}
+		],
+		"slots": [
+			{
+				"name": "prefix",
+				"type": "any",
+				"description": "Content shown before the badge label"
+			},
+			{
+				"name": "default",
+				"type": "any",
+				"description": "Main badge content (overrides `label` prop)"
+			},
+			{
+				"name": "suffix",
+				"type": "any",
+				"description": "Content shown after the badge label"
+			}
+		]
+	},
+	"BottomSheet": {
+		"props": [
+			{
+				"name": "open",
+				"type": "boolean",
+				"description": "Controls whether the sheet is open (`v-model:open`)."
+			},
+			{
+				"name": "title",
+				"type": "string",
+				"description": "Optional centered title rendered in the drag-handle area."
+			},
+			{
+				"name": "dismissible",
+				"type": "boolean",
+				"default": "true",
+				"description": "Allow outside-click, Escape, and swipe-down to close. Default `true`."
+			}
+		],
+		"slots": [
+			{
+				"name": "default",
+				"type": "{}"
+			}
+		],
+		"emits": [
+			{
+				"name": "update:open",
+				"type": "[value: boolean]",
+				"description": "Fired when the open state changes."
+			},
+			{
+				"name": "after-leave",
+				"type": "[]"
+			}
+		]
+	},
+	"Breadcrumbs": {
+		"props": [
+			{
+				"name": "items",
+				"type": "BreadcrumbItem[]",
+				"required": true,
+				"description": "Ordered list of breadcrumb items"
+			}
+		],
+		"slots": [
+			{
+				"name": "prefix",
+				"type": "{ item: BreadcrumbItem; }",
+				"description": "Content shown before each breadcrumb label"
+			},
+			{
+				"name": "suffix",
+				"type": "{ item: BreadcrumbItem; }",
+				"description": "Content shown after each breadcrumb label"
+			}
+		]
+	},
+	"Button": {
+		"props": [
+			{
+				"name": "theme",
+				"type": "Theme",
+				"default": "'gray'",
+				"description": "Visual color theme of the button"
+			},
+			{
+				"name": "variant",
+				"type": "Variant",
+				"default": "'subtle'",
+				"description": "Visual style of the button"
+			},
+			{
+				"name": "type",
+				"type": "\"button\" | \"submit\" | \"reset\"",
+				"default": "'button'",
+				"description": "Native button type"
+			},
+			{
+				"name": "label",
+				"type": "string",
+				"description": "Text label displayed inside the button"
+			},
+			{
+				"name": "loading",
+				"type": "boolean",
+				"default": "false",
+				"description": "Shows a loading state and disables interaction"
+			},
+			{
+				"name": "size",
+				"type": "Size",
+				"default": "'sm'",
+				"description": "Controls the button size"
+			},
+			{
+				"name": "icon",
+				"type": "string | Component",
+				"description": "Icon shown when no left or right icon is specified"
+			},
+			{
+				"name": "iconLeft",
+				"type": "string | Component",
+				"description": "Icon shown before the label"
+			},
+			{
+				"name": "iconRight",
+				"type": "string | Component",
+				"description": "Icon shown after the label"
+			},
+			{
+				"name": "tooltip",
+				"type": "string",
+				"description": "Tooltip text shown on hover"
+			},
+			{
+				"name": "loadingText",
+				"type": "string",
+				"description": "Text shown while the button is loading"
+			},
+			{
+				"name": "disabled",
+				"type": "boolean",
+				"default": "false",
+				"description": "Disables the button"
+			},
+			{
+				"name": "route",
+				"type": "string | kt | Tt",
+				"description": "Router destination when used as a link"
+			},
+			{
+				"name": "link",
+				"type": "string",
+				"description": "External link URL"
+			}
+		],
+		"slots": [
+			{
+				"name": "prefix",
+				"type": "[void]",
+				"description": "Content shown before the button label (left icon / custom content)"
+			},
+			{
+				"name": "icon",
+				"type": "[void]",
+				"description": "Icon-only content for icon buttons"
+			},
+			{
+				"name": "default",
+				"type": "[void]",
+				"description": "Main button content (overrides `label`)"
+			},
+			{
+				"name": "suffix",
+				"type": "[void]",
+				"description": "Content shown after the button label (right icon / custom content)"
+			}
+		]
+	},
+	"Calendar": {
+		"props": [
+			{
+				"name": "events",
+				"type": "CalendarEvent[]",
+				"default": "[]",
+				"required": true
+			},
+			{
+				"name": "config",
+				"type": "Partial<CalendarConfig>",
+				"default": "{}"
+			},
+			{
+				"name": "onClick",
+				"type": "((data: { e: MouseEvent; calendarEvent: CalendarEvent; }) => void)"
+			},
+			{
+				"name": "onDblClick",
+				"type": "((data: { e: MouseEvent | null; calendarEvent: CalendarEvent; }) => void)"
+			},
+			{
+				"name": "onCellClick",
+				"type": "((data: CalendarCellClickData) => void)"
+			}
+		],
+		"slots": [
+			{
+				"name": "header",
+				"type": "{ currentMonthYear: string; currentYear: number; currentMonth: number; enabledModes: CalendarActionO"
+			},
+			{
+				"name": "event-popover-content",
+				"type": "{ calendarEvent: { [x: string]: unknown; id?: string | number | undefined; name?: string | number | "
+			},
+			{
+				"name": "daily-header",
+				"type": "{ parseDateWithDay: any; currentDate: any; fullDay: any; }"
+			}
+		],
+		"emits": [
+			{
+				"name": "delete",
+				"type": "[eventID: string | number | undefined]"
+			},
+			{
+				"name": "create",
+				"type": "[event: CalendarEvent]"
+			},
+			{
+				"name": "update",
+				"type": "[event: CalendarEvent]"
+			},
+			{
+				"name": "rangeChange",
+				"type": "[payload: { view: CalendarMode; startDate: string; endDate: string; }]"
+			}
+		]
+	},
+	"Checkbox": {
+		"props": [
+			{
+				"name": "size",
+				"type": "ToggleSize",
+				"default": "\"sm\"",
+				"description": "Controls the size of the checkbox"
+			},
+			{
+				"name": "disabled",
+				"type": "boolean",
+				"description": "Disables the checkbox interaction"
+			},
+			{
+				"name": "padding",
+				"type": "boolean",
+				"default": "false",
+				"description": "Adds padding around the checkbox."
+			},
+			{
+				"name": "modelValue",
+				"type": "boolean | 0 | 1",
+				"description": "Checked state of the checkbox. `boolean` is canonical; `1`/`0` are kept for v1 backwards compatibility."
+			},
+			{
+				"name": "indeterminate",
+				"type": "boolean",
+				"description": "Renders the mixed \"—\" state (e.g. a select-all that's partially selected).\nPurely visual — the native `indeterminate` DOM property is not reflected as\nan attribute, so it must be set via this prop, not markup."
+			},
+			{
+				"name": "label",
+				"type": "string",
+				"description": "Label rendered above (or beside, for binary controls) the input."
+			},
+			{
+				"name": "description",
+				"type": "string",
+				"description": "Helper text rendered below the input.\nHidden when `error` is set."
+			},
+			{
+				"name": "error",
+				"type": "string | FrappeUIError",
+				"description": "Error message rendered below the input. When set, the control receives\n`aria-invalid=\"true\"` and `data-state=\"invalid\"`. May be either a string\nor an `Error` object whose `messages?: string[]` is rendered as stacked\nlines (with `Error.message` as the fallback)."
+			},
+			{
+				"name": "required",
+				"type": "boolean",
+				"description": "Marks the field as required. Renders an asterisk next to the label and\nforwards `required` / `aria-required` to the underlying control."
+			},
+			{
+				"name": "id",
+				"type": "string",
+				"description": "HTML id of the underlying control. Auto-generated via `useId()` if omitted."
+			}
+		],
+		"slots": [
+			{
+				"name": "label",
+				"type": "{ required: boolean; }",
+				"description": "Overrides the rendered label content. Receives `{ required }`."
+			},
+			{
+				"name": "description",
+				"type": "any",
+				"description": "Overrides the rendered description content."
+			}
+		],
+		"emits": [
+			{
+				"name": "update:modelValue",
+				"type": "unknown[]",
+				"description": "Fired when the model value changes."
+			}
+		]
+	},
+	"CircularProgressBar": {
+		"props": [
+			{
+				"name": "step",
+				"type": "number",
+				"default": "1",
+				"required": true,
+				"description": "Current step or progress value"
+			},
+			{
+				"name": "totalSteps",
+				"type": "number",
+				"default": "4",
+				"required": true,
+				"description": "Total steps for completion"
+			},
+			{
+				"name": "showPercentage",
+				"type": "boolean",
+				"default": "false",
+				"description": "Show numeric percentage inside the circle"
+			},
+			{
+				"name": "variant",
+				"type": "\"outline\" | \"solid\"",
+				"default": "\"solid\"",
+				"description": "Visual style of the progress bar"
+			},
+			{
+				"name": "theme",
+				"type": "\"blue\" | \"red\" | \"green\" | \"orange\" | \"black\" | { primary: string; secondary: string; }",
+				"default": "\"black\"",
+				"description": "Theme used for the progress bar (predefined or custom colors)"
+			},
+			{
+				"name": "size",
+				"type": "\"md\" | \"xs\" | \"sm\" | \"lg\" | \"xl\"",
+				"default": "\"md\"",
+				"description": "Size of the progress bar"
+			},
+			{
+				"name": "themeComplete",
+				"type": "string",
+				"default": "\"lightgreen\"",
+				"description": "Color used when the progress completes"
+			}
+		]
+	},
+	"CodeEditor": {
+		"props": [
+			{
+				"name": "modelValue",
+				"type": "string",
+				"required": true,
+				"description": "The editor's text content (controlled, two-way via `v-model`)."
+			},
+			{
+				"name": "language",
+				"type": "CodeLanguage | (string & {})",
+				"default": "\"plain\"",
+				"description": "CodeMirror language key; falls through to plain text when unset/unknown.\nTyped as `CodeLanguage | (string & {})` so the known keys autocomplete\nwhile an arbitrary string still type-checks."
+			},
+			{
+				"name": "disabled",
+				"type": "boolean",
+				"default": "false",
+				"description": "If true, the editor is disabled: greyed out and not editable."
+			},
+			{
+				"name": "placeholder",
+				"type": "string",
+				"default": "\"\"",
+				"description": "Placeholder shown when the editor is empty."
+			},
+			{
+				"name": "variant",
+				"type": "\"subtle\" | \"outline\"",
+				"default": "\"subtle\"",
+				"description": "Surface style; derived from the shared `InputVariant` union so the code\nfield can't drift from the TextInput/Textarea fields it sits next to.\n`subtle` is the filled default, `outline` is a bordered-on-white box.\n`ghost` (borderless) is excluded — a borderless code surface reads as plain\ntext and loses the affordance that it's an editable field. Defaults to\n`subtle`."
+			},
+			{
+				"name": "size",
+				"type": "InputSize",
+				"default": "\"md\"",
+				"description": "Size token, mirroring frappe-ui inputs. Scales the editor's font size and\nminimum height (`sm | md | lg | xl`). Defaults to `md`."
+			},
+			{
+				"name": "label",
+				"type": "string",
+				"description": "Label rendered above (or beside, for binary controls) the input."
+			},
+			{
+				"name": "description",
+				"type": "string",
+				"description": "Helper text rendered below the input.\nHidden when `error` is set."
+			},
+			{
+				"name": "error",
+				"type": "string | FrappeUIError",
+				"description": "Error message rendered below the input. When set, the control receives\n`aria-invalid=\"true\"` and `data-state=\"invalid\"`. May be either a string\nor an `Error` object whose `messages?: string[]` is rendered as stacked\nlines (with `Error.message` as the fallback)."
+			},
+			{
+				"name": "required",
+				"type": "boolean",
+				"description": "Marks the field as required. Renders an asterisk next to the label and\nforwards `required` / `aria-required` to the underlying control."
+			},
+			{
+				"name": "id",
+				"type": "string",
+				"description": "HTML id of the underlying control. Auto-generated via `useId()` if omitted."
+			}
+		],
+		"slots": [
+			{
+				"name": "label",
+				"type": "{ required: boolean; }",
+				"description": "Overrides the rendered label content. Receives `{ required }`."
+			},
+			{
+				"name": "description",
+				"type": "any",
+				"description": "Overrides the rendered description content."
+			}
+		],
+		"emits": [
+			{
+				"name": "update:modelValue",
+				"type": "[value: string]",
+				"description": "Fired when the model value changes."
+			},
+			{
+				"name": "change",
+				"type": "[value: string]",
+				"description": "Fired after the value is committed."
+			},
+			{
+				"name": "overflow",
+				"type": "[overflowing: boolean]"
+			}
+		]
+	},
+	"CodePreview": {
+		"props": [
+			{
+				"name": "modelValue",
+				"type": "string",
+				"required": true,
+				"description": "The source text to render as sanitized preview output."
+			},
+			{
+				"name": "language",
+				"type": "CodeLanguage | (string & {})",
+				"description": "Only `markdown` / `html` render a preview; anything else renders nothing."
+			}
+		]
+	},
+	"Combobox": {
+		"props": [
+			{
+				"name": "options",
+				"type": "ComboboxOption[]",
+				"default": "[]",
+				"description": "Options rendered in the popover."
+			},
+			{
+				"name": "trigger",
+				"type": "\"button\" | \"input\"",
+				"default": "\"input\"",
+				"description": "Shape of the trigger.\n- `'input'` (default): user types directly into the trigger\n- `'button'`: render a button trigger; search input moves into the\n  popover header. Label + prefix auto-derive from the selected option."
+			},
+			{
+				"name": "variant",
+				"type": "ComboboxVariant",
+				"default": "\"subtle\"",
+				"description": "Visual style of the combobox."
+			},
+			{
+				"name": "size",
+				"type": "ComboboxSize",
+				"default": "\"sm\"",
+				"description": "Size of the trigger and option rows."
+			},
+			{
+				"name": "placeholder",
+				"type": "string",
+				"default": "\"Select option\"",
+				"description": "Placeholder text shown when no value is selected."
+			},
+			{
+				"name": "disabled",
+				"type": "boolean",
+				"default": "false",
+				"description": "Disables the combobox."
+			},
+			{
+				"name": "open",
+				"type": "boolean",
+				"description": "Controls the popover visibility."
+			},
+			{
+				"name": "openOnFocus",
+				"type": "boolean",
+				"default": "false",
+				"description": "Opens the popover when the input receives focus."
+			},
+			{
+				"name": "openOnClick",
+				"type": "boolean",
+				"default": "true",
+				"description": "Opens the popover when the input is clicked."
+			},
+			{
+				"name": "side",
+				"type": "PopoverSide",
+				"default": "\"bottom\"",
+				"description": "Preferred popover side."
+			},
+			{
+				"name": "align",
+				"type": "PopoverAlign",
+				"description": "Preferred popover alignment."
+			},
+			{
+				"name": "offset",
+				"type": "number",
+				"default": "4",
+				"description": "Gap between trigger and content."
+			},
+			{
+				"name": "portalTo",
+				"type": "string | HTMLElement",
+				"default": "\"body\"",
+				"description": "Teleport target for the popover content."
+			},
+			{
+				"name": "allowCustomValue",
+				"type": "boolean",
+				"default": "false",
+				"description": "Free-form acceptance: the typed query is accepted as the model value\nwhen nothing matches, and external `modelValue` updates with unknown\nstrings are preserved. The combobox also renders a built-in \"Create X\"\nrow as a click affordance.\n\nFor richer create-new UX (custom label / icon / persistence callback),\nprefer a `type: 'custom'` option with `condition` instead — see the\nCreate New story. The two are independent and can be combined."
+			},
+			{
+				"name": "loading",
+				"type": "boolean",
+				"default": "false",
+				"description": "Replaces the results with a loading state."
+			},
+			{
+				"name": "emptyText",
+				"type": "string",
+				"default": "\"No results\"",
+				"description": "Fallback empty-state copy."
+			},
+			{
+				"name": "placement",
+				"type": "PopoverAlign",
+				"description": "Alignment of the popover along the trigger edge."
+			},
+			{
+				"name": "label",
+				"type": "string",
+				"description": "Label rendered above (or beside, for binary controls) the input."
+			},
+			{
+				"name": "description",
+				"type": "string",
+				"description": "Helper text rendered below the input.\nHidden when `error` is set."
+			},
+			{
+				"name": "error",
+				"type": "string | FrappeUIError",
+				"description": "Error message rendered below the input. When set, the control receives\n`aria-invalid=\"true\"` and `data-state=\"invalid\"`. May be either a string\nor an `Error` object whose `messages?: string[]` is rendered as stacked\nlines (with `Error.message` as the fallback)."
+			},
+			{
+				"name": "required",
+				"type": "boolean",
+				"description": "Marks the field as required. Renders an asterisk next to the label and\nforwards `required` / `aria-required` to the underlying control."
+			},
+			{
+				"name": "id",
+				"type": "string",
+				"description": "HTML id of the underlying control. Auto-generated via `useId()` if omitted."
+			},
+			{
+				"name": "modelValue",
+				"type": "string | null",
+				"default": "null"
+			}
+		],
+		"slots": [
+			{
+				"name": "trigger",
+				"type": "ComboboxControlSlotProps",
+				"description": "Fully custom trigger renderer."
+			},
+			{
+				"name": "label",
+				"type": "{ required: boolean; }",
+				"description": "Overrides the rendered label content. Receives `{ required }`."
+			},
+			{
+				"name": "description",
+				"type": "any",
+				"description": "Overrides the rendered description content."
+			},
+			{
+				"name": "prefix",
+				"type": "ComboboxControlSlotProps",
+				"description": "Content rendered before the default input. Receives the same shape\nas the other control slots."
+			},
+			{
+				"name": "suffix",
+				"type": "ComboboxControlSlotProps",
+				"description": "Content rendered after the input (input mode) or label (button mode).\nProviding this slot **replaces the default chevron** — render your\nown fallback (e.g. the chevron) when your slot content is conditional.\nCommon use: an inline clear button. Use `@click.stop` and\n`@pointerdown.stop` so the press doesn't toggle the popover."
+			},
+			{
+				"name": "item-prefix",
+				"type": "ComboboxItemSlotProps",
+				"description": "Shared content rendered before the standard row label."
+			},
+			{
+				"name": "item-label",
+				"type": "ComboboxItemSlotProps",
+				"description": "Shared content rendered for the standard row label area."
+			},
+			{
+				"name": "item-suffix",
+				"type": "ComboboxItemSlotProps",
+				"description": "Shared content rendered after the standard row label area."
+			},
+			{
+				"name": "item",
+				"type": "ComboboxItemSlotProps",
+				"description": "Replaces the entire row."
+			},
+			{
+				"name": "group-label",
+				"type": "ComboboxGroupLabelSlotProps",
+				"description": "Custom renderer for group labels."
+			},
+			{
+				"name": "empty",
+				"type": "ComboboxEmptySlotProps",
+				"description": "Fallback content rendered when there are no results."
+			},
+			{
+				"name": "footer",
+				"type": "ComboboxControlSlotProps",
+				"description": "Content rendered after the list. Stays pinned below the scrollable\noptions."
+			}
+		],
+		"emits": [
+			{
+				"name": "update:modelValue",
+				"type": "[value: string | null]",
+				"description": "Fired when the model value changes."
+			},
+			{
+				"name": "update:query",
+				"type": "[value: string]",
+				"description": "Fired when the query changes."
+			},
+			{
+				"name": "update:open",
+				"type": "[value: boolean]",
+				"description": "Fired when the open state changes."
+			},
+			{
+				"name": "blur",
+				"type": "[event: FocusEvent]"
+			},
+			{
+				"name": "focus",
+				"type": "[event: FocusEvent]"
+			},
+			{
+				"name": "input",
+				"type": "[value: string]"
+			},
+			{
+				"name": "update:selectedOption",
+				"type": "[option: ComboboxSelectableOption | ComboboxCustomOption | null]",
+				"description": "Fired when the selected option changes."
+			}
+		]
+	},
+	"CommandPalette": {
+		"props": [
+			{
+				"name": "show",
+				"type": "boolean",
+				"default": "false"
+			},
+			{
+				"name": "searchQuery",
+				"type": "string",
+				"default": "''"
+			},
+			{
+				"name": "groups",
+				"type": "unknown[]",
+				"default": "[]"
+			}
+		],
+		"emits": [
+			{
+				"name": "update:show",
+				"type": "any[]",
+				"description": "Fired when the show changes."
+			},
+			{
+				"name": "update:searchQuery",
+				"type": "any[]",
+				"description": "Fired when the search query changes."
+			},
+			{
+				"name": "select",
+				"type": "any[]"
+			}
+		]
+	},
+	"ContextMenu": {
+		"props": [
+			{
+				"name": "options",
+				"type": "MenuOptions",
+				"default": "[]",
+				"description": "Array of context menu options or grouped options."
+			},
+			{
+				"name": "open",
+				"type": "boolean",
+				"default": "false",
+				"description": "Controls the visibility of the context menu."
+			}
+		],
+		"slots": [
+			{
+				"name": "default",
+				"type": "ContextMenuTriggerSlotProps",
+				"description": "The right-clickable region that opens the menu."
+			},
+			{
+				"name": "trigger",
+				"type": "ContextMenuTriggerSlotProps",
+				"description": "Explicit trigger slot; same as default."
+			}
+		],
+		"emits": [
+			{
+				"name": "update:open",
+				"type": "[value: boolean]",
+				"description": "Fired when the open state changes."
+			}
+		]
+	},
+	"DatePicker": {
+		"props": [
+			{
+				"name": "value",
+				"type": "string",
+				"default": "\"\"",
+				"description": "Uncontrolled initial value for the picker."
+			},
+			{
+				"name": "modelValue",
+				"type": "string",
+				"default": "\"\"",
+				"description": "Controlled value for the picker."
+			},
+			{
+				"name": "side",
+				"type": "PopoverSide",
+				"description": "Preferred popover side relative to the trigger."
+			},
+			{
+				"name": "align",
+				"type": "PopoverAlign",
+				"description": "Alignment of the popover along the trigger edge."
+			},
+			{
+				"name": "offset",
+				"type": "number",
+				"description": "Gap between the trigger and popover content in pixels."
+			},
+			{
+				"name": "placement",
+				"type": "DatePickerPlacement",
+				"description": "Preferred popover placement relative to the trigger."
+			},
+			{
+				"name": "format",
+				"type": "string",
+				"description": "Display format used for the input text."
+			},
+			{
+				"name": "size",
+				"type": "InputSize",
+				"description": "Size of the trigger input."
+			},
+			{
+				"name": "variant",
+				"type": "InputVariant",
+				"default": "\"subtle\"",
+				"description": "Visual style variant passed through to the input."
+			},
+			{
+				"name": "placeholder",
+				"type": "string",
+				"default": "\"Select date\"",
+				"description": "Placeholder text shown when no value is selected."
+			},
+			{
+				"name": "open",
+				"type": "boolean",
+				"description": "Controls popover open state (for controlled usage)."
+			},
+			{
+				"name": "openOnFocus",
+				"type": "boolean",
+				"default": "false",
+				"description": "Opens the popover when the input receives focus. Default: false."
+			},
+			{
+				"name": "openOnClick",
+				"type": "boolean",
+				"default": "true",
+				"description": "Opens the popover when the input is clicked. Default: true."
+			},
+			{
+				"name": "typeable",
+				"type": "boolean",
+				"default": "true",
+				"description": "Whether the trigger input accepts typed input. When `false` the user can\nstill open the popover and pick a date, but cannot type a date manually.\nDefault: `true`."
+			},
+			{
+				"name": "readonly",
+				"type": "boolean",
+				"default": "false",
+				"description": "Prevents manual typing while keeping the picker interactive."
+			},
+			{
+				"name": "disabled",
+				"type": "boolean",
+				"default": "false",
+				"description": "Disables the trigger input and calendar interactions."
+			},
+			{
+				"name": "clearable",
+				"type": "boolean",
+				"default": "true",
+				"description": "Shows clear and quick-action controls when enabled."
+			},
+			{
+				"name": "keepOpen",
+				"type": "boolean",
+				"description": "Keeps the popover open after a date is selected. Default: false."
+			},
+			{
+				"name": "autoClose",
+				"type": "boolean",
+				"default": "true",
+				"description": "Closes the popover after a value is picked."
+			},
+			{
+				"name": "min",
+				"type": "string",
+				"description": "Earliest selectable date. Accepts `YYYY-MM-DD` (or, for `DateTimePicker`,\n`YYYY-MM-DD HH:mm:ss` for second-level granularity)."
+			},
+			{
+				"name": "max",
+				"type": "string",
+				"description": "Latest selectable date. Accepts `YYYY-MM-DD` (or, for `DateTimePicker`,\n`YYYY-MM-DD HH:mm:ss` for second-level granularity)."
+			},
+			{
+				"name": "isDateUnavailable",
+				"type": "((date: Dayjs) => boolean)",
+				"description": "Return true to prevent a date from being selected. Combined with `min`/`max`."
+			},
+			{
+				"name": "allowCustom",
+				"type": "boolean",
+				"default": "true",
+				"description": "Allows users to type custom date text into the input."
+			},
+			{
+				"name": "inputClass",
+				"type": "string | string[] | Record<string, boolean>",
+				"description": "Additional classes applied to the trigger input."
+			},
+			{
+				"name": "label",
+				"type": "string",
+				"description": "Label rendered above (or beside, for binary controls) the input."
+			},
+			{
+				"name": "description",
+				"type": "string",
+				"description": "Helper text rendered below the input.\nHidden when `error` is set."
+			},
+			{
+				"name": "error",
+				"type": "string | FrappeUIError",
+				"description": "Error message rendered below the input. When set, the control receives\n`aria-invalid=\"true\"` and `data-state=\"invalid\"`. May be either a string\nor an `Error` object whose `messages?: string[]` is rendered as stacked\nlines (with `Error.message` as the fallback)."
+			},
+			{
+				"name": "required",
+				"type": "boolean",
+				"description": "Marks the field as required. Renders an asterisk next to the label and\nforwards `required` / `aria-required` to the underlying control."
+			},
+			{
+				"name": "id",
+				"type": "string",
+				"description": "HTML id of the underlying control. Auto-generated via `useId()` if omitted."
+			}
+		],
+		"slots": [
+			{
+				"name": "trigger",
+				"type": "DatePickerTriggerSlotProps",
+				"description": "Custom trigger renderer for the picker."
+			},
+			{
+				"name": "target",
+				"type": "DatePickerTriggerSlotProps",
+				"description": "Custom trigger renderer for the picker."
+			},
+			{
+				"name": "prefix",
+				"type": "DatePickerTriggerSlotProps",
+				"description": "Content rendered before the trigger input value."
+			},
+			{
+				"name": "suffix",
+				"type": "DatePickerTriggerSlotProps",
+				"description": "Content rendered after the trigger input value."
+			},
+			{
+				"name": "actions",
+				"type": "DatePickerActionsSlotProps",
+				"description": "Sidebar rendered to the left of the calendar. Use for date shortcuts\n(\"Today\", \"Tomorrow\", \"Last 7 days\") and other preset actions. When\nomitted, the popover shows the calendar only."
+			}
+		],
+		"emits": [
+			{
+				"name": "update:modelValue",
+				"type": "[value: string]",
+				"description": "Fired when the model value changes."
+			},
+			{
+				"name": "change",
+				"type": "[value: string]",
+				"description": "Fired after the value is committed."
+			},
+			{
+				"name": "update:open",
+				"type": "[value: boolean]",
+				"description": "Fired when the open state changes."
+			}
+		]
+	},
+	"DateRangePicker": {
+		"props": [
+			{
+				"name": "value",
+				"type": "string[]",
+				"default": "[]",
+				"description": "Uncontrolled initial range value as `[from, to]` in `YYYY-MM-DD` format."
+			},
+			{
+				"name": "modelValue",
+				"type": "string[]",
+				"default": "[]",
+				"description": "Controlled range value as `[from, to]` in `YYYY-MM-DD` format, or `[]` for no selection."
+			},
+			{
+				"name": "dualPane",
+				"type": "boolean",
+				"default": "false",
+				"description": "Render two calendar panels side by side (current month + next month)."
+			},
+			{
+				"name": "side",
+				"type": "PopoverSide",
+				"description": "Preferred popover side relative to the trigger."
+			},
+			{
+				"name": "align",
+				"type": "PopoverAlign",
+				"description": "Alignment of the popover along the trigger edge."
+			},
+			{
+				"name": "offset",
+				"type": "number",
+				"description": "Gap between the trigger and popover content in pixels."
+			},
+			{
+				"name": "placement",
+				"type": "DatePickerPlacement",
+				"description": "Preferred popover placement relative to the trigger."
+			},
+			{
+				"name": "format",
+				"type": "string",
+				"description": "Display format used for the input text."
+			},
+			{
+				"name": "size",
+				"type": "InputSize",
+				"description": "Size of the trigger input."
+			},
+			{
+				"name": "variant",
+				"type": "InputVariant",
+				"default": "\"subtle\"",
+				"description": "Visual style variant passed through to the input."
+			},
+			{
+				"name": "placeholder",
+				"type": "string",
+				"default": "\"Select range\"",
+				"description": "Placeholder text shown when no value is selected."
+			},
+			{
+				"name": "open",
+				"type": "boolean",
+				"description": "Controls popover open state (for controlled usage)."
+			},
+			{
+				"name": "openOnFocus",
+				"type": "boolean",
+				"default": "false",
+				"description": "Opens the popover when the input receives focus. Default: false."
+			},
+			{
+				"name": "openOnClick",
+				"type": "boolean",
+				"default": "true",
+				"description": "Opens the popover when the input is clicked. Default: true."
+			},
+			{
+				"name": "typeable",
+				"type": "boolean",
+				"default": "true",
+				"description": "Whether the trigger input accepts typed input. When `false` the user can\nstill open the popover and pick a date, but cannot type a date manually.\nDefault: `true`."
+			},
+			{
+				"name": "readonly",
+				"type": "boolean",
+				"default": "false",
+				"description": "Prevents manual typing while keeping the picker interactive."
+			},
+			{
+				"name": "disabled",
+				"type": "boolean",
+				"default": "false",
+				"description": "Disables the trigger input and calendar interactions."
+			},
+			{
+				"name": "clearable",
+				"type": "boolean",
+				"default": "true",
+				"description": "Shows clear and quick-action controls when enabled."
+			},
+			{
+				"name": "keepOpen",
+				"type": "boolean",
+				"description": "Keeps the popover open after a date is selected. Default: false."
+			},
+			{
+				"name": "autoClose",
+				"type": "boolean",
+				"default": "true",
+				"description": "Closes the popover after a value is picked."
+			},
+			{
+				"name": "min",
+				"type": "string",
+				"description": "Earliest selectable date. Accepts `YYYY-MM-DD` (or, for `DateTimePicker`,\n`YYYY-MM-DD HH:mm:ss` for second-level granularity)."
+			},
+			{
+				"name": "max",
+				"type": "string",
+				"description": "Latest selectable date. Accepts `YYYY-MM-DD` (or, for `DateTimePicker`,\n`YYYY-MM-DD HH:mm:ss` for second-level granularity)."
+			},
+			{
+				"name": "isDateUnavailable",
+				"type": "((date: Dayjs) => boolean)",
+				"description": "Return true to prevent a date from being selected. Combined with `min`/`max`."
+			},
+			{
+				"name": "allowCustom",
+				"type": "boolean",
+				"default": "true",
+				"description": "Allows users to type custom date text into the input."
+			},
+			{
+				"name": "inputClass",
+				"type": "string | string[] | Record<string, boolean>",
+				"description": "Additional classes applied to the trigger input."
+			},
+			{
+				"name": "label",
+				"type": "string",
+				"description": "Label rendered above (or beside, for binary controls) the input."
+			},
+			{
+				"name": "description",
+				"type": "string",
+				"description": "Helper text rendered below the input.\nHidden when `error` is set."
+			},
+			{
+				"name": "error",
+				"type": "string | FrappeUIError",
+				"description": "Error message rendered below the input. When set, the control receives\n`aria-invalid=\"true\"` and `data-state=\"invalid\"`. May be either a string\nor an `Error` object whose `messages?: string[]` is rendered as stacked\nlines (with `Error.message` as the fallback)."
+			},
+			{
+				"name": "required",
+				"type": "boolean",
+				"description": "Marks the field as required. Renders an asterisk next to the label and\nforwards `required` / `aria-required` to the underlying control."
+			},
+			{
+				"name": "id",
+				"type": "string",
+				"description": "HTML id of the underlying control. Auto-generated via `useId()` if omitted."
+			}
+		],
+		"slots": [
+			{
+				"name": "trigger",
+				"type": "DatePickerTriggerSlotProps"
+			},
+			{
+				"name": "target",
+				"type": "DatePickerTriggerSlotProps"
+			},
+			{
+				"name": "prefix",
+				"type": "DatePickerTriggerSlotProps"
+			},
+			{
+				"name": "suffix",
+				"type": "DatePickerTriggerSlotProps"
+			},
+			{
+				"name": "actions",
+				"type": "DateRangePickerActionsSlotProps",
+				"description": "Sidebar rendered to the left of the calendar. Use for range shortcuts\n(\"Last 7 days\", \"Last 12 months\") and other preset actions. When\nomitted, the popover shows the calendar only."
+			}
+		],
+		"emits": [
+			{
+				"name": "update:modelValue",
+				"type": "[value: DateRangeValue]",
+				"description": "Fired when the model value changes."
+			},
+			{
+				"name": "change",
+				"type": "[value: DateRangeValue]",
+				"description": "Fired after the value is committed."
+			},
+			{
+				"name": "update:open",
+				"type": "[value: boolean]",
+				"description": "Fired when the open state changes."
+			}
+		]
+	},
+	"DateTimePicker": {
+		"props": [
+			{
+				"name": "value",
+				"type": "string",
+				"default": "\"\"",
+				"description": "Uncontrolled initial value for the picker."
+			},
+			{
+				"name": "modelValue",
+				"type": "string",
+				"default": "\"\"",
+				"description": "Controlled value for the picker."
+			},
+			{
+				"name": "minDateTime",
+				"type": "string",
+				"description": "Earliest selectable date-time in `YYYY-MM-DD HH:mm:ss` format."
+			},
+			{
+				"name": "maxDateTime",
+				"type": "string",
+				"description": "Latest selectable date-time in `YYYY-MM-DD HH:mm:ss` format."
+			},
+			{
+				"name": "allowCustomTime",
+				"type": "boolean",
+				"default": "true",
+				"description": "Allows typing a custom time into the embedded time picker."
+			},
+			{
+				"name": "side",
+				"type": "PopoverSide",
+				"description": "Preferred popover side relative to the trigger."
+			},
+			{
+				"name": "align",
+				"type": "PopoverAlign",
+				"description": "Alignment of the popover along the trigger edge."
+			},
+			{
+				"name": "offset",
+				"type": "number",
+				"description": "Gap between the trigger and popover content in pixels."
+			},
+			{
+				"name": "placement",
+				"type": "DatePickerPlacement",
+				"description": "Preferred popover placement relative to the trigger."
+			},
+			{
+				"name": "format",
+				"type": "string",
+				"description": "Display format used for the input text."
+			},
+			{
+				"name": "size",
+				"type": "InputSize",
+				"description": "Size of the trigger input."
+			},
+			{
+				"name": "variant",
+				"type": "InputVariant",
+				"default": "\"subtle\"",
+				"description": "Visual style variant passed through to the input."
+			},
+			{
+				"name": "placeholder",
+				"type": "string",
+				"default": "\"Select date & time\"",
+				"description": "Placeholder text shown when no value is selected."
+			},
+			{
+				"name": "open",
+				"type": "boolean",
+				"description": "Controls popover open state (for controlled usage)."
+			},
+			{
+				"name": "openOnFocus",
+				"type": "boolean",
+				"default": "false",
+				"description": "Opens the popover when the input receives focus. Default: false."
+			},
+			{
+				"name": "openOnClick",
+				"type": "boolean",
+				"default": "true",
+				"description": "Opens the popover when the input is clicked. Default: true."
+			},
+			{
+				"name": "typeable",
+				"type": "boolean",
+				"default": "true",
+				"description": "Whether the trigger input accepts typed input. When `false` the user can\nstill open the popover and pick a date, but cannot type a date manually.\nDefault: `true`."
+			},
+			{
+				"name": "readonly",
+				"type": "boolean",
+				"default": "false",
+				"description": "Prevents manual typing while keeping the picker interactive."
+			},
+			{
+				"name": "disabled",
+				"type": "boolean",
+				"default": "false",
+				"description": "Disables the trigger input and calendar interactions."
+			},
+			{
+				"name": "clearable",
+				"type": "boolean",
+				"default": "true",
+				"description": "Shows clear and quick-action controls when enabled."
+			},
+			{
+				"name": "keepOpen",
+				"type": "boolean",
+				"description": "Keeps the popover open after a date is selected. Default: false."
+			},
+			{
+				"name": "autoClose",
+				"type": "boolean",
+				"default": "true",
+				"description": "Closes the popover after a value is picked."
+			},
+			{
+				"name": "min",
+				"type": "string",
+				"description": "Earliest selectable date. Accepts `YYYY-MM-DD` (or, for `DateTimePicker`,\n`YYYY-MM-DD HH:mm:ss` for second-level granularity)."
+			},
+			{
+				"name": "max",
+				"type": "string",
+				"description": "Latest selectable date. Accepts `YYYY-MM-DD` (or, for `DateTimePicker`,\n`YYYY-MM-DD HH:mm:ss` for second-level granularity)."
+			},
+			{
+				"name": "isDateUnavailable",
+				"type": "((date: Dayjs) => boolean)",
+				"description": "Return true to prevent a date from being selected. Combined with `min`/`max`."
+			},
+			{
+				"name": "allowCustom",
+				"type": "boolean",
+				"default": "true",
+				"description": "Allows users to type custom date text into the input."
+			},
+			{
+				"name": "inputClass",
+				"type": "string | string[] | Record<string, boolean>",
+				"description": "Additional classes applied to the trigger input."
+			},
+			{
+				"name": "label",
+				"type": "string",
+				"description": "Label rendered above (or beside, for binary controls) the input."
+			},
+			{
+				"name": "description",
+				"type": "string",
+				"description": "Helper text rendered below the input.\nHidden when `error` is set."
+			},
+			{
+				"name": "error",
+				"type": "string | FrappeUIError",
+				"description": "Error message rendered below the input. When set, the control receives\n`aria-invalid=\"true\"` and `data-state=\"invalid\"`. May be either a string\nor an `Error` object whose `messages?: string[]` is rendered as stacked\nlines (with `Error.message` as the fallback)."
+			},
+			{
+				"name": "required",
+				"type": "boolean",
+				"description": "Marks the field as required. Renders an asterisk next to the label and\nforwards `required` / `aria-required` to the underlying control."
+			},
+			{
+				"name": "id",
+				"type": "string",
+				"description": "HTML id of the underlying control. Auto-generated via `useId()` if omitted."
+			}
+		],
+		"slots": [
+			{
+				"name": "trigger",
+				"type": "DatePickerTriggerSlotProps"
+			},
+			{
+				"name": "target",
+				"type": "DatePickerTriggerSlotProps"
+			},
+			{
+				"name": "prefix",
+				"type": "DatePickerTriggerSlotProps"
+			},
+			{
+				"name": "suffix",
+				"type": "DatePickerTriggerSlotProps"
+			},
+			{
+				"name": "actions",
+				"type": "DateTimePickerActionsSlotProps",
+				"description": "Sidebar rendered to the left of the calendar. Use for date-time\nshortcuts (\"Now\", \"Tomorrow 9am\") and other preset actions. When\nomitted, the popover shows the calendar and time picker only."
+			}
+		],
+		"emits": [
+			{
+				"name": "update:modelValue",
+				"type": "[value: string]",
+				"description": "Fired when the model value changes."
+			},
+			{
+				"name": "change",
+				"type": "[value: string]",
+				"description": "Fired after the value is committed."
+			},
+			{
+				"name": "update:open",
+				"type": "[value: boolean]",
+				"description": "Fired when the open state changes."
+			}
+		]
+	},
+	"DesktopShell": {
+		"props": [
+			{
+				"name": "scroll",
+				"type": "boolean",
+				"default": "true",
+				"description": "Whether the content area scrolls as one page (default). Set `false` for\nmulti-pane layouts where inner panes own their own scroll — the content\narea then fills the remaining height and never page-scrolls."
+			}
+		],
+		"slots": [
+			{
+				"name": "rail",
+				"type": "{}"
+			},
+			{
+				"name": "sidebar",
+				"type": "{}"
+			},
+			{
+				"name": "default",
+				"type": "{}"
+			}
+		]
+	},
+	"Dialog": {
+		"props": [
+			{
+				"name": "open",
+				"type": "boolean",
+				"description": "Controls whether the dialog is open (v-model:open). Canonical."
+			},
+			{
+				"name": "modelValue",
+				"type": "boolean",
+				"description": "Controls whether the dialog is open (v-model). Also supported."
+			},
+			{
+				"name": "title",
+				"type": "string",
+				"description": "Dialog title. Renders the auto-header."
+			},
+			{
+				"name": "message",
+				"type": "string",
+				"description": "Description text rendered below the title."
+			},
+			{
+				"name": "icon",
+				"type": "string | DialogIcon",
+				"description": "Icon shown next to the title in the auto-header."
+			},
+			{
+				"name": "size",
+				"type": "DialogSize",
+				"description": "Max-width size of the dialog. Default `'lg'`."
+			},
+			{
+				"name": "position",
+				"type": "DialogPosition",
+				"description": "Vertical placement. Default `'center'`."
+			},
+			{
+				"name": "paddingTop",
+				"type": "string | number",
+				"description": "Overrides the position-based top padding (escape hatch)."
+			},
+			{
+				"name": "actions",
+				"type": "DialogAction[]",
+				"description": "Footer action buttons."
+			},
+			{
+				"name": "dismissible",
+				"type": "boolean",
+				"default": "true",
+				"description": "Allow outside-click and Escape to close. Default `true`."
+			},
+			{
+				"name": "showCloseButton",
+				"type": "boolean",
+				"default": "true",
+				"description": "Show the top-right close button. Default `true`."
+			},
+			{
+				"name": "bare",
+				"type": "boolean",
+				"default": "false",
+				"description": "Drop the chrome: no padded card, no auto-header, no auto-actions. Default `false`."
+			},
+			{
+				"name": "disableOutsideClickToClose",
+				"type": "boolean"
+			},
+			{
+				"name": "options",
+				"type": "DialogOptions"
+			}
+		],
+		"slots": [
+			{
+				"name": "default",
+				"type": "DialogSlotProps",
+				"description": "Main content rendered inside the padded card. Exposes `{ close }`."
+			},
+			{
+				"name": "title",
+				"type": "DialogSlotProps",
+				"description": "Title area; accepts arbitrary content (extra buttons next to title, etc.). Exposes `{ close }`."
+			},
+			{
+				"name": "actions",
+				"type": "DialogActionsSlotProps",
+				"description": "Footer override; exposes `{ close, actions }`."
+			},
+			{
+				"name": "body",
+				"type": "any"
+			},
+			{
+				"name": "body-main",
+				"type": "any"
+			},
+			{
+				"name": "body-header",
+				"type": "any"
+			},
+			{
+				"name": "body-title",
+				"type": "any"
+			},
+			{
+				"name": "body-content",
+				"type": "any"
+			}
+		],
+		"emits": [
+			{
+				"name": "update:modelValue",
+				"type": "[value: boolean]",
+				"description": "Fired when the model value changes."
+			},
+			{
+				"name": "update:open",
+				"type": "[value: boolean]",
+				"description": "Fired when the open state changes."
+			},
+			{
+				"name": "after-leave",
+				"type": "[]"
+			},
+			{
+				"name": "close",
+				"type": "[]",
+				"description": "Fired when the component closes."
+			}
+		]
+	},
+	"Divider": {
+		"props": [
+			{
+				"name": "orientation",
+				"type": "\"vertical\" | \"horizontal\"",
+				"default": "\"horizontal\""
+			},
+			{
+				"name": "position",
+				"type": "\"start\" | \"center\" | \"end\"",
+				"default": "\"center\""
+			},
+			{
+				"name": "flexItem",
+				"type": "boolean"
+			},
+			{
+				"name": "action",
+				"type": "DividerAction"
+			}
+		]
+	},
+	"Dropdown": {
+		"props": [
+			{
+				"name": "button",
+				"type": "ButtonProps",
+				"description": "Button configuration (label, icon, size, variant, etc.)"
+			},
+			{
+				"name": "options",
+				"type": "MenuOptions",
+				"default": "[]",
+				"description": "Array of dropdown options or grouped options."
+			},
+			{
+				"name": "open",
+				"type": "boolean",
+				"default": "false",
+				"description": "Controls the visibility of the dropdown."
+			},
+			{
+				"name": "align",
+				"type": "DropdownAlign",
+				"description": "Alignment of the dropdown content along the trigger edge."
+			},
+			{
+				"name": "placement",
+				"type": "DropdownPlacement",
+				"description": "Placement of the dropdown relative to the trigger."
+			},
+			{
+				"name": "side",
+				"type": "DropdownSide",
+				"default": "\"bottom\"",
+				"description": "Side of the trigger the dropdown appears on."
+			},
+			{
+				"name": "offset",
+				"type": "number",
+				"default": "4",
+				"description": "Offset in pixels between trigger and dropdown."
+			},
+			{
+				"name": "matchTriggerWidth",
+				"type": "boolean",
+				"description": "Whether the dropdown width should match the trigger element."
+			},
+			{
+				"name": "portalTo",
+				"type": "string | HTMLElement",
+				"default": "\"body\"",
+				"description": "Teleport target for dropdown portal content."
+			}
+		],
+		"slots": [
+			{
+				"name": "default",
+				"type": "DropdownTriggerSlotProps",
+				"description": "Alternate trigger renderer."
+			},
+			{
+				"name": "trigger",
+				"type": "DropdownTriggerSlotProps",
+				"description": "Explicit trigger slot renderer."
+			}
+		],
+		"emits": [
+			{
+				"name": "update:open",
+				"type": "[value: boolean]",
+				"description": "Fired when the open state changes."
+			}
+		]
+	},
+	"Duration": {
+		"props": [
+			{
+				"name": "modelValue",
+				"type": "number | null",
+				"default": "null",
+				"description": "The duration value in seconds (two-way via `v-model`)."
+			},
+			{
+				"name": "placeholder",
+				"type": "string",
+				"default": "\"1h 30m 45s\"",
+				"description": "Placeholder shown when the input is empty. Defaults to `1h 30m 45s`."
+			},
+			{
+				"name": "format",
+				"type": "DurationFormat",
+				"default": "\"short\"",
+				"description": "How the saved value is rendered when not focused: a named preset\n(`short` | `long` | `colon`) or a token template (e.g. `h'h' m'm' s's'`,\n`hh:mm:ss`). Defaults to `short`."
+			},
+			{
+				"name": "size",
+				"type": "InputSize",
+				"description": "Visual size of the input. Forwarded to the underlying `TextInput`."
+			},
+			{
+				"name": "variant",
+				"type": "InputVariant",
+				"description": "Style variant of the input. Forwarded to the underlying `TextInput`."
+			},
+			{
+				"name": "disabled",
+				"type": "boolean",
+				"description": "Disables the input when true."
+			},
+			{
+				"name": "label",
+				"type": "string",
+				"description": "Label rendered above (or beside, for binary controls) the input."
+			},
+			{
+				"name": "description",
+				"type": "string",
+				"description": "Helper text rendered below the input.\nHidden when `error` is set."
+			},
+			{
+				"name": "error",
+				"type": "string | FrappeUIError",
+				"description": "Error message rendered below the input. When set, the control receives\n`aria-invalid=\"true\"` and `data-state=\"invalid\"`. May be either a string\nor an `Error` object whose `messages?: string[]` is rendered as stacked\nlines (with `Error.message` as the fallback)."
+			},
+			{
+				"name": "required",
+				"type": "boolean",
+				"description": "Marks the field as required. Renders an asterisk next to the label and\nforwards `required` / `aria-required` to the underlying control."
+			},
+			{
+				"name": "id",
+				"type": "string",
+				"description": "HTML id of the underlying control. Auto-generated via `useId()` if omitted."
+			}
+		],
+		"emits": [
+			{
+				"name": "update:modelValue",
+				"type": "[value: number | null]",
+				"description": "Fired when the model value changes."
+			}
+		]
+	},
+	"ErrorMessage": {
+		"props": [
+			{
+				"name": "message",
+				"type": "string | Error",
+				"description": "The error message to display. Can be a string or an Error object"
+			}
+		]
+	},
+	"FileUploader": {
+		"props": [
+			{
+				"name": "fileTypes",
+				"type": "string | string[]",
+				"description": "Accepted file types passed to the native file input."
+			},
+			{
+				"name": "uploadArgs",
+				"type": "UploadOptions",
+				"description": "Additional upload options passed to Frappe's upload endpoint.\n`private` / `is_private` override the component's `isPrivate` default."
+			},
+			{
+				"name": "validateFile",
+				"type": "((file: File) => FileUploaderValidationResult | Promise<FileUploaderValidationResult>)",
+				"description": "Optional validation hook. Return a message or Error to block upload."
+			}
+		],
+		"slots": [
+			{
+				"name": "default",
+				"type": "FileUploaderSlotProps"
+			}
+		],
+		"emits": [
+			{
+				"name": "success",
+				"type": "[data: any]"
+			},
+			{
+				"name": "failure",
+				"type": "[error: any]"
+			}
+		]
+	},
+	"FormControl": {
+		"props": [
+			{
+				"name": "label",
+				"type": "string",
+				"description": "Label text displayed above the input"
+			},
+			{
+				"name": "description",
+				"type": "string",
+				"description": "Optional description or helper text shown below the input"
+			},
+			{
+				"name": "error",
+				"type": "string | FrappeUIError",
+				"description": "Error message shown below the input. Sets aria-invalid on the control."
+			},
+			{
+				"name": "type",
+				"type": "\"select\" | \"textarea\" | TextInputTypes | \"checkbox\" | \"autocomplete\" | \"combobox\" | \"multiselect\" | \"daterange\" | \"datetime\"",
+				"default": "\"text\"",
+				"description": "Type of input to render. FormControl is a thin dispatcher — it forwards\n`label`/`description`/`error`/`required`/`size`/`variant` plus all\nremaining attrs/listeners to the resolved child component. Type-specific\nprops (e.g. `options` for select/combobox, `min`/`max`/`formatter` for\ndate pickers, `:options` for multiselect) and the `v-model` value shape\nfollow the underlying component — see that component's docs/types for\nthe full surface. Slots are forwarded by name; only slot names declared\non FormControl get IDE typing, others pass through at runtime."
+			},
+			{
+				"name": "size",
+				"type": "\"md\" | \"sm\"",
+				"default": "\"sm\"",
+				"description": "Size of the input"
+			},
+			{
+				"name": "variant",
+				"type": "\"subtle\" | \"outline\"",
+				"default": "\"subtle\"",
+				"description": "Visual variant of the input"
+			},
+			{
+				"name": "required",
+				"type": "boolean",
+				"description": "Whether the input is required"
+			}
+		],
+		"slots": [
+			{
+				"name": "prefix",
+				"type": "any",
+				"description": "Custom content rendered before the input (prefix icon/content)"
+			},
+			{
+				"name": "suffix",
+				"type": "any",
+				"description": "Custom content rendered after the input (suffix icon/content)"
+			},
+			{
+				"name": "description",
+				"type": "any",
+				"description": "Custom description slot (replaces description prop)"
+			},
+			{
+				"name": "label",
+				"type": "{ required: boolean; }",
+				"description": "Custom label slot (replaces label prop). Receives `{ required }`."
+			},
+			{
+				"name": "item-prefix",
+				"type": "{ item: any; }",
+				"description": "Custom slot for autocomplete items prefix (if using Autocomplete type)"
+			},
+			{
+				"name": "default",
+				"type": "any",
+				"description": "Default slot override for full input rendering"
+			}
+		]
+	},
+	"HoverCard": {
+		"props": [
+			{
+				"name": "side",
+				"type": "\"left\" | \"right\" | \"bottom\" | \"top\"",
+				"default": "\"bottom\"",
+				"description": "Side of the trigger the card is placed on."
+			},
+			{
+				"name": "align",
+				"type": "\"start\" | \"center\" | \"end\"",
+				"default": "\"start\"",
+				"description": "Alignment of the card relative to the trigger."
+			},
+			{
+				"name": "offset",
+				"type": "number",
+				"default": "4",
+				"description": "Distance in pixels between the card and the trigger."
+			},
+			{
+				"name": "portalTo",
+				"type": "string | HTMLElement",
+				"default": "\"body\"",
+				"description": "Where the card is teleported to in the DOM."
+			},
+			{
+				"name": "collisionPadding",
+				"type": "number",
+				"default": "10",
+				"description": "Padding (in pixels) kept between the card and the viewport edges when\nrepositioning to avoid collisions."
+			},
+			{
+				"name": "hoverDelay",
+				"type": "number",
+				"default": "0.3",
+				"description": "Delay (in seconds) from when the pointer enters the trigger until the card\nopens. Matches the Tooltip convention of using seconds."
+			},
+			{
+				"name": "leaveDelay",
+				"type": "number",
+				"default": "0.3",
+				"description": "Delay (in seconds) from when the pointer leaves the trigger or card until\nthe card closes."
+			},
+			{
+				"name": "arrow",
+				"type": "boolean",
+				"default": "false",
+				"description": "Render a small arrow pointing at the trigger. Styled to match the panel\nsurface."
+			},
+			{
+				"name": "open",
+				"type": "boolean",
+				"default": "false"
+			}
+		],
+		"slots": [
+			{
+				"name": "trigger",
+				"type": "{ open: boolean; }",
+				"description": "Trigger element. Rendered as-child so hover/focus a11y is auto-wired."
+			},
+			{
+				"name": "default",
+				"type": "any",
+				"description": "Card contents, rendered inside the standard PopoverPanel shell."
+			}
+		],
+		"emits": [
+			{
+				"name": "update:open",
+				"type": "[value: boolean]",
+				"description": "Fired when the open state changes."
+			}
+		]
+	},
+	"ItemListRow": {
+		"props": [
+			{
+				"name": "as",
+				"type": "string | Component",
+				"default": "\"div\"",
+				"description": "Element tag or component used for the row wrapper."
+			},
+			{
+				"name": "size",
+				"type": "ItemListSize",
+				"default": "\"sm\"",
+				"description": "Shared row density preset."
+			},
+			{
+				"name": "active",
+				"type": "boolean",
+				"default": "false",
+				"description": "Highlights the row as the current active target."
+			},
+			{
+				"name": "selected",
+				"type": "boolean",
+				"default": "false",
+				"description": "Highlights the row as selected."
+			},
+			{
+				"name": "disabled",
+				"type": "boolean",
+				"default": "false",
+				"description": "Disables interaction and applies muted styling."
+			}
+		],
+		"slots": [
+			{
+				"name": "default",
+				"type": "any"
+			},
+			{
+				"name": "prefix",
+				"type": "any"
+			},
+			{
+				"name": "label",
+				"type": "any"
+			},
+			{
+				"name": "suffix",
+				"type": "any"
+			}
+		]
+	},
+	"KeyboardShortcutsModal": {
+		"props": [
+			{
+				"name": "title",
+				"type": "string",
+				"default": "\"Keyboard Shortcuts\"",
+				"description": "Dialog title (default: \"Keyboard Shortcuts\")."
+			},
+			{
+				"name": "paddingTop",
+				"type": "string",
+				"default": "\"5vh\"",
+				"description": "CSS value for top padding when position is top (default: \"5vh\")."
+			},
+			{
+				"name": "searchThreshold",
+				"type": "number",
+				"default": "20",
+				"description": "Minimum number of shortcuts that must be registered before the search\ninput is shown (default: 20)."
+			},
+			{
+				"name": "open",
+				"type": "boolean",
+				"default": "false"
+			}
+		],
+		"emits": [
+			{
+				"name": "update:open",
+				"type": "[value: boolean]",
+				"description": "Fired when the open state changes."
+			}
+		]
+	},
+	"List": {
+		"props": [
+			{
+				"name": "columns",
+				"type": "string[]",
+				"description": "Grid track sizes, written to the `--list-columns` CSS var shared by the\nheader and every row. Defaults to the feed template\n`['auto', 'minmax(0,1fr)', 'auto']` (leading media, content, trailing).\nTable-style lists must pass deterministic track sizes — `auto` tracks\nsize independently per row."
+			},
+			{
+				"name": "divider",
+				"type": "ListDivider",
+				"description": "Divider treatment between rows: `inset` starts at the content column\n(the text edge), `full` spans all columns. Defaults to `inset` with the\ndefault feed template, `full` when `columns` is set."
+			},
+			{
+				"name": "selectable",
+				"type": "boolean",
+				"description": "Reveals the animated checkbox column and switches row click from\nnavigate to toggle. Selected values surface via `v-model:selection`."
+			},
+			{
+				"name": "rowHeight",
+				"type": "number",
+				"description": "Fixed row height in px (sets `--list-row-height`). Required for\nvirtualization; without it rows size to their content. Responsive\nheights are non-virtual — set them with classes on the rows instead."
+			},
+			{
+				"name": "selection",
+				"type": "string[]",
+				"default": "[]"
+			},
+			{
+				"name": "active",
+				"type": "string"
+			}
+		],
+		"slots": [
+			{
+				"name": "default",
+				"type": "{}"
+			}
+		],
+		"emits": [
+			{
+				"name": "update:selection",
+				"type": "[value: string[]]",
+				"description": "Fired when the selection changes."
+			},
+			{
+				"name": "update:active",
+				"type": "[value: string | undefined]",
+				"description": "Fired when the active changes."
+			}
+		]
+	},
+	"ListCell": {
+		"slots": [
+			{
+				"name": "default",
+				"type": "{}"
+			}
+		]
+	},
+	"ListEmptyState": {
+		"slots": [
+			{
+				"name": "default",
+				"type": "{}"
+			}
+		]
+	},
+	"ListFilter": {
+		"props": [
+			{
+				"name": "modelValue",
+				"type": "FiltersDict",
+				"default": "{}"
+			},
+			{
+				"name": "docfields",
+				"type": "DocField[]",
+				"default": "[]"
+			}
+		],
+		"emits": [
+			{
+				"name": "update:modelValue",
+				"type": "[value: FiltersDict]",
+				"description": "Fired when the model value changes."
+			}
+		]
+	},
+	"ListFooter": {
+		"props": [
+			{
+				"name": "modelValue",
+				"type": "number",
+				"default": "20"
+			},
+			{
+				"name": "options",
+				"type": "Record<string, any>",
+				"default": "{\n    rowCount: 0,\n    totalCount: 0,\n    pageLengthOptions: [20, 50, 100],\n}"
+			}
+		],
+		"slots": [
+			{
+				"name": "default",
+				"type": "{}"
+			},
+			{
+				"name": "left",
+				"type": "{}"
+			},
+			{
+				"name": "right",
+				"type": "{}"
+			}
+		],
+		"emits": [
+			{
+				"name": "update:modelValue",
+				"type": "any[]",
+				"description": "Fired when the model value changes."
+			},
+			{
+				"name": "loadMore",
+				"type": "any[]"
+			}
+		]
+	},
+	"ListGroup": {
+		"props": [
+			{
+				"name": "label",
+				"type": "string",
+				"description": "Section label shown in the group header. Overridden by the #header slot."
+			},
+			{
+				"name": "sticky",
+				"type": "boolean",
+				"description": "Pin the group header to the top of the scroll container while its rows\nscroll under it. Off by default."
+			}
+		],
+		"slots": [
+			{
+				"name": "default",
+				"type": "any",
+				"description": "The group's rows — `<ListRow>` elements."
+			},
+			{
+				"name": "header",
+				"type": "any",
+				"description": "Replaces the header content (the label)."
+			}
+		]
+	},
+	"ListGroupHeader": {
+		"props": [
+			{
+				"name": "group",
+				"type": "Record<string, any>",
+				"required": true
+			}
+		],
+		"slots": [
+			{
+				"name": "default",
+				"type": "{}"
+			}
+		]
+	},
+	"ListGroupRows": {
+		"props": [
+			{
+				"name": "group",
+				"type": "Record<string, any>",
+				"required": true
+			}
+		],
+		"slots": [
+			{
+				"name": "default",
+				"type": "{}"
+			}
+		]
+	},
+	"ListGroups": {
+		"slots": [
+			{
+				"name": "default",
+				"type": "{}"
+			},
+			{
+				"name": "group-header",
+				"type": "{ group: any; }"
+			}
+		]
+	},
+	"ListHeader": {
+		"slots": [
+			{
+				"name": "default",
+				"type": "{}"
+			}
+		]
+	},
+	"ListHeaderCell": {
+		"slots": [
+			{
+				"name": "default",
+				"type": "any",
+				"description": "Column label."
+			},
+			{
+				"name": "prefix",
+				"type": "any",
+				"description": "Leading adornment, rendered before the label."
+			},
+			{
+				"name": "suffix",
+				"type": "any",
+				"description": "Trailing adornment, rendered after the label."
+			}
+		]
+	},
+	"ListHeaderCellSort": {
+		"props": [
+			{
+				"name": "direction",
+				"type": "ListSortDirection | null",
+				"description": "Active sort direction for this column, `null`/omitted when inactive.\nThe cell is controlled — sort state and toggle rules are app-owned:\nupdate whatever drives your ordering in the `click` handler."
+			},
+			{
+				"name": "align",
+				"type": "\"start\" | \"end\"",
+				"description": "Horizontal alignment of the header content. `'end'` right-aligns the cell\n(for numeric/right-aligned columns) *and* moves the sort glyph to the\nleading side, so the label stays flush with the column's right edge and\nlines up with the values below. Defaults to `'start'`."
+			}
+		],
+		"slots": [
+			{
+				"name": "default",
+				"type": "any",
+				"description": "Column label."
+			},
+			{
+				"name": "prefix",
+				"type": "{ direction: \"desc\" | \"asc\" | null; }",
+				"description": "Leading adornment, rendered before the label."
+			},
+			{
+				"name": "suffix",
+				"type": "{ direction: \"desc\" | \"asc\" | null; }",
+				"description": "Sort glyph. Optional — the cell renders a built-in arrow from `direction`\nby default. Provide this to override (e.g. a custom lucide span). The cell\nowns the reveal: an inactive column's glyph shows on hover."
+			}
+		],
+		"emits": [
+			{
+				"name": "click",
+				"type": "[event: MouseEvent]"
+			}
+		]
+	},
+	"ListHeaderItem": {
+		"props": [
+			{
+				"name": "debounce",
+				"type": "number",
+				"default": "1000"
+			},
+			{
+				"name": "item",
+				"type": "Record<string, any>",
+				"required": true
+			}
+		],
+		"slots": [
+			{
+				"name": "prefix",
+				"type": "{ item: Record<string, any>; }"
+			},
+			{
+				"name": "default",
+				"type": "{}"
+			},
+			{
+				"name": "suffix",
+				"type": "{ item: Record<string, any>; }"
+			},
+			{
+				"name": "resizer",
+				"type": "{ item: Record<string, any>; }"
+			}
+		],
+		"emits": [
+			{
+				"name": "columnWidthUpdated",
+				"type": "any[]"
+			}
+		]
+	},
+	"ListRow": {
+		"props": [
+			{
+				"name": "to",
+				"type": "string | kt | Tt",
+				"description": "Renders the row as a RouterLink. Without `to`, a row with a click\nlistener renders as a button; otherwise a plain div."
+			},
+			{
+				"name": "value",
+				"type": "string",
+				"description": "Row key — the `selection` key when `selectable` and the `v-model:active`\nkey. Required whenever the list uses either."
+			},
+			{
+				"name": "onClick",
+				"type": "((event: MouseEvent) => void)",
+				"description": "Fired when the row is activated, unless selection mode claims the click."
+			}
+		],
+		"slots": [
+			{
+				"name": "default",
+				"type": "{}"
+			}
+		]
+	},
+	"ListRowItem": {
+		"props": [
+			{
+				"name": "align",
+				"type": "string",
+				"default": "'left'"
+			},
+			{
+				"name": "item",
+				"type": "string | number | Record<string, any>",
+				"default": "''"
+			},
+			{
+				"name": "row",
+				"type": "Record<string, any>",
+				"default": "{}"
+			},
+			{
+				"name": "column",
+				"type": "Record<string, any>",
+				"default": "{}"
+			}
+		],
+		"slots": [
+			{
+				"name": "prefix",
+				"type": "{}"
+			},
+			{
+				"name": "default",
+				"type": "{ label: any; }"
+			},
+			{
+				"name": "suffix",
+				"type": "{}"
+			}
+		]
+	},
+	"ListRows": {
+		"props": [
+			{
+				"name": "items",
+				"type": "T[]",
+				"required": true,
+				"description": "Items to iterate — one default-slot render per item."
+			},
+			{
+				"name": "rowKey",
+				"type": "string | ((item: T, index: number) => PropertyKey)",
+				"description": "How to derive a row's identity. A string reads that property off the item;\na function computes it. Drives the render `:key`, the header select-all\nuniverse, and the scoped `value` slot prop. Defaults to the item's `name`,\nthen `id`, then the index."
+			},
+			{
+				"name": "virtual",
+				"type": "boolean | ListVirtualOptions",
+				"description": "Window the rows (vueuse useVirtualList) so only rows near the viewport\nmount. `itemHeight` defaults to the List's `rowHeight`; the scroll\ncontainer is the nearest scrollable ancestor."
+			}
+		],
+		"slots": [
+			{
+				"name": "default",
+				"type": "{ item: T; index: number; value: string; }"
+			}
+		]
+	},
+	"ListSelectBanner": {
+		"slots": [
+			{
+				"name": "default",
+				"type": "{ selections: any; allRowsSelected: any; selectAll: () => any; unselectAll: () => any; }"
+			},
+			{
+				"name": "actions",
+				"type": "{ selections: any; allRowsSelected: any; selectAll: () => any; unselectAll: () => any; }"
+			}
+		]
+	},
+	"ListView": {
+		"props": [
+			{
+				"name": "options",
+				"type": "Record<string, any>",
+				"default": "{\n    getRowRoute: null,\n    onRowClick: null,\n    showTooltip: true,\n    selectable: true,\n    resizeColumn: false,\n    rowHeight: 40,\n    emptyState: {\n        title: 'No Data',\n        description: 'No data available',\n    },\n}"
+			},
+			{
+				"name": "columns",
+				"type": "unknown[]",
+				"default": "[]"
+			},
+			{
+				"name": "rows",
+				"type": "unknown[]",
+				"default": "[]"
+			},
+			{
+				"name": "rowKey",
+				"type": "string",
+				"required": true
+			}
+		],
+		"slots": [
+			{
+				"name": "default",
+				"type": "{ showGroupedRows: boolean; selectable: any; }"
+			}
+		],
+		"emits": [
+			{
+				"name": "update:selections",
+				"type": "any[]",
+				"description": "Fired when the selections changes."
+			},
+			{
+				"name": "update:active-row",
+				"type": "any[]",
+				"description": "Fired when the active row changes."
+			}
+		]
+	},
+	"MobileNav": {
+		"slots": [
+			{
+				"name": "default",
+				"type": "{}"
+			}
+		]
+	},
+	"MobileNavItem": {
+		"props": [
+			{
+				"name": "label",
+				"type": "string",
+				"required": true,
+				"description": "Label under the icon; also the accessible name."
+			},
+			{
+				"name": "icon",
+				"type": "string | Component",
+				"description": "Icon CSS class, e.g. `lucide-home`, or a component. Ignored when the\ndefault slot is used (for a custom glyph or an avatar)."
+			},
+			{
+				"name": "to",
+				"type": "string | kt | Tt",
+				"description": "Navigation target. Renders a router link. Tapping the item while it is\nalready the current route scrolls the shell to the top instead of\nre-navigating."
+			},
+			{
+				"name": "active",
+				"type": "boolean",
+				"description": "Highlight this item. Independent of the current route so one tab can stay\nlit across a whole section (e.g. Home across community routes). Defaults to\nwhether `to` resolves to the current route."
+			}
+		],
+		"slots": [
+			{
+				"name": "default",
+				"type": "{ active: boolean; }"
+			}
+		],
+		"emits": [
+			{
+				"name": "click",
+				"type": "[event: MouseEvent]"
+			}
+		]
+	},
+	"MobileShell": {
+		"slots": [
+			{
+				"name": "default",
+				"type": "{}"
+			},
+			{
+				"name": "nav",
+				"type": "{}"
+			}
+		]
+	},
+	"MonthPicker": {
+		"props": [
+			{
+				"name": "placeholder",
+				"type": "string",
+				"default": "\"Select month\"",
+				"description": "Placeholder text shown when no value is selected"
+			},
+			{
+				"name": "disabled",
+				"type": "boolean",
+				"description": "Disables the month picker"
+			},
+			{
+				"name": "modelValue",
+				"type": "String",
+				"default": "\"\""
+			}
+		],
+		"emits": [
+			{
+				"name": "update:modelValue",
+				"type": "[value: String]",
+				"description": "Fired when the model value changes."
+			}
+		]
+	},
+	"MultiSelect": {
+		"props": [
+			{
+				"name": "modelValue",
+				"type": "string[]",
+				"default": "[]",
+				"description": "Array of selected option values."
+			},
+			{
+				"name": "options",
+				"type": "MultiSelectOptions",
+				"default": "[]",
+				"description": "Options rendered in the popover."
+			},
+			{
+				"name": "variant",
+				"type": "MultiSelectVariant",
+				"default": "\"subtle\"",
+				"description": "Visual style of the trigger."
+			},
+			{
+				"name": "size",
+				"type": "MultiSelectSize",
+				"default": "\"sm\"",
+				"description": "Size of the trigger and option rows."
+			},
+			{
+				"name": "placeholder",
+				"type": "string",
+				"default": "\"Select option\"",
+				"description": "Placeholder text shown when no value is selected."
+			},
+			{
+				"name": "disabled",
+				"type": "boolean",
+				"default": "false",
+				"description": "Disables the multi-select."
+			},
+			{
+				"name": "open",
+				"type": "boolean",
+				"default": "false",
+				"description": "Controls the popover visibility."
+			},
+			{
+				"name": "hideSearch",
+				"type": "boolean",
+				"default": "false",
+				"description": "Hides the in-popover search input."
+			},
+			{
+				"name": "loading",
+				"type": "boolean",
+				"default": "false",
+				"description": "Replaces the results with a loading state."
+			},
+			{
+				"name": "emptyText",
+				"type": "string",
+				"default": "\"No results\"",
+				"description": "Fallback empty-state copy."
+			},
+			{
+				"name": "side",
+				"type": "PopoverSide",
+				"default": "\"bottom\"",
+				"description": "Preferred popover side."
+			},
+			{
+				"name": "align",
+				"type": "PopoverAlign",
+				"default": "\"start\"",
+				"description": "Preferred popover alignment."
+			},
+			{
+				"name": "offset",
+				"type": "number",
+				"default": "4",
+				"description": "Gap between trigger and content."
+			},
+			{
+				"name": "portalTo",
+				"type": "string | HTMLElement",
+				"default": "\"body\"",
+				"description": "Teleport target for the popover content."
+			},
+			{
+				"name": "compareFn",
+				"type": "((a: MultiSelectOption, b: MultiSelectOption) => boolean)",
+				"description": "Custom equality function used to resolve which options are currently\nselected for display and rendering. When omitted, the component uses\nstrict equality on `option.value` against entries in `modelValue`."
+			},
+			{
+				"name": "label",
+				"type": "string",
+				"description": "Label rendered above (or beside, for binary controls) the input."
+			},
+			{
+				"name": "description",
+				"type": "string",
+				"description": "Helper text rendered below the input.\nHidden when `error` is set."
+			},
+			{
+				"name": "error",
+				"type": "string | FrappeUIError",
+				"description": "Error message rendered below the input. When set, the control receives\n`aria-invalid=\"true\"` and `data-state=\"invalid\"`. May be either a string\nor an `Error` object whose `messages?: string[]` is rendered as stacked\nlines (with `Error.message` as the fallback)."
+			},
+			{
+				"name": "required",
+				"type": "boolean",
+				"description": "Marks the field as required. Renders an asterisk next to the label and\nforwards `required` / `aria-required` to the underlying control."
+			},
+			{
+				"name": "id",
+				"type": "string",
+				"description": "HTML id of the underlying control. Auto-generated via `useId()` if omitted."
+			}
+		],
+		"slots": [
+			{
+				"name": "trigger",
+				"type": "MultiSelectSlotProps",
+				"description": "Fully custom trigger renderer."
+			},
+			{
+				"name": "prefix",
+				"type": "MultiSelectSlotProps",
+				"description": "Content rendered before the trigger label. When provided, this slot\nowns the entire prefix area regardless of selection count — useful\nfor aggregate visuals like stacked avatars. If omitted, the trigger\nauto-renders the selected option's `#item-prefix` / `icon` when\nexactly one is selected, and nothing otherwise."
+			},
+			{
+				"name": "summary",
+				"type": "MultiSelectSummarySlotProps",
+				"description": "Overrides the trigger label region. Receives the default summary\ntext as `summary` — use it as a fallback. Useful when you want to\nshow comma-separated labels (or any other format) instead of the\ndefault `\"N selected\"` for multi-selection states."
+			},
+			{
+				"name": "suffix",
+				"type": "MultiSelectSlotProps",
+				"description": "Content rendered after the trigger label. Providing this slot\n**replaces the default chevron** — render your own fallback when\nyour slot content is conditional. Use `@click.stop` and\n`@pointerdown.stop` so the press doesn't toggle the popover."
+			},
+			{
+				"name": "label",
+				"type": "{ required: boolean; }",
+				"description": "Overrides the rendered label content. Receives `{ required }`."
+			},
+			{
+				"name": "description",
+				"type": "any",
+				"description": "Overrides the rendered description content."
+			},
+			{
+				"name": "item-prefix",
+				"type": "MultiSelectItemSlotProps",
+				"description": "Shared content rendered before the standard row label."
+			},
+			{
+				"name": "item-label",
+				"type": "MultiSelectItemSlotProps",
+				"description": "Shared content rendered for the standard row label area."
+			},
+			{
+				"name": "item-suffix",
+				"type": "MultiSelectItemSlotProps",
+				"description": "Shared content rendered after the standard row label area."
+			},
+			{
+				"name": "item",
+				"type": "MultiSelectItemSlotProps",
+				"description": "Replaces the entire row."
+			},
+			{
+				"name": "group-label",
+				"type": "MultiSelectGroupLabelSlotProps",
+				"description": "Custom renderer for group labels."
+			},
+			{
+				"name": "empty",
+				"type": "MultiSelectEmptySlotProps",
+				"description": "Fallback content rendered when there are no results."
+			},
+			{
+				"name": "footer",
+				"type": "MultiSelectFooterSlotProps",
+				"description": "Replaces the default Clear All / Select All footer."
+			},
+			{
+				"name": "option",
+				"type": "{ item: MultiSelectOption; }"
+			}
+		],
+		"emits": [
+			{
+				"name": "update:modelValue",
+				"type": "unknown[]",
+				"description": "Fired when the model value changes."
+			},
+			{
+				"name": "update:query",
+				"type": "[value: string]",
+				"description": "Fired when the query changes."
+			},
+			{
+				"name": "update:open",
+				"type": "unknown[]",
+				"description": "Fired when the open state changes."
+			}
+		]
+	},
+	"PageHeader": {
+		"slots": [
+			{
+				"name": "default",
+				"type": "{}"
+			}
+		]
+	},
+	"PageHeaderBackButton": {
+		"props": [
+			{
+				"name": "to",
+				"type": "string | kt | Tt",
+				"description": "Where to navigate on tap. Omit to fall back to browser history."
+			},
+			{
+				"name": "label",
+				"type": "string",
+				"default": "\"Back\"",
+				"description": "Accessible label for the button."
+			}
+		]
+	},
+	"PageHeaderBase": {
+		"slots": [
+			{
+				"name": "default",
+				"type": "{}"
+			}
+		]
+	},
+	"PageHeaderMobile": {
+		"props": [
+			{
+				"name": "title",
+				"type": "string",
+				"description": "Title shown centered in the header. Overridden by the default slot."
+			}
+		],
+		"slots": [
+			{
+				"name": "left",
+				"type": "{}"
+			},
+			{
+				"name": "default",
+				"type": "{}"
+			},
+			{
+				"name": "right",
+				"type": "{}"
+			}
+		]
+	},
+	"PageHeaderMobileTitle": {
+		"props": [
+			{
+				"name": "title",
+				"type": "string",
+				"description": "Title text. Overridden by the default slot."
+			}
+		],
+		"slots": [
+			{
+				"name": "icon",
+				"type": "{}"
+			},
+			{
+				"name": "default",
+				"type": "{}"
+			}
+		]
+	},
+	"Password": {
+		"props": [
+			{
+				"name": "size",
+				"type": "InputSize",
+				"default": "\"sm\"",
+				"description": "Visual size of the input."
+			},
+			{
+				"name": "variant",
+				"type": "InputVariant",
+				"default": "\"subtle\"",
+				"description": "Style variant of the input."
+			},
+			{
+				"name": "placeholder",
+				"type": "string",
+				"description": "Placeholder text shown when the input is empty."
+			},
+			{
+				"name": "disabled",
+				"type": "boolean",
+				"description": "Disables the input when true."
+			},
+			{
+				"name": "value",
+				"type": "string | null",
+				"description": "Alternate way to set the password value."
+			},
+			{
+				"name": "label",
+				"type": "string",
+				"description": "Label rendered above (or beside, for binary controls) the input."
+			},
+			{
+				"name": "description",
+				"type": "string",
+				"description": "Helper text rendered below the input.\nHidden when `error` is set."
+			},
+			{
+				"name": "error",
+				"type": "string | FrappeUIError",
+				"description": "Error message rendered below the input. When set, the control receives\n`aria-invalid=\"true\"` and `data-state=\"invalid\"`. May be either a string\nor an `Error` object whose `messages?: string[]` is rendered as stacked\nlines (with `Error.message` as the fallback)."
+			},
+			{
+				"name": "required",
+				"type": "boolean",
+				"description": "Marks the field as required. Renders an asterisk next to the label and\nforwards `required` / `aria-required` to the underlying control."
+			},
+			{
+				"name": "id",
+				"type": "string",
+				"description": "HTML id of the underlying control. Auto-generated via `useId()` if omitted."
+			},
+			{
+				"name": "modelValue",
+				"type": "string",
+				"description": "The current password value (controlled)."
+			}
+		],
+		"slots": [
+			{
+				"name": "prefix",
+				"type": "any",
+				"description": "Content shown before the input field (left icon / custom content)"
+			},
+			{
+				"name": "label",
+				"type": "{ required: boolean; }",
+				"description": "Overrides the rendered label content. Receives `{ required }`."
+			},
+			{
+				"name": "description",
+				"type": "any",
+				"description": "Overrides the rendered description content."
+			}
+		],
+		"emits": [
+			{
+				"name": "update:modelValue",
+				"type": "[value: string | undefined]",
+				"description": "Fired when the model value changes."
+			}
+		]
+	},
+	"Popover": {
+		"props": [
+			{
+				"name": "open",
+				"type": "boolean",
+				"description": "Controls visibility (v-model:open)."
+			},
+			{
+				"name": "side",
+				"type": "PopoverSide",
+				"default": "\"bottom\"",
+				"description": "Side of the trigger to render the content on."
+			},
+			{
+				"name": "align",
+				"type": "PopoverAlign",
+				"default": "\"start\"",
+				"description": "Alignment of the content along the chosen side."
+			},
+			{
+				"name": "offset",
+				"type": "number",
+				"default": "4",
+				"description": "Distance in px between the trigger and the content."
+			},
+			{
+				"name": "portalTo",
+				"type": "string | HTMLElement",
+				"default": "\"body\"",
+				"description": "Where to portal the content."
+			},
+			{
+				"name": "collisionPadding",
+				"type": "number",
+				"default": "10",
+				"description": "Padding in px kept from the viewport edge during collision handling."
+			},
+			{
+				"name": "dismissible",
+				"type": "boolean",
+				"default": "true",
+				"description": "Whether the popover closes on outside interaction (click/focus)."
+			},
+			{
+				"name": "matchTriggerWidth",
+				"type": "boolean",
+				"default": "false",
+				"description": "Whether the content's min-width matches the trigger width."
+			},
+			{
+				"name": "bare",
+				"type": "boolean",
+				"default": "false",
+				"description": "Render `#default` without the panel shell (no background, border, shadow,\nor rounding). The content brings its own surface. Mirrors Dialog's `bare`."
+			},
+			{
+				"name": "arrow",
+				"type": "boolean",
+				"default": "false",
+				"description": "Render a small arrow pointing at the trigger. Styled to match the panel\nsurface."
+			},
+			{
+				"name": "show",
+				"type": "boolean"
+			},
+			{
+				"name": "trigger",
+				"type": "\"click\" | \"hover\"",
+				"default": "\"click\""
+			},
+			{
+				"name": "hoverDelay",
+				"type": "number",
+				"default": "0"
+			},
+			{
+				"name": "leaveDelay",
+				"type": "number",
+				"default": "0.5"
+			},
+			{
+				"name": "placement",
+				"type": "PopoverPlacement"
+			},
+			{
+				"name": "popoverClass",
+				"type": "string | object | (string | object)[]"
+			},
+			{
+				"name": "transition",
+				"type": "\"default\" | null"
+			},
+			{
+				"name": "hideOnBlur",
+				"type": "boolean"
+			},
+			{
+				"name": "matchTargetWidth",
+				"type": "boolean"
+			}
+		],
+		"slots": [
+			{
+				"name": "trigger",
+				"type": "PopoverSlotProps",
+				"description": "Trigger element. Rendered via reka PopoverTrigger as-child."
+			},
+			{
+				"name": "default",
+				"type": "PopoverSlotProps",
+				"description": "Popover content, rendered inside the shared panel shell."
+			},
+			{
+				"name": "target",
+				"type": "PopoverLegacySlotProps"
+			},
+			{
+				"name": "body",
+				"type": "PopoverLegacySlotProps"
+			},
+			{
+				"name": "body-main",
+				"type": "PopoverLegacySlotProps"
+			}
+		],
+		"emits": [
+			{
+				"name": "open",
+				"type": "[]",
+				"description": "Fired when the component opens."
+			},
+			{
+				"name": "update:open",
+				"type": "[value: boolean]",
+				"description": "Fired when the open state changes."
+			},
+			{
+				"name": "close",
+				"type": "[]",
+				"description": "Fired when the component closes."
+			},
+			{
+				"name": "update:show",
+				"type": "[value: boolean]",
+				"description": "Fired when the show changes."
+			}
+		]
+	},
+	"Progress": {
+		"props": [
+			{
+				"name": "value",
+				"type": "number",
+				"required": true,
+				"description": "Current progress value"
+			},
+			{
+				"name": "size",
+				"type": "\"md\" | \"sm\" | \"lg\" | \"xl\"",
+				"default": "\"sm\"",
+				"description": "Size of the progress bar: \"sm\" | \"md\" | \"lg\" | \"xl\""
+			},
+			{
+				"name": "label",
+				"type": "string",
+				"default": "\"\"",
+				"description": "Optional text label displayed on the progress bar"
+			},
+			{
+				"name": "hint",
+				"type": "boolean",
+				"default": "false",
+				"description": "Whether to show a hint/tooltip for the progress value"
+			},
+			{
+				"name": "intervals",
+				"type": "boolean",
+				"default": "false",
+				"description": "Whether to show interval markers on the progress bar"
+			},
+			{
+				"name": "intervalCount",
+				"type": "number",
+				"default": "6",
+				"description": "Number of intervals to display if `intervals` is true"
+			}
+		],
+		"slots": [
+			{
+				"name": "hint",
+				"type": "any",
+				"description": "Custom content for the hint area (usually displays the progress value). \nIf not provided, defaults to showing `props.value` followed by `%`."
+			}
+		]
+	},
+	"Rail": {
+		"slots": [
+			{
+				"name": "default",
+				"type": "{}"
+			}
+		]
+	},
+	"RailItem": {
+		"props": [
+			{
+				"name": "label",
+				"type": "string",
+				"required": true,
+				"description": "Tooltip text and the base of the item's accessible label."
+			},
+			{
+				"name": "icon",
+				"type": "string | Component",
+				"description": "Icon CSS class, e.g. `lucide-search`, or a component. Rendered centered in the cell.\nIgnored when the default slot is used (for an image, avatar, or initials)."
+			},
+			{
+				"name": "to",
+				"type": "string | kt | Tt",
+				"description": "Navigation target. When set, the item renders as a router link; otherwise\nit renders as a button. A `click` event fires in both cases."
+			},
+			{
+				"name": "active",
+				"type": "boolean",
+				"description": "Marks the item as the current destination (indicator bar / active fill)."
+			},
+			{
+				"name": "badge",
+				"type": "number",
+				"default": "0",
+				"description": "Unread count. Drives the badge and folds into the accessible label."
+			},
+			{
+				"name": "badgeStyle",
+				"type": "\"count\" | \"dot\"",
+				"default": "\"count\"",
+				"description": "How the badge renders: a count pill or a small dot."
+			},
+			{
+				"name": "variant",
+				"type": "\"ghost\" | \"tile\"",
+				"default": "\"tile\"",
+				"description": "Visual treatment.\n- `tile` (default): a filled cell with a left indicator bar when active —\n  for image/avatar items like communities or workspaces.\n- `ghost`: transparent until hovered, a raised highlight when active — for\n  icon shortcuts like Search or Notifications."
+			}
+		],
+		"slots": [
+			{
+				"name": "default",
+				"type": "{}"
+			}
+		],
+		"emits": [
+			{
+				"name": "click",
+				"type": "[event: MouseEvent]"
+			}
+		]
+	},
+	"Rating": {
+		"props": [
+			{
+				"name": "modelValue",
+				"type": "number",
+				"default": "0",
+				"description": "The current rating value (controlled). In star units, `0..max`, in increments of `step`."
+			},
+			{
+				"name": "max",
+				"type": "number",
+				"description": "Number of stars to render. Defaults to 5."
+			},
+			{
+				"name": "step",
+				"type": "1 | 0.5",
+				"default": "1",
+				"description": "Granularity of the rating value. `1` for whole stars, `0.5` for half stars.\nDefaults to `1`."
+			},
+			{
+				"name": "rating_from",
+				"type": "number",
+				"description": "Number of stars to render."
+			},
+			{
+				"name": "disabled",
+				"type": "boolean",
+				"default": "false",
+				"description": "If true, disables interaction."
+			},
+			{
+				"name": "readonly",
+				"type": "boolean",
+				"description": "If true, disables interaction."
+			},
+			{
+				"name": "icon",
+				"type": "string | Component",
+				"default": "LucideStar",
+				"description": "Icon to render for each star. Accepts a Vue component (e.g. an auto-imported\nlucide icon: `import Heart from '~icons/lucide/heart'`).\nThe component receives `fill=\"currentColor\"` so closed-path SVGs render filled.\nDefaults to a filled lucide-star."
+			},
+			{
+				"name": "size",
+				"type": "InputSize",
+				"default": "\"md\"",
+				"description": "Size of the rating component."
+			},
+			{
+				"name": "label",
+				"type": "string",
+				"description": "Label rendered above (or beside, for binary controls) the input."
+			},
+			{
+				"name": "description",
+				"type": "string",
+				"description": "Helper text rendered below the input.\nHidden when `error` is set."
+			},
+			{
+				"name": "error",
+				"type": "string | FrappeUIError",
+				"description": "Error message rendered below the input. When set, the control receives\n`aria-invalid=\"true\"` and `data-state=\"invalid\"`. May be either a string\nor an `Error` object whose `messages?: string[]` is rendered as stacked\nlines (with `Error.message` as the fallback)."
+			},
+			{
+				"name": "required",
+				"type": "boolean",
+				"description": "Marks the field as required. Renders an asterisk next to the label and\nforwards `required` / `aria-required` to the underlying control."
+			},
+			{
+				"name": "id",
+				"type": "string",
+				"description": "HTML id of the underlying control. Auto-generated via `useId()` if omitted."
+			}
+		],
+		"slots": [
+			{
+				"name": "label",
+				"type": "{ required: boolean; }",
+				"description": "Overrides the rendered label content. Receives `{ required }`."
+			},
+			{
+				"name": "description",
+				"type": "any",
+				"description": "Overrides the rendered description content."
+			},
+			{
+				"name": "icon",
+				"type": "RatingIconSlotProps",
+				"description": "Overrides the per-star icon. Called once per star and stamped into both\nhalf-spans (so half-step clipping still works). Use `state` to color the\nicon, or `index` to render different content per position (e.g. emojis)."
+			}
+		],
+		"emits": [
+			{
+				"name": "update:modelValue",
+				"type": "[value: number]",
+				"description": "Fired when the model value changes."
+			}
+		]
+	},
+	"ScrollArea": {
+		"props": [
+			{
+				"name": "orientation",
+				"type": "\"vertical\" | \"horizontal\" | \"both\"",
+				"default": "\"vertical\"",
+				"description": "Which scrollbars to render."
+			},
+			{
+				"name": "scrollHideDelay",
+				"type": "number",
+				"default": "600",
+				"description": "Idle delay (ms) before the thumb fades out."
+			},
+			{
+				"name": "viewportClass",
+				"type": "string",
+				"description": "Extra classes for the scrolling viewport (e.g. padding)."
+			}
+		],
+		"slots": [
+			{
+				"name": "default",
+				"type": "{}"
+			}
+		]
+	},
+	"ScrollBar": {
+		"props": [
+			{
+				"name": "orientation",
+				"type": "\"vertical\" | \"horizontal\"",
+				"default": "\"vertical\""
+			}
+		]
+	},
+	"Select": {
+		"props": [
+			{
+				"name": "size",
+				"type": "\"md\" | \"sm\" | \"lg\" | \"xl\"",
+				"default": "\"sm\"",
+				"description": "Size of the select input."
+			},
+			{
+				"name": "variant",
+				"type": "\"subtle\" | \"outline\" | \"ghost\"",
+				"default": "\"subtle\"",
+				"description": "Visual style of the select input."
+			},
+			{
+				"name": "placeholder",
+				"type": "string",
+				"default": "\"Select option\"",
+				"description": "Placeholder text displayed when no option is selected."
+			},
+			{
+				"name": "disabled",
+				"type": "boolean",
+				"description": "If true, disables the select input."
+			},
+			{
+				"name": "modelValue",
+				"type": "SelectOptionValue",
+				"description": "The currently selected value."
+			},
+			{
+				"name": "open",
+				"type": "boolean",
+				"default": "false",
+				"description": "Controls the visibility of the select menu."
+			},
+			{
+				"name": "options",
+				"type": "SelectOption[]",
+				"default": "[]",
+				"description": "Options to display in the dropdown."
+			},
+			{
+				"name": "emptyText",
+				"type": "string",
+				"default": "\"No options\"",
+				"description": "Fallback empty-state copy rendered when no options are available."
+			},
+			{
+				"name": "label",
+				"type": "string",
+				"description": "Label rendered above (or beside, for binary controls) the input."
+			},
+			{
+				"name": "description",
+				"type": "string",
+				"description": "Helper text rendered below the input.\nHidden when `error` is set."
+			},
+			{
+				"name": "error",
+				"type": "string | FrappeUIError",
+				"description": "Error message rendered below the input. When set, the control receives\n`aria-invalid=\"true\"` and `data-state=\"invalid\"`. May be either a string\nor an `Error` object whose `messages?: string[]` is rendered as stacked\nlines (with `Error.message` as the fallback)."
+			},
+			{
+				"name": "required",
+				"type": "boolean",
+				"description": "Marks the field as required. Renders an asterisk next to the label and\nforwards `required` / `aria-required` to the underlying control."
+			},
+			{
+				"name": "id",
+				"type": "string",
+				"description": "HTML id of the underlying control. Auto-generated via `useId()` if omitted."
+			}
+		],
+		"slots": [
+			{
+				"name": "trigger",
+				"type": "SelectTriggerSlotProps",
+				"description": "Fully custom trigger renderer."
+			},
+			{
+				"name": "label",
+				"type": "{ required: boolean; }",
+				"description": "Overrides the rendered label content. Receives `{ required }`."
+			},
+			{
+				"name": "description",
+				"type": "any",
+				"description": "Overrides the rendered description content."
+			},
+			{
+				"name": "prefix",
+				"type": "SelectTriggerSlotProps",
+				"description": "Content rendered before the trigger value. Receives the same shape\nas `#trigger` and `#suffix` (`SelectSlotProps`)."
+			},
+			{
+				"name": "suffix",
+				"type": "SelectTriggerSlotProps",
+				"description": "Content rendered after the trigger value. Providing this slot\n**replaces the default chevron** — render your own fallback when\nyour slot content is conditional."
+			},
+			{
+				"name": "option",
+				"type": "SelectItemSlotProps",
+				"description": "Shared renderer for option labels."
+			},
+			{
+				"name": "item-prefix",
+				"type": "SelectItemSlotProps",
+				"description": "Content rendered before the standard option label."
+			},
+			{
+				"name": "item-label",
+				"type": "SelectItemSlotProps",
+				"description": "Content rendered for the standard option label area."
+			},
+			{
+				"name": "item-suffix",
+				"type": "SelectItemSlotProps",
+				"description": "Content rendered after the standard option label."
+			},
+			{
+				"name": "empty",
+				"type": "any",
+				"description": "Fallback content rendered when no options are available."
+			},
+			{
+				"name": "footer",
+				"type": "SelectFooterSlotProps",
+				"description": "Content rendered below the option list. Stays pinned below the scrollable options."
+			}
+		],
+		"emits": [
+			{
+				"name": "update:modelValue",
+				"type": "[value: SelectOptionValue | undefined]",
+				"description": "Fired when the model value changes."
+			},
+			{
+				"name": "update:open",
+				"type": "[value: boolean]",
+				"description": "Fired when the open state changes."
+			}
+		]
+	},
+	"SettingsBody": {
+		"slots": [
+			{
+				"name": "default",
+				"type": "{}"
+			}
+		]
+	},
+	"SettingsContent": {
+		"slots": [
+			{
+				"name": "default",
+				"type": "{}"
+			}
+		]
+	},
+	"SettingsDialog": {
+		"props": [
+			{
+				"name": "size",
+				"type": "DialogSize",
+				"default": "\"4xl\"",
+				"description": "Max-width size of the dialog."
+			},
+			{
+				"name": "shortcut",
+				"type": "boolean",
+				"default": "true",
+				"description": "Enable the Cmd/Ctrl+Shift+, shortcut that toggles the dialog."
+			},
+			{
+				"name": "unmountOnHide",
+				"type": "boolean",
+				"default": "true",
+				"description": "Unmount a panel's content when its tab is inactive (reka-ui default: true).\nSet false to keep visited panels mounted (hidden) — preserves their state\nand scroll position across tab switches at the cost of memory."
+			},
+			{
+				"name": "modelValue",
+				"type": "boolean",
+				"default": "false",
+				"description": "Controls whether the dialog is open."
+			},
+			{
+				"name": "tab",
+				"type": "string | number",
+				"description": "The selected tab — pairs with SettingsNavItem `:value` and SettingsPanel\n`:value`. Optional: leave unbound to let reka-ui manage selection internally,\nor bind `v-model:tab` to drive it (e.g. from the route)."
+			}
+		],
+		"slots": [
+			{
+				"name": "title",
+				"type": "any",
+				"description": "Accessible dialog title (visually hidden). Defaults to \"Settings\"."
+			},
+			{
+				"name": "description",
+				"type": "any",
+				"description": "Accessible dialog description (visually hidden, for aria-describedby)."
+			},
+			{
+				"name": "default",
+				"type": "any",
+				"description": "Sidebar + content panes (compose SettingsSidebar and SettingsContent)."
+			}
+		],
+		"emits": [
+			{
+				"name": "update:modelValue",
+				"type": "[value: boolean]",
+				"description": "Fired when the model value changes."
+			},
+			{
+				"name": "update:tab",
+				"type": "[value: string | number | undefined]",
+				"description": "Fired when the tab changes."
+			}
+		]
+	},
+	"SettingsHeader": {
+		"props": [
+			{
+				"name": "title",
+				"type": "string",
+				"description": "Convenience heading. Omit and use the default slot for a custom header."
+			},
+			{
+				"name": "description",
+				"type": "string",
+				"description": "Optional sub-heading under the title."
+			}
+		],
+		"slots": [
+			{
+				"name": "default",
+				"type": "any",
+				"description": "Replaces the entire header (title/description/actions) with custom content."
+			},
+			{
+				"name": "actions",
+				"type": "any",
+				"description": "Actions on the right of the default title header."
+			}
+		]
+	},
+	"SettingsNavGroup": {
+		"props": [
+			{
+				"name": "label",
+				"type": "string",
+				"description": "Group heading shown above its items."
+			}
+		],
+		"slots": [
+			{
+				"name": "label",
+				"type": "{}"
+			},
+			{
+				"name": "default",
+				"type": "{}"
+			}
+		]
+	},
+	"SettingsNavItem": {
+		"props": [
+			{
+				"name": "value",
+				"type": "string | number",
+				"required": true,
+				"description": "Unique tab id — must match the SettingsPanel `value` it controls."
+			}
+		],
+		"slots": [
+			{
+				"name": "default",
+				"type": "any",
+				"description": "Item label."
+			},
+			{
+				"name": "prefix",
+				"type": "any",
+				"description": "Leading icon or avatar."
+			},
+			{
+				"name": "suffix",
+				"type": "any",
+				"description": "Trailing badge / count."
+			}
+		]
+	},
+	"SettingsPanel": {
+		"props": [
+			{
+				"name": "value",
+				"type": "string | number",
+				"required": true,
+				"description": "Unique tab id — must match the SettingsNavItem `value` that controls it."
+			}
+		],
+		"slots": [
+			{
+				"name": "default",
+				"type": "{}"
+			}
+		]
+	},
+	"SettingsRow": {
+		"props": [
+			{
+				"name": "title",
+				"type": "string",
+				"required": true,
+				"description": "Setting name, rendered on the left."
+			},
+			{
+				"name": "description",
+				"type": "string",
+				"description": "Optional helper text under the title."
+			},
+			{
+				"name": "labelFor",
+				"type": "string",
+				"description": "Explicit id to associate the title label with. Overrides auto-detection."
+			}
+		],
+		"slots": [
+			{
+				"name": "default",
+				"type": "{}"
+			}
+		]
+	},
+	"SettingsSidebar": {
+		"slots": [
+			{
+				"name": "default",
+				"type": "{}"
+			}
+		]
+	},
+	"Sidebar": {
+		"props": [
+			{
+				"name": "header",
+				"type": "SidebarHeaderProps"
+			},
+			{
+				"name": "sections",
+				"type": "SidebarSectionProps[]"
+			},
+			{
+				"name": "disableCollapse",
+				"type": "boolean",
+				"description": "Disables collapsing entirely (fixed width, no built-in toggle)."
+			},
+			{
+				"name": "width",
+				"type": "string",
+				"default": "\"15rem\"",
+				"description": "Expanded width as a CSS length. Applied inline so apps can override it."
+			},
+			{
+				"name": "collapsedWidth",
+				"type": "string",
+				"default": "\"3rem\"",
+				"description": "Collapsed width as a CSS length."
+			},
+			{
+				"name": "collapsed",
+				"type": "boolean | null",
+				"default": "null"
+			}
+		],
+		"slots": [
+			{
+				"name": "default",
+				"type": "{}"
+			},
+			{
+				"name": "header-logo",
+				"type": "{}"
+			},
+			{
+				"name": "footer-items",
+				"type": "{}"
+			}
+		],
+		"emits": [
+			{
+				"name": "update:collapsed",
+				"type": "[value: boolean | null]",
+				"description": "Fired when the collapsed changes."
+			}
+		]
+	},
+	"SidebarHeader": {
+		"props": [
+			{
+				"name": "title",
+				"type": "string",
+				"required": true
+			},
+			{
+				"name": "subtitle",
+				"type": "string"
+			},
+			{
+				"name": "logo",
+				"type": "string | Component"
+			},
+			{
+				"name": "showLogo",
+				"type": "boolean",
+				"default": "true",
+				"description": "Whether to render the leading logo/avatar box. Defaults to `true`. Set to\n`false` when workspace identity is already shown elsewhere (e.g. a left\nrail) to avoid a duplicate avatar; the title then sits flush-left. Best\npaired with a non-collapsing sidebar, since a collapsed header with no logo\nhas nothing to show."
+			},
+			{
+				"name": "menuItems",
+				"type": "{ label: string; icon?: string | Component; onClick?: (() => void) | undefined; }[] | undefined"
+			}
+		],
+		"slots": [
+			{
+				"name": "logo",
+				"type": "{}"
+			}
+		]
+	},
+	"SidebarItem": {
+		"props": [
+			{
+				"name": "label",
+				"type": "string",
+				"description": "Row label. Used as the accessible name and the default slot fallback."
+			},
+			{
+				"name": "accessKey",
+				"type": "string",
+				"description": "`accesskey` attribute for a keyboard shortcut."
+			},
+			{
+				"name": "icon",
+				"type": "string | Component",
+				"description": "Leading icon: a CSS class (e.g. `lucide-box`), plain text, or a component.\nIgnored when the `#prefix` slot is used."
+			},
+			{
+				"name": "suffix",
+				"type": "string",
+				"description": "Trailing text. Ignored when the `#suffix` slot is used."
+			},
+			{
+				"name": "to",
+				"type": "string | kt | Tt",
+				"description": "Navigation target. When set the row's main area renders as a router link;\notherwise it renders as a button. A click still invokes `onClick`."
+			},
+			{
+				"name": "active",
+				"type": "boolean",
+				"description": "Marks the row active (`data-state=\"active\"`). When omitted, active state is\ninferred by matching `to` against the current route."
+			},
+			{
+				"name": "isActive",
+				"type": "boolean"
+			},
+			{
+				"name": "onClick",
+				"type": "((event: MouseEvent) => void)",
+				"description": "Click handler. Bound from `@click` in composition and from `item.onClick`\nin the config-object path — both resolve to this prop."
+			},
+			{
+				"name": "condition",
+				"type": "MaybeRefOrGetter<boolean>"
+			}
+		],
+		"slots": [
+			{
+				"name": "prefix",
+				"type": "{}"
+			},
+			{
+				"name": "default",
+				"type": "{}"
+			},
+			{
+				"name": "suffix",
+				"type": "{}"
+			}
+		]
+	},
+	"SidebarLabel": {
+		"props": [
+			{
+				"name": "divider",
+				"type": "boolean",
+				"description": "When true, collapses to a horizontal divider while the sidebar is collapsed\n(matches the previous `SidebarSection` label behavior)."
+			}
+		],
+		"slots": [
+			{
+				"name": "default",
+				"type": "{}"
+			}
+		]
+	},
+	"SidebarSection": {
+		"props": [
+			{
+				"name": "label",
+				"type": "string"
+			},
+			{
+				"name": "items",
+				"type": "SidebarItemProps[]",
+				"required": true
+			},
+			{
+				"name": "collapsible",
+				"type": "boolean"
+			}
+		],
+		"slots": [
+			{
+				"name": "sidebar-item",
+				"type": "{ item: SidebarItemProps; isCollapsed: boolean; }"
+			}
+		]
+	},
+	"Slider": {
+		"props": [
+			{
+				"name": "step",
+				"type": "number",
+				"default": "1",
+				"description": "Step interval between slider values."
+			},
+			{
+				"name": "max",
+				"type": "number",
+				"default": "100",
+				"description": "Maximum allowed slider value."
+			},
+			{
+				"name": "min",
+				"type": "number",
+				"default": "0",
+				"description": "Minimum allowed slider value. Negative values enable bidirectional fill from zero."
+			},
+			{
+				"name": "size",
+				"type": "ToggleSize",
+				"default": "\"sm\"",
+				"description": "Visual size of the slider."
+			},
+			{
+				"name": "disabled",
+				"type": "boolean",
+				"default": "false",
+				"description": "Disables the slider."
+			},
+			{
+				"name": "label",
+				"type": "string",
+				"description": "Label rendered above (or beside, for binary controls) the input."
+			},
+			{
+				"name": "description",
+				"type": "string",
+				"description": "Helper text rendered below the input.\nHidden when `error` is set."
+			},
+			{
+				"name": "error",
+				"type": "string | FrappeUIError",
+				"description": "Error message rendered below the input. When set, the control receives\n`aria-invalid=\"true\"` and `data-state=\"invalid\"`. May be either a string\nor an `Error` object whose `messages?: string[]` is rendered as stacked\nlines (with `Error.message` as the fallback)."
+			},
+			{
+				"name": "required",
+				"type": "boolean",
+				"description": "Marks the field as required. Renders an asterisk next to the label and\nforwards `required` / `aria-required` to the underlying control."
+			},
+			{
+				"name": "id",
+				"type": "string",
+				"description": "HTML id of the underlying control. Auto-generated via `useId()` if omitted."
+			},
+			{
+				"name": "modelValue",
+				"type": "SliderValue",
+				"description": "The current slider value (controlled)."
+			}
+		],
+		"slots": [
+			{
+				"name": "label",
+				"type": "{ required: boolean; }",
+				"description": "Overrides the rendered label content. Receives `{ required }`."
+			},
+			{
+				"name": "description",
+				"type": "any",
+				"description": "Overrides the rendered description content."
+			}
+		],
+		"emits": [
+			{
+				"name": "update:modelValue",
+				"type": "[value: SliderValue | undefined]",
+				"description": "Fired when the model value changes."
+			},
+			{
+				"name": "value-commit",
+				"type": "[value: SliderValue]",
+				"description": "Fired once when the user finishes committing the value."
+			}
+		]
+	},
+	"Spinner": {
+		"props": [
+			{
+				"name": "size",
+				"type": "SpinnerSize",
+				"description": "Diameter — xs=12px, sm=14px, md=16px, lg=20px. Omit to size with classes (default 16px)."
+			},
+			{
+				"name": "theme",
+				"type": "SpinnerTheme",
+				"description": "Spinner color. Omit to inherit the text color."
+			},
+			{
+				"name": "track",
+				"type": "boolean",
+				"default": "false",
+				"description": "Show a faint track behind the arc"
+			}
+		]
+	},
+	"Switch": {
+		"props": [
+			{
+				"name": "size",
+				"type": "ToggleSize",
+				"default": "\"sm\"",
+				"description": "Size of the switch control"
+			},
+			{
+				"name": "disabled",
+				"type": "boolean",
+				"default": "false",
+				"description": "Disables the switch and prevents interaction"
+			},
+			{
+				"name": "icon",
+				"type": "string | Component",
+				"description": "Optional icon rendered alongside the label.\nStrings starting with `lucide-` are rendered via the shared Lucide\nTailwind utility; component values are rendered with `<component :is>`."
+			},
+			{
+				"name": "labelClasses",
+				"type": "string",
+				"default": "\"\"",
+				"description": "Custom classes applied to the label element."
+			},
+			{
+				"name": "label",
+				"type": "string",
+				"description": "Label rendered above (or beside, for binary controls) the input."
+			},
+			{
+				"name": "description",
+				"type": "string",
+				"description": "Helper text rendered below the input.\nHidden when `error` is set."
+			},
+			{
+				"name": "error",
+				"type": "string | FrappeUIError",
+				"description": "Error message rendered below the input. When set, the control receives\n`aria-invalid=\"true\"` and `data-state=\"invalid\"`. May be either a string\nor an `Error` object whose `messages?: string[]` is rendered as stacked\nlines (with `Error.message` as the fallback)."
+			},
+			{
+				"name": "required",
+				"type": "boolean",
+				"description": "Marks the field as required. Renders an asterisk next to the label and\nforwards `required` / `aria-required` to the underlying control."
+			},
+			{
+				"name": "id",
+				"type": "string",
+				"description": "HTML id of the underlying control. Auto-generated via `useId()` if omitted."
+			},
+			{
+				"name": "modelValue",
+				"type": "boolean",
+				"default": "false"
+			}
+		],
+		"slots": [
+			{
+				"name": "label",
+				"type": "{ required: boolean; }",
+				"description": "Overrides the rendered label content. Receives `{ required }`."
+			},
+			{
+				"name": "description",
+				"type": "any",
+				"description": "Overrides the rendered description content."
+			}
+		],
+		"emits": [
+			{
+				"name": "update:modelValue",
+				"type": "[value: boolean]",
+				"description": "Fired when the model value changes."
+			}
+		]
+	},
+	"TabButtons": {
+		"props": [
+			{
+				"name": "options",
+				"type": "TabButton[]",
+				"description": "List of options to render."
+			},
+			{
+				"name": "buttons",
+				"type": "TabButton[]"
+			},
+			{
+				"name": "modelValue",
+				"type": "TabButtonValue"
+			},
+			{
+				"name": "type",
+				"type": "TabButtonsType",
+				"default": "\"subtle\""
+			},
+			{
+				"name": "size",
+				"type": "PillSize",
+				"default": "\"sm\""
+			},
+			{
+				"name": "vertical",
+				"type": "boolean",
+				"default": "false"
+			},
+			{
+				"name": "direction",
+				"type": "TabButtonsDirection",
+				"default": "\"left\"",
+				"description": "Edge the active browser tab attaches to. Only used when `type='browser-tab'` and `vertical`."
+			}
+		],
+		"slots": [
+			{
+				"name": "prefix",
+				"type": "{ button: { key: string; label: string | number | undefined; icon: TabButtonIcon | undefined; iconLe"
+			},
+			{
+				"name": "suffix",
+				"type": "{ button: { key: string; label: string | number | undefined; icon: TabButtonIcon | undefined; iconLe"
+			}
+		],
+		"emits": [
+			{
+				"name": "update:modelValue",
+				"type": "[value: TabButtonValue | undefined]",
+				"description": "Fired when the model value changes."
+			}
+		]
+	},
+	"Tabs": {
+		"props": [
+			{
+				"name": "as",
+				"type": "string",
+				"description": "Element/component used to render the tab container."
+			},
+			{
+				"name": "tabs",
+				"type": "Tab[]",
+				"required": true,
+				"description": "List of tabs to render."
+			},
+			{
+				"name": "vertical",
+				"type": "boolean",
+				"description": "Renders tabs vertically instead of horizontally."
+			},
+			{
+				"name": "modelValue",
+				"type": "string | number",
+				"description": "Currently selected tab value."
+			},
+			{
+				"name": "dir",
+				"type": "\"rtl\" | \"ltr\"",
+				"description": "Forces layout direction; defaults to `document.documentElement.dir`."
+			}
+		],
+		"slots": [
+			{
+				"name": "tab-item",
+				"type": "{ tab: { label: string; icon?: string | Component | undefined; route?: string | undefined; }; }",
+				"description": "Custom renderer for a tab trigger (icon + label / router-link)."
+			},
+			{
+				"name": "tab-panel",
+				"type": "{ tab: { label: string; icon?: string | Component | undefined; route?: string | undefined; }; }",
+				"description": "Content rendered for each tab panel."
+			}
+		],
+		"emits": [
+			{
+				"name": "update:modelValue",
+				"type": "[value: string | number]",
+				"description": "Fired when the model value changes."
+			}
+		]
+	},
+	"Textarea": {
+		"props": [
+			{
+				"name": "size",
+				"type": "InputSize",
+				"default": "\"sm\"",
+				"description": "Controls the visual size of the textarea."
+			},
+			{
+				"name": "variant",
+				"type": "InputVariant",
+				"default": "\"subtle\"",
+				"description": "Visual style variant."
+			},
+			{
+				"name": "placeholder",
+				"type": "string",
+				"description": "Placeholder text shown when empty."
+			},
+			{
+				"name": "disabled",
+				"type": "boolean",
+				"description": "Disables user interaction."
+			},
+			{
+				"name": "modelValue",
+				"type": "string",
+				"description": "Bound value of the textarea."
+			},
+			{
+				"name": "debounce",
+				"type": "number",
+				"description": "Debounce delay (ms) before emitting value updates."
+			},
+			{
+				"name": "rows",
+				"type": "number",
+				"default": "3",
+				"description": "Number of visible text rows."
+			},
+			{
+				"name": "label",
+				"type": "string",
+				"description": "Label rendered above (or beside, for binary controls) the input."
+			},
+			{
+				"name": "description",
+				"type": "string",
+				"description": "Helper text rendered below the input.\nHidden when `error` is set."
+			},
+			{
+				"name": "error",
+				"type": "string | FrappeUIError",
+				"description": "Error message rendered below the input. When set, the control receives\n`aria-invalid=\"true\"` and `data-state=\"invalid\"`. May be either a string\nor an `Error` object whose `messages?: string[]` is rendered as stacked\nlines (with `Error.message` as the fallback)."
+			},
+			{
+				"name": "required",
+				"type": "boolean",
+				"description": "Marks the field as required. Renders an asterisk next to the label and\nforwards `required` / `aria-required` to the underlying control."
+			},
+			{
+				"name": "id",
+				"type": "string",
+				"description": "HTML id of the underlying control. Auto-generated via `useId()` if omitted."
+			}
+		],
+		"slots": [
+			{
+				"name": "label",
+				"type": "{ required: boolean; }",
+				"description": "Overrides the rendered label content. Receives `{ required }`."
+			},
+			{
+				"name": "description",
+				"type": "any",
+				"description": "Overrides the rendered description content."
+			}
+		],
+		"emits": [
+			{
+				"name": "update:modelValue",
+				"type": "[value: string]",
+				"description": "Fired when the model value changes."
+			}
+		]
+	},
+	"TextEditor": {
+		"props": [
+			{
+				"name": "content",
+				"type": "string | null",
+				"default": "null",
+				"description": "Initial editor content (HTML/string). `null` renders an empty editor"
+			},
+			{
+				"name": "placeholder",
+				"type": "string | (() => string)",
+				"default": "\"\"",
+				"description": "Placeholder text or dynamic placeholder resolver"
+			},
+			{
+				"name": "editorClass",
+				"type": "string | object | string[]",
+				"default": "\"prose-sm\"",
+				"description": "Custom classes applied to the editor root"
+			},
+			{
+				"name": "editable",
+				"type": "boolean",
+				"default": "true",
+				"description": "Toggles editability of the editor"
+			},
+			{
+				"name": "autofocus",
+				"type": "boolean",
+				"default": "false",
+				"description": "Autofocus the editor on mount"
+			},
+			{
+				"name": "bubbleMenu",
+				"type": "boolean | any[]",
+				"default": "false",
+				"description": "Enables bubble menu or provides custom bubble menu items"
+			},
+			{
+				"name": "bubbleMenuOptions",
+				"type": "object",
+				"default": "{}",
+				"description": "Configuration options for the bubble menu"
+			},
+			{
+				"name": "fixedMenu",
+				"type": "boolean | any[]",
+				"default": "false",
+				"description": "Enables fixed menu or provides custom fixed menu items"
+			},
+			{
+				"name": "floatingMenu",
+				"type": "boolean | any[]",
+				"default": "false",
+				"description": "Enables floating menu or provides custom floating menu items"
+			},
+			{
+				"name": "extensions",
+				"type": "any[]",
+				"default": "[]",
+				"description": "Custom TipTap extensions"
+			},
+			{
+				"name": "starterkitOptions",
+				"type": "any",
+				"default": "{}",
+				"description": "Options passed to TipTap StarterKit"
+			},
+			{
+				"name": "mentions",
+				"type": "ConfigureMentionOptions",
+				"default": "null",
+				"description": "Mention extension configuration"
+			},
+			{
+				"name": "tags",
+				"type": "any[] | null",
+				"default": "null",
+				"description": "Tag / hashtag configuration"
+			},
+			{
+				"name": "uploadFunction",
+				"type": "((file: File) => Promise<UploadedFile>)",
+				"description": "Async file upload handler (used for images, files, etc.)"
+			},
+			{
+				"name": "uploadArgs",
+				"type": "object",
+				"description": "Extra arguments passed to the upload function"
+			}
+		],
+		"slots": [
+			{
+				"name": "top",
+				"type": "{ editor: { contentComponent: { uid: number; type: FunctionalComponent<{}, {}, any, {}> | { [x: stri"
+			},
+			{
+				"name": "editor",
+				"type": "{ editor: { contentComponent: { uid: number; type: FunctionalComponent<{}, {}, any, {}> | { [x: stri"
+			},
+			{
+				"name": "bottom",
+				"type": "{ editor: { contentComponent: { uid: number; type: FunctionalComponent<{}, {}, any, {}> | { [x: stri"
+			}
+		],
+		"emits": [
+			{
+				"name": "change",
+				"type": "[content: string]",
+				"description": "Fired after the value is committed."
+			},
+			{
+				"name": "focus",
+				"type": "[event: FocusEvent]"
+			},
+			{
+				"name": "blur",
+				"type": "[event: FocusEvent]"
+			},
+			{
+				"name": "transaction",
+				"type": "[editor: object]"
+			}
+		]
+	},
+	"TextInput": {
+		"props": [
+			{
+				"name": "type",
+				"type": "TextInputTypes",
+				"default": "\"text\"",
+				"description": "HTML input type (text, email, number, password, etc.)."
+			},
+			{
+				"name": "size",
+				"type": "InputSize",
+				"default": "\"sm\"",
+				"description": "Visual size of the input."
+			},
+			{
+				"name": "variant",
+				"type": "InputVariant",
+				"default": "\"subtle\"",
+				"description": "Style variant of the input."
+			},
+			{
+				"name": "placeholder",
+				"type": "string",
+				"description": "Placeholder text shown when the input is empty."
+			},
+			{
+				"name": "disabled",
+				"type": "boolean",
+				"description": "Disables the input when true."
+			},
+			{
+				"name": "modelValue",
+				"type": "string | number",
+				"description": "Bound value of the input."
+			},
+			{
+				"name": "debounce",
+				"type": "number",
+				"description": "Debounce delay (in ms) before emitting value updates."
+			},
+			{
+				"name": "label",
+				"type": "string",
+				"description": "Label rendered above (or beside, for binary controls) the input."
+			},
+			{
+				"name": "description",
+				"type": "string",
+				"description": "Helper text rendered below the input.\nHidden when `error` is set."
+			},
+			{
+				"name": "error",
+				"type": "string | FrappeUIError",
+				"description": "Error message rendered below the input. When set, the control receives\n`aria-invalid=\"true\"` and `data-state=\"invalid\"`. May be either a string\nor an `Error` object whose `messages?: string[]` is rendered as stacked\nlines (with `Error.message` as the fallback)."
+			},
+			{
+				"name": "required",
+				"type": "boolean",
+				"description": "Marks the field as required. Renders an asterisk next to the label and\nforwards `required` / `aria-required` to the underlying control."
+			},
+			{
+				"name": "id",
+				"type": "string",
+				"description": "HTML id of the underlying control. Auto-generated via `useId()` if omitted."
+			}
+		],
+		"slots": [
+			{
+				"name": "prefix",
+				"type": "any",
+				"description": "Content rendered before the input (left side)"
+			},
+			{
+				"name": "suffix",
+				"type": "any",
+				"description": "Content rendered after the input (right side)"
+			},
+			{
+				"name": "label",
+				"type": "{ required: boolean; }",
+				"description": "Overrides the rendered label content. Receives `{ required }`."
+			},
+			{
+				"name": "description",
+				"type": "any",
+				"description": "Overrides the rendered description content."
+			}
+		],
+		"emits": [
+			{
+				"name": "update:modelValue",
+				"type": "[value: string]",
+				"description": "Fired when the model value changes."
+			}
+		]
+	},
+	"ThemeSwitcher": {
+		"props": [
+			{
+				"name": "modelValue",
+				"type": "Theme",
+				"description": "Selected theme. Falls back to the shared `useTheme` state when unbound."
+			},
+			{
+				"name": "label",
+				"type": "string",
+				"default": "\"Theme\"",
+				"description": "Heading rendered above the options."
+			},
+			{
+				"name": "description",
+				"type": "string",
+				"default": "\"Switch between light, dark, or system theme\"",
+				"description": "Helper text rendered below the heading."
+			},
+			{
+				"name": "logo",
+				"type": "string | Component",
+				"description": "Brand logo shown inside each preview. A string is treated as an image source; a component value is rendered with `<component :is>`."
+			},
+			{
+				"name": "name",
+				"type": "string",
+				"default": "\"\"",
+				"description": "Brand name shown inside each preview."
+			},
+			{
+				"name": "themeLabels",
+				"type": "Partial<Record<Theme, string>>",
+				"description": "Overrides the per-option labels. For richer per-item content, use the `#item-label` slot, which takes precedence over this prop."
+			}
+		],
+		"slots": [
+			{
+				"name": "label",
+				"type": "any",
+				"description": "Overrides the heading content."
+			},
+			{
+				"name": "description",
+				"type": "any",
+				"description": "Overrides the helper-text content."
+			},
+			{
+				"name": "item-label",
+				"type": "{ value: Theme; }",
+				"description": "Overrides a single option's label. Receives the option's `value`. Falls back to the `themeLabels` prop, then the built-in label."
+			}
+		],
+		"emits": [
+			{
+				"name": "update:modelValue",
+				"type": "[theme: Theme]",
+				"description": "Fired when the model value changes."
+			}
+		]
+	},
+	"TimePicker": {
+		"props": [
+			{
+				"name": "modelValue",
+				"type": "string",
+				"default": "\"\"",
+				"description": "Controlled value, canonical `HH:mm` (or `HH:mm:ss`)."
+			},
+			{
+				"name": "value",
+				"type": "string",
+				"description": "Uncontrolled initial value."
+			},
+			{
+				"name": "interval",
+				"type": "number",
+				"default": "15",
+				"description": "Minute interval between generated options."
+			},
+			{
+				"name": "options",
+				"type": "{ value: string; label?: string; }[] | undefined",
+				"default": "[]",
+				"description": "Caller-provided option values; bypasses the generated grid."
+			},
+			{
+				"name": "side",
+				"type": "PopoverSide",
+				"description": "Preferred popover side."
+			},
+			{
+				"name": "align",
+				"type": "PopoverAlign",
+				"description": "Alignment of the popover along the trigger edge."
+			},
+			{
+				"name": "offset",
+				"type": "number",
+				"description": "Gap between trigger and popover in pixels."
+			},
+			{
+				"name": "placement",
+				"type": "Placement",
+				"description": "Combined side+align placement."
+			},
+			{
+				"name": "placeholder",
+				"type": "string",
+				"default": "\"Select time\"",
+				"description": "Placeholder text when no value is selected."
+			},
+			{
+				"name": "variant",
+				"type": "Variant",
+				"default": "\"subtle\" as Variant",
+				"description": "Visual style variant."
+			},
+			{
+				"name": "size",
+				"type": "InputSize",
+				"description": "Visual size of the trigger input. Forwarded to the underlying `TextInput`."
+			},
+			{
+				"name": "typeable",
+				"type": "boolean",
+				"default": "true",
+				"description": "Whether the trigger input accepts typed input. When `false` the user can\nstill open the popover and pick a time, but cannot type a time manually.\nDefault: `true`."
+			},
+			{
+				"name": "readonly",
+				"type": "boolean",
+				"default": "false",
+				"description": "Prevents manual typing while keeping the picker interactive."
+			},
+			{
+				"name": "allowCustom",
+				"type": "boolean",
+				"default": "true",
+				"description": "Allows users to type custom time values."
+			},
+			{
+				"name": "keepOpen",
+				"type": "boolean",
+				"description": "Keeps the popover open after a time is selected."
+			},
+			{
+				"name": "autoClose",
+				"type": "boolean",
+				"default": "true",
+				"description": "Closes the popover after a value is picked."
+			},
+			{
+				"name": "use12Hour",
+				"type": "boolean",
+				"description": "Use 12-hour (am/pm) format for display."
+			},
+			{
+				"name": "format",
+				"type": "string",
+				"default": "\"HH:mm\"",
+				"description": "Dayjs format string used for display. Default: `HH:mm`."
+			},
+			{
+				"name": "disabled",
+				"type": "boolean",
+				"default": "false",
+				"description": "Disable the time picker."
+			},
+			{
+				"name": "open",
+				"type": "boolean",
+				"description": "Controlled popover open state. Use with `v-model:open` for two-way binding."
+			},
+			{
+				"name": "openOnFocus",
+				"type": "boolean",
+				"default": "false",
+				"description": "Opens the popover when the input receives focus. Default: false."
+			},
+			{
+				"name": "openOnClick",
+				"type": "boolean",
+				"default": "true",
+				"description": "Opens the popover when the input is clicked. Default: true."
+			},
+			{
+				"name": "min",
+				"type": "string",
+				"description": "Minimum selectable time as `HH:mm[:ss]`."
+			},
+			{
+				"name": "max",
+				"type": "string",
+				"description": "Maximum selectable time as `HH:mm[:ss]`."
+			},
+			{
+				"name": "minTime",
+				"type": "string",
+				"description": "Minimum selectable time as `HH:mm[:ss]`."
+			},
+			{
+				"name": "maxTime",
+				"type": "string",
+				"description": "Maximum selectable time as `HH:mm[:ss]`."
+			},
+			{
+				"name": "scrollMode",
+				"type": "\"start\" | \"center\" | \"nearest\"",
+				"description": "Scroll behavior when opening the list."
+			},
+			{
+				"name": "label",
+				"type": "string",
+				"description": "Label rendered above (or beside, for binary controls) the input."
+			},
+			{
+				"name": "description",
+				"type": "string",
+				"description": "Helper text rendered below the input.\nHidden when `error` is set."
+			},
+			{
+				"name": "error",
+				"type": "string | FrappeUIError",
+				"description": "Error message rendered below the input. When set, the control receives\n`aria-invalid=\"true\"` and `data-state=\"invalid\"`. May be either a string\nor an `Error` object whose `messages?: string[]` is rendered as stacked\nlines (with `Error.message` as the fallback)."
+			},
+			{
+				"name": "required",
+				"type": "boolean",
+				"description": "Marks the field as required. Renders an asterisk next to the label and\nforwards `required` / `aria-required` to the underlying control."
+			},
+			{
+				"name": "id",
+				"type": "string",
+				"description": "HTML id of the underlying control. Auto-generated via `useId()` if omitted."
+			}
+		],
+		"slots": [
+			{
+				"name": "label",
+				"type": "{ required: boolean; }",
+				"description": "Overrides the rendered label content. Receives `{ required }`."
+			},
+			{
+				"name": "description",
+				"type": "any",
+				"description": "Overrides the rendered description content."
+			},
+			{
+				"name": "prefix",
+				"type": "any",
+				"description": "Rendered inside the trigger input, before the typed value."
+			},
+			{
+				"name": "suffix",
+				"type": "{ togglePopover: () => void; isOpen: boolean; }",
+				"description": "Rendered inside the trigger input, after the typed value. Defaults to a\nchevron-down that toggles the popover."
+			}
+		],
+		"emits": [
+			{
+				"name": "open",
+				"type": "[]",
+				"description": "Fired when the component opens."
+			},
+			{
+				"name": "update:modelValue",
+				"type": "[value: string]",
+				"description": "Fired when the model value changes."
+			},
+			{
+				"name": "update:open",
+				"type": "[value: boolean]",
+				"description": "Fired when the open state changes."
+			},
+			{
+				"name": "change",
+				"type": "[value: string]",
+				"description": "Fired after the value is committed."
+			},
+			{
+				"name": "input-invalid",
+				"type": "[input: string]"
+			},
+			{
+				"name": "invalid-change",
+				"type": "[invalid: boolean]"
+			},
+			{
+				"name": "close",
+				"type": "[]",
+				"description": "Fired when the component closes."
+			}
+		]
+	},
+	"Toast": {
+		"props": [
+			{
+				"name": "open",
+				"type": "boolean",
+				"required": true,
+				"description": "Controls whether the toast is visible (required)"
+			},
+			{
+				"name": "message",
+				"type": "string",
+				"description": "Message content rendered inside the toast"
+			},
+			{
+				"name": "type",
+				"type": "\"error\" | \"success\" | \"info\" | \"warning\"",
+				"description": "Visual tone of the toast"
+			},
+			{
+				"name": "duration",
+				"type": "number",
+				"description": "Auto-dismiss duration in milliseconds"
+			},
+			{
+				"name": "icon",
+				"type": "Component",
+				"description": "Optional custom icon rendered before the message"
+			},
+			{
+				"name": "closable",
+				"type": "boolean",
+				"description": "Whether the close button is shown"
+			},
+			{
+				"name": "action",
+				"type": "ToastAction",
+				"description": "Optional action rendered on the right side of the toast"
+			}
+		],
+		"emits": [
+			{
+				"name": "update:open",
+				"type": "[value: boolean]",
+				"description": "Fired when the open state changes."
+			},
+			{
+				"name": "action",
+				"type": "[]"
+			}
+		]
+	},
+	"Tooltip": {
+		"props": [
+			{
+				"name": "text",
+				"type": "string",
+				"default": "\"\"",
+				"description": "Text content shown inside the tooltip.\nIgnored if a default slot is provided."
+			},
+			{
+				"name": "hoverDelay",
+				"type": "number",
+				"default": "0.5",
+				"description": "Delay (in seconds) before showing the tooltip on hover."
+			},
+			{
+				"name": "placement",
+				"type": "\"top\" | \"right\" | \"bottom\" | \"left\"",
+				"default": "\"top\"",
+				"description": "Position of the tooltip relative to the trigger."
+			},
+			{
+				"name": "arrowClass",
+				"type": "any",
+				"default": "\"fill-surface-gray-10\"",
+				"description": "Custom classes applied to the tooltip arrow."
+			},
+			{
+				"name": "disabled",
+				"type": "boolean",
+				"default": "false",
+				"description": "Disables the tooltip entirely."
+			}
+		],
+		"slots": [
+			{
+				"name": "default",
+				"type": "any",
+				"description": "Default trigger slot.\nWraps the element that the tooltip is attached to."
+			},
+			{
+				"name": "body",
+				"type": "any",
+				"description": "Slot for fully custom tooltip body.\nReplaces the default tooltip container entirely."
+			},
+			{
+				"name": "content",
+				"type": "any",
+				"description": "Slot for tooltip content text.\nUsed inside the default tooltip body."
+			}
+		]
+	},
+	"TooltipBubble": {
+		"props": [
+			{
+				"name": "side",
+				"type": "\"top\" | \"right\" | \"bottom\" | \"left\"",
+				"default": "\"top\"",
+				"description": "Preferred popover side relative to the trigger."
+			},
+			{
+				"name": "text",
+				"type": "string",
+				"description": "Text content when neither `#content` nor `#body` is provided."
+			},
+			{
+				"name": "arrowClass",
+				"type": "string",
+				"default": "\"fill-surface-gray-10\"",
+				"description": "Fill class for the arrow — defaults to match the bubble shell."
+			}
+		],
+		"slots": [
+			{
+				"name": "default",
+				"type": "any",
+				"description": "Replaces just the text inside the standard bubble."
+			},
+			{
+				"name": "content",
+				"type": "any",
+				"description": "Replaces just the text inside the standard bubble."
+			},
+			{
+				"name": "body",
+				"type": "any",
+				"description": "Replaces the entire bubble (including its shell) — arrow still renders."
+			}
+		]
+	},
+	"TooltipProvider": {
+		"props": [
+			{
+				"name": "hoverDelay",
+				"type": "number",
+				"default": "0.5",
+				"description": "Delay (in seconds) before the first tooltip in the group opens."
+			},
+			{
+				"name": "skipDelay",
+				"type": "number",
+				"default": "0.3",
+				"description": "Window (in seconds) during which moving to another trigger in this\ngroup opens its tooltip with no delay. Mirrors reka's\n`skipDelayDuration`."
+			},
+			{
+				"name": "disableHoverableContent",
+				"type": "boolean",
+				"default": "false",
+				"description": "When `true`, hovering the tooltip body closes it as the pointer\nleaves the trigger."
+			}
+		],
+		"slots": [
+			{
+				"name": "default",
+				"type": "{}"
+			}
+		]
+	},
+	"Tree": {
+		"props": [
+			{
+				"name": "nodes",
+				"type": "TreeNode[]",
+				"required": true,
+				"description": "Forest roots to render. Each node may contain nested children to form the\ntree structure."
+			},
+			{
+				"name": "nodeKey",
+				"type": "string",
+				"default": "\"key\"",
+				"description": "Name of the field that uniquely identifies each node."
+			},
+			{
+				"name": "draggable",
+				"type": "boolean",
+				"default": "false",
+				"description": "Enable drag-and-drop. Nodes can be dragged onto one another to reparent, or\nbetween siblings to reorder."
+			},
+			{
+				"name": "move",
+				"type": "((ctx: MoveContext) => boolean)",
+				"description": "Gate a drop while dragging. Receives the live drag context and returns\nwhether the drop is allowed — a rejected target shows the no-drop cursor and\nhides the drop indicator. Built-in guards (drop-on-self, drop-into-own-\ndescendant) run first, so this only carries your domain rules."
+			},
+			{
+				"name": "guides",
+				"type": "\"connectors\" | \"lines\" | \"none\"",
+				"default": "\"connectors\"",
+				"description": "Visual style of the indentation guides."
+			},
+			{
+				"name": "disabled",
+				"type": "boolean",
+				"default": "false",
+				"description": "Disable all interaction — expand/collapse and drag."
+			},
+			{
+				"name": "expanded",
+				"type": "boolean",
+				"default": "false",
+				"description": "Expand/collapse-all switch. Toggling it writes that value into every node's\n`expanded` field. Two-way: it also reflects whether all collapsible nodes are\ncurrently open, so a bound button stays in sync. Per-node state lives on the\nnodes themselves (`node.expanded`)."
+			}
+		],
+		"slots": [
+			{
+				"name": "item",
+				"type": "TreeNodeSlotProps"
+			},
+			{
+				"name": "item-prefix",
+				"type": "Omit<TreeNodeSlotProps, \"toggle\">"
+			},
+			{
+				"name": "item-label",
+				"type": "Omit<TreeNodeSlotProps, \"toggle\">"
+			},
+			{
+				"name": "item-suffix",
+				"type": "Omit<TreeNodeSlotProps, \"toggle\">"
+			},
+			{
+				"name": "empty",
+				"type": "any"
+			}
+		],
+		"emits": [
+			{
+				"name": "update:expanded",
+				"type": "[value: boolean]",
+				"description": "Fired when the expanded changes."
+			},
+			{
+				"name": "drag-start",
+				"type": "[node: TreeNode]"
+			},
+			{
+				"name": "drag-end",
+				"type": "[info: DropInfo | null]"
+			}
+		]
+	}
+}
