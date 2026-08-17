@@ -114,7 +114,7 @@ describe_component = Tool(
 	side="server",
 	handler=run_describe_component,
 	description=(
-		"Full props/slots/emits for ONE component (from frappe-ui's generated API data). Use it "
+		"Full props/slots/emits for ONE component (from the editor's own type schemas). Use it "
 		"before first use of a non-catalog component, or when a catalog entry's compressed props "
 		"aren't enough (exact prop types, named slots, event names). To use the component in "
 		"generate_page, put the exact props you learned into the BRIEF — the generator can't "

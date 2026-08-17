@@ -4,14 +4,11 @@ Names come from the editor's own registration constants
 (frontend/src/utils/constants.js) — the same arrays the component panel is
 built from, so the AI can never disagree with the editor about what exists.
 
-API facts merge two layers at read time:
-- BASE: frontend/src/json_types/*/*.json — JSON Schemas generated from the
-  component prop TYPES (tsToJSONGenerator), the same files the editor's props
-  panel consumes. Authoritative names/types/enums/required, and the only
-  source covering @framework/ui and Studio-native components.
-- ENRICHMENT: component_api.json, distilled from frappe-ui's auto-generated
-  *.api.md by `yarn sync-component-api` — adds what types can't carry: human
-  descriptions, defaults, slots, emits (frappe-ui components only).
+API facts come from frontend/src/json_types/*/*.json — JSON Schemas generated
+from the component types (tsToJSONGenerator with jsDoc carried through), the
+same files the editor's props panel consumes. One `<Component>.json` holds
+`<Name>Props` (names/types/enums/required + JSDoc descriptions and defaults)
+and, when the source exports them, `<Name>Slots` / `<Name>Emits`.
 
 Consumers: the prompt appendix for registered-but-uncataloged components
 (computed here, so the prompt can't drift from the registry) and the
@@ -45,31 +42,9 @@ def registered_components() -> dict[str, list[str]]:
 
 
 def component_api(name: str) -> dict | None:
-	"""Props/slots/emits for one component — the editor's type schema merged with
-	the distilled frappe-ui docs — or None when neither source knows it."""
-	schema = _schema_data().get(name)
-	distilled = _api_data().get(name)
-	if not schema or not distilled:
-		return schema or distilled
-	enrichment = {p["name"]: p for p in distilled.get("props", [])}
-	props = []
-	for prop in schema.get("props", []):
-		extra = enrichment.get(prop["name"], {})
-		props.append(
-			{
-				**prop,
-				**({"description": extra["description"]} if extra.get("description") else {}),
-				**({"default": extra["default"]} if extra.get("default") else {}),
-			}
-		)
-	known = {p["name"] for p in props}
-	props += [p for p in distilled.get("props", []) if p["name"] not in known]
-	merged = {"props": props} if props else {}
-	if slots := distilled.get("slots") or schema.get("slots"):
-		merged["slots"] = slots
-	if emits := distilled.get("emits"):
-		merged["emits"] = emits
-	return merged or None
+	"""Props/slots/emits for one component (from the editor's type schemas), or
+	None when no schema ships for it."""
+	return _schema_data().get(name)
 
 
 # The rule the editor's column manager enforces — every scaffold consumer repeats it.
@@ -138,7 +113,7 @@ def _appendix_entry(name: str) -> str:
 
 @lru_cache(maxsize=1)
 def _schema_data() -> dict:
-	"""{component: {props, slots?}} from the editor's generated prop-type schemas
+	"""{component: {props, slots?, emits?}} from the editor's generated type schemas
 	(frontend/src/json_types/<library>/<Component>.json)."""
 	root = Path(__file__).resolve().parents[2] / "frontend" / "src" / "json_types"
 	out: dict[str, dict] = {}
@@ -153,17 +128,33 @@ def _schema_data() -> dict:
 		)
 		if not isinstance(props_def, dict):
 			continue
-		required = set(props_def.get("required") or [])
-		props = [
-			{"name": prop, "type": _schema_type(spec), **({"required": True} if prop in required else {})}
-			for prop, spec in (props_def.get("properties") or {}).items()
-		]
-		if props:
+		if props := _definition_rows(props_def, with_types=True):
 			out[name] = {"props": props}
-		slots_def = definitions.get(f"{name}Slots") or {}
-		if isinstance(slots_def, dict) and slots_def.get("properties"):
-			out.setdefault(name, {})["slots"] = [{"name": s} for s in slots_def["properties"]]
+		for kind in ("Slots", "Emits"):
+			definition = definitions.get(f"{name}{kind}")
+			if isinstance(definition, dict) and definition.get("properties"):
+				out.setdefault(name, {})[kind.lower()] = _definition_rows(definition, with_types=False)
 	return out
+
+
+def _definition_rows(definition: dict, *, with_types: bool) -> list[dict]:
+	required = set(definition.get("required") or [])
+	rows = []
+	for name, spec in (definition.get("properties") or {}).items():
+		spec = spec if isinstance(spec, dict) else {}
+		row = {"name": name}
+		if with_types:
+			row["type"] = _schema_type(spec)
+		if name in required and with_types:
+			row["required"] = True
+		if isinstance(spec.get("description"), str):
+			row["description"] = spec["description"]
+		if spec.get("default") is not None:
+			row["default"] = (
+				json.dumps(spec["default"]) if not isinstance(spec["default"], str) else spec["default"]
+			)
+		rows.append(row)
+	return rows
 
 
 def _schema_type(spec: dict) -> str:
@@ -181,18 +172,9 @@ def _schema_type(spec: dict) -> str:
 
 
 @lru_cache(maxsize=1)
-def _api_data() -> dict:
-	return _load_json("studio/ai/component_api.json")
-
-
-@lru_cache(maxsize=1)
 def _family_data() -> dict:
-	return _load_json("studio/ai/family_templates.json")
-
-
-def _load_json(relative: str) -> dict:
 	try:
-		return json.loads(_read_repo_file(relative))
+		return json.loads(_read_repo_file("studio/ai/family_templates.json"))
 	except (OSError, json.JSONDecodeError):
 		return {}
 
