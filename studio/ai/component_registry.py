@@ -10,9 +10,9 @@ same files the editor's props panel consumes. One `<Component>.json` holds
 `<Name>Props` (names/types/enums/required + JSDoc descriptions and defaults)
 and, when the source exports them, `<Name>Slots` / `<Name>Emits`.
 
-Consumers: the prompt appendix for registered-but-uncataloged components
-(computed here, so the prompt can't drift from the registry) and the
-list_components / describe_component agent tools.
+Consumers: the component-families prompt appendix (computed here, so the
+prompt can't drift from the registry) and the list_components /
+describe_component agent tools.
 """
 
 import json
@@ -74,31 +74,59 @@ def catalog_names(catalog_text: str) -> set[str]:
 	return set(CATALOG_LINE_RE.findall(catalog_text))
 
 
-def uncataloged_appendix(catalog_text: str) -> str:
-	"""A compact, COMPUTED prompt block for every registered component the curated
-	catalog doesn't document — prop names from the distilled API where available.
-	Regenerates at import, so new registrations can never silently go missing."""
-	known = {n.lower() for n in catalog_names(catalog_text)}
-	lines = [
-		"ALSO REGISTERED (usable, but less documented than the catalog above — reach for these "
-		"only when the request names them or no catalog component fits; stick to the props "
-		"listed, and treat entries with no props listed as risky):"
-	]
-	for label, names in registered_components().items():
-		entries = [_appendix_entry(n) for n in names if n.lower() not in known]
-		if entries:
-			lines.append(f"{label}: " + "; ".join(entries))
-	if len(lines) == 1:
+FAMILY_TITLES = {
+	"list": "List family",
+	"settings-dialog": "Settings dialog family",
+	"sidebar": "Sidebar family",
+}
+
+
+def component_families_appendix(catalog_text: str) -> str:
+	"""The composed component families (List, Settings dialog, Sidebar) — members'
+	props plus the editor's canonical composition for each (familyTemplates.ts).
+	Families are separated from the main listing because they only make sense
+	assembled, never as lone blocks."""
+	families: dict[str, list[str]] = {}
+	for name, family in _family_members(catalog_text):
+		families.setdefault(family, []).append(_appendix_entry(name))
+	if not families:
 		return ""
-	# Lists are ubiquitous, so the List family's canonical composition rides the
-	# prompt itself — the same structure the editor inserts (familyTemplates.ts).
-	scaffold, _ = family_scaffold("List")
-	if scaffold:
-		lines.append(
-			"\nList family — canonical composition (the editor inserts exactly this; copy the "
-			f"structure, swap the content). {LIST_COLUMNS_RULE}\n{json.dumps(scaffold, separators=(',', ':'))}"
-		)
+	lines = [
+		"COMPONENT FAMILIES (composed structures — start from the canonical composition: "
+		"copy the structure, swap the content and bindings):"
+	]
+	for family, entries in families.items():
+		lines.append(f"\n{FAMILY_TITLES.get(family, family)}: " + "; ".join(entries))
+		if scaffold := _family_data().get(family):
+			note = f" {LIST_COLUMNS_RULE}" if family == "list" else ""
+			lines.append(f"Canonical composition:{note}\n{json.dumps(scaffold, separators=(',', ':'))}")
 	return "\n".join(lines)
+
+
+def _family_members(catalog_text: str) -> list[tuple[str, str]]:
+	"""(name, family key) for registered family components the curated catalog
+	doesn't already document."""
+	known = {n.lower() for n in catalog_names(catalog_text)}
+	out = []
+	for label, names in registered_components().items():
+		for name in names:
+			if name.lower() in known:
+				continue
+			if family := _family_key(name, label):
+				out.append((name, family))
+	return out
+
+
+def _family_key(name: str, group_label: str) -> str | None:
+	if group_label == "frappe-ui list family":
+		return "list"
+	if group_label == "frappe-ui":
+		kebab = re.sub(r"(?<!^)(?=[A-Z])", "-", name).lower()
+		if kebab.startswith("settings"):
+			return "settings-dialog"
+		if kebab.startswith("sidebar"):
+			return "sidebar"
+	return None
 
 
 def _appendix_entry(name: str) -> str:

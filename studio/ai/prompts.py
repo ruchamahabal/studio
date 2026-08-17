@@ -1,7 +1,7 @@
 import re
 from pathlib import Path
 
-from studio.ai.component_registry import uncataloged_appendix
+from studio.ai.component_registry import component_families_appendix
 from studio.ai.prompt_fragments import ON_ERROR_RULE, ON_SUCCESS_RULE, TRANSFORM_RULE
 
 
@@ -50,6 +50,8 @@ INPUTS:
 - DatePicker: {modelValue: "string", label: "string", placeholder: "string"} # slots: prefix, suffix, actions
 - TimePicker: {modelValue: "string", label: "string", placeholder: "string"}
 - DateTimePicker: {modelValue: "string", label: "string", placeholder: "string"} # slots: prefix, suffix, actions
+- DateRangePicker: {modelValue: ["YYYY-MM-DD", "YYYY-MM-DD"], label: "string", placeholder: "string", dualPane: boolean (two months side by side)} # slots: prefix, suffix, actions
+- MonthPicker: {modelValue: "string (month)", placeholder: "string", disabled: boolean}
 - MultiSelect: {modelValue: [], label: "string", placeholder: "string", options: [{label: "string", value: "string"}]} # slots: prefix, suffix, summary, empty, footer
 - Rating: {modelValue: 0, max: 5, label: "string", disabled: false}
 - Slider: {modelValue: [number] (single thumb) | [number, number] (range), min: 0, max: 100, step: 1, label: "string", size: "sm|md"}
@@ -95,12 +97,35 @@ DATA DISPLAY:
 
 AUTOCOMPLETE:
 - Combobox: {label: "string", modelValue: "string", placeholder: "string", options: [{group: "string", options: [{label, value}]}]} # slots: prefix, suffix, item-label, empty, footer
+- Autocomplete: {modelValue: {label, value} (or [{label, value}] with multiple: true), options: [{label: "string", value: "string"}] OR grouped [{group: "string", items: [{label, value}]}], label: "string", placeholder: "string", multiple: boolean, hideSearch: boolean}
+  # NOTE — grouped Autocomplete options use `items`, NOT `options` (unlike Combobox/Select)
+
+FRAMEWORK WIDGETS (@framework/ui — higher-level, doctype-driven; niche, use only when the request calls for that exact widget):
+- FormLayout: {layout: [] (sections/fields definition)}
+- Grid: {columns: [] (column defs), label: "string", required: boolean, newRow: {} (template for added rows)} # an editable table input
+- Phone: {label: "string", placeholder: "string", size: "sm|md|lg|xl", variant: "subtle|outline"} # phone number input; slots: label, description, suffix
+- TableMultiSelect: {doctype: "string", filters: {}, label: "string", placeholder: "string", creatable: boolean} # multi-select over a linked doctype's records
+- NotificationPanel: {notifications: [], unreadCount: number, hasNextPage: boolean, loading: boolean, tabs: [], title: "string"} # slots: header, item, error, empty
+- NotificationItem: {notification: {}} # slots: prefix, description, suffix
+- ActivityTimeline: {activities: [], loading: boolean, paginate: {}}
+- EmailItem: {email: {}} # slots: header, actions, footer
+- CommentItem: {comment: {}, editable: boolean} # slots: header, actions, footer
+- EmailComposer: {placeholder: "string", submitLabel: "string", headerFields: ["from|to|subject|cc|bcc"], senders: []} # slots: header, actions
+- CommentComposer: {placeholder: "string", submitLabel: "string", mentions: []} # slots: actions
+- SortBy: {doctype: "string", hideLabel: boolean} # list toolbar sort control
+- QuickFilter: {doctype: "string"} # list toolbar filter control
+- ColumnSettings: {doctype: "string", canReset: boolean} # list toolbar column manager
+- ListViewShell: {doctype: "string"} # full list page scaffold; slots: toolbar, table, footer
+- FileUploadDialog: {open: boolean, multiple: boolean, imageOnly: boolean, crop: boolean, progressMode: "inline|tray|field|toast", title: "string"}
+- AttachmentsList: {modelValue: [] (attached files), imageOnly: boolean, crop: boolean}
+- UploadTray: {side: "left|right"}
 """
 
-# Registered components the curated catalog doesn't document — COMPUTED from the
-# editor's registration constants + distilled frappe-ui API data (see
-# component_registry.py), so the prompt can never silently miss a component again.
-UNCATALOGED_COMPONENTS = uncataloged_appendix(COMPONENT_CATALOG)
+# The composed families (List, Settings dialog, Sidebar) — COMPUTED from the
+# editor's registration constants + type schemas (component_registry.py): members'
+# props plus the canonical composition the editor inserts. Registered components
+# outside the catalog surface only via the list_components/describe_component tools.
+COMPONENT_FAMILIES = component_families_appendix(COMPONENT_CATALOG)
 
 STYLING_RULES = """COMPONENT STYLING RULES:
 STYLE PROPERTY ROUTING — use the correct key:
@@ -213,7 +238,7 @@ SYSTEM_PROMPT = f"""You are an expert UI Web developer & designer specializing i
 
 {COMPONENT_CATALOG}
 
-{UNCATALOGED_COMPONENTS}
+{COMPONENT_FAMILIES}
 
 {OUTPUT_FORMAT_RULES}
 
@@ -346,7 +371,7 @@ After EVERY generate_page build — and after a substantial visual overhaul — 
 
 {COMPONENT_CATALOG}
 
-{UNCATALOGED_COMPONENTS}
+{COMPONENT_FAMILIES}
 """
 
 
