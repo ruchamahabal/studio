@@ -203,6 +203,10 @@ class AgentRunner:
 		self.system_prompt = get_system_prompt_for_mode(is_standard)
 		if self.session_id:
 			frappe.db.set_value(AISession.DOCTYPE, self.session_id, "page", page_id, update_modified=False)
+			# Commit NOW, not at the next persist: an editor that (re)loads mid-turn reads
+			# this pointer (get_ai_session.page) to decide whose autosave stands down and
+			# which page to show as building — the next persist can be a generation away.
+			frappe.db.commit()
 		return None
 
 	def release_locks(self) -> None:

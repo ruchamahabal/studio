@@ -116,7 +116,7 @@
 			>
 				<span class="flex min-w-0 items-center gap-1.5 text-xs text-ink-gray-6">
 					<LucideSparkle v-if="loading" class="h-3 w-3 shrink-0 animate-pulse text-ink-gray-5" />
-					<span class="truncate">{{ loading ? "Building" : "Built" }} “{{ buildingPage.title }}”</span>
+					<span class="truncate">{{ buildingVerb }} “{{ buildingPage.title }}”</span>
 				</span>
 				<div class="flex shrink-0 items-center gap-1">
 					<Button size="sm" variant="outline" @click="openBuildingPage">Open</Button>
@@ -269,6 +269,15 @@ const router = useRouter()
 // as a chip with an Open button so the user can jump there and watch it stream.
 const buildingPage = ref<{ name: string; title: string; action: string } | null>(null)
 
+// "Building" only for a page the turn CREATED; a chip for an existing page the agent
+// went back to (nav wiring, tweaks) says "Updating" — "Building" there reads as the
+// agent redoing a finished page.
+const buildingVerb = computed(() => {
+	const created = buildingPage.value?.action === "created"
+	if (loading.value) return created ? "Building" : "Updating"
+	return created ? "Built" : "Updated"
+})
+
 function openBuildingPage() {
 	if (!buildingPage.value) return
 	router.push({
@@ -335,6 +344,7 @@ const sessionResource = createResource({
 		// during a build): the server owns that draft, so suspend autosave right away —
 		// tool batches and stream chunks re-assert this, but the first one may be seconds away.
 		canvasStore.isAIStreaming = !!data.is_running && data.page === pageId.value
+		if (data.is_running) resumeRunningTurn(data)
 		if (data.selected_model) {
 			selectedModel.value = data.selected_model
 		} else if (modelOptions.value.length) {
@@ -344,6 +354,21 @@ const sessionResource = createResource({
 		reloadSessions()
 	},
 })
+
+// The loaded session has a turn mid-flight (the editor reloaded, or the panel came
+// back to this app): re-enter the live turn and surface where it's building.
+async function resumeRunningTurn(data: any) {
+	const build = await controller.resumeRunningTurn()
+	const target = build?.page_id || data.page
+	if (!target || target === pageId.value) return
+	const title =
+		build?.page_title ||
+		Object.values(store.appPages).find((p: any) => p.name === target)?.page_title ||
+		target
+	// A live generation stream on the target means it's being built out; without one we
+	// only know the turn is focused there — show the softer "Updating".
+	buildingPage.value = { name: target, title, action: build?.page_id ? "created" : "focused" }
+}
 
 // The app's chats for the session switcher in the panel header.
 const sessions = ref<any[]>([])

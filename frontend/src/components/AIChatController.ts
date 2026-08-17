@@ -60,6 +60,9 @@ export class AIChatController {
 	private pendingAssistantId: number | null = null
 	private summary = ""
 	private pageBuffer = ""
+	// Bumped when a generation starts fresh (stream offset 0) — lets an in-flight
+	// buffer fetch detect it resolved across a generation boundary and stand down.
+	private generationSeq = 0
 	private readonly renderStreamedPage: () => void
 
 	constructor(private readonly ctx: AIChatContext) {
@@ -140,6 +143,18 @@ export class AIChatController {
 		}
 	}
 
+	/** A (re)loaded panel found this session's turn still running: re-enter the live
+	 * turn — pending bubble + spinner — and replay any in-flight generation stream.
+	 * Returns the build's target page (for the panel's "Building…" chip) or null. */
+	async resumeRunningTurn(): Promise<{ page_id: string; page_title: string } | null> {
+		this.ctx.loading.value = true
+		this.ctx.statusMessage.value = "Reconnecting to the running build…"
+		if (this.pendingAssistantId == null) {
+			this.pendingAssistantId = this.pushMessage("assistant", "Working…")
+		}
+		return await this.fetchStreamBuffer()
+	}
+
 	cancel = async () => {
 		if (!this.sessionId) return
 		this.ctx.statusMessage.value = "Cancelling…"
@@ -163,11 +178,17 @@ export class AIChatController {
 			// Buffer EVERY chunk, whatever page is open: the user may click "Open" on a
 			// background build mid-stream, and the preview only renders from a complete
 			// buffer. offset 0 starts a fresh generation (a multi-page turn streams
-			// several); a gap means we missed chunks (e.g. a reload) — skip the preview,
-			// the final authoritative op lands regardless.
+			// several); a chunk AHEAD of the buffer means we missed some (e.g. a reload
+			// mid-stream) — refill from the server's Redis snapshot and let later chunks
+			// append; a chunk BEHIND it is one the snapshot already covered.
 			if (typeof data.offset === "number") {
-				if (data.offset === 0) this.pageBuffer = ""
-				else if (data.offset !== this.pageBuffer.length) return
+				if (data.offset === 0) {
+					this.generationSeq++
+					this.pageBuffer = ""
+				} else if (data.offset > this.pageBuffer.length) {
+					this.recoverFromGap()
+					return
+				} else if (data.offset < this.pageBuffer.length) return
 			}
 			this.pageBuffer += data.chunk
 			// Render (and suspend autosave — the preview must never be saved) only on the
@@ -260,6 +281,44 @@ export class AIChatController {
 	}
 
 	// --- helpers ----------------------------------------------------------
+
+	/** Pull the server's snapshot of the in-flight generation (Redis, ~512-char cadence)
+	 * and catch the local buffer up to it. Renders only when the build targets the open page. */
+	private async fetchStreamBuffer(): Promise<{ page_id: string; page_title: string } | null> {
+		const session = this.sessionId
+		if (!session) return null
+		const generation = this.generationSeq
+		let build: any = null
+		try {
+			build = await call("studio.ai.api.get_active_build", { session_id: session })
+		} catch {
+			return null
+		}
+		if (!build?.content || this.sessionId !== session) return null
+		// A new generation started (offset 0) while we fetched — this snapshot is the
+		// previous one's tail; keep the chip info but don't pollute the fresh buffer.
+		if (this.generationSeq !== generation) {
+			return { page_id: build.page_id ?? "", page_title: build.page_title ?? "" }
+		}
+		if (build.content.length > this.pageBuffer.length) {
+			this.pageBuffer = build.content
+			if (!build.page_id || build.page_id === this.ctx.pageId()) {
+				this.ctx.setAIOwnsCanvas(true)
+				this.renderStreamedPage()
+			}
+		}
+		return { page_id: build.page_id ?? "", page_title: build.page_title ?? "" }
+	}
+
+	/** A live chunk ran ahead of the local buffer: refill from the server snapshot.
+	 * The snapshot trails the stream by up to ~512 chars, so this fires a few times
+	 * until offsets line up — the flag keeps it to one fetch in flight. */
+	private recoveringGap = false
+	private recoverFromGap() {
+		if (this.recoveringGap) return
+		this.recoveringGap = true
+		this.fetchStreamBuffer().finally(() => (this.recoveringGap = false))
+	}
 
 	private pushMessage(
 		role: "user" | "assistant",

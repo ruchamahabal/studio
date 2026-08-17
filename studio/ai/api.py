@@ -153,6 +153,19 @@ def get_ai_session(app_id: str, model: str | None = None, session_id: str | None
 
 @frappe.whitelist()
 @has_page_write_perm()
+def get_active_build(session_id: str) -> dict | None:
+	"""The in-flight generate_page stream for this session (see artifact.save_stream_buffer),
+	so an editor that loads or refreshes mid-build replays the live preview. None when the
+	session isn't mid-generation."""
+	from studio.ai.agent.artifact import stream_buffer_key
+
+	AISession.get(session_id)  # asserts ownership
+	raw = frappe.cache.get_value(stream_buffer_key(session_id), use_local_cache=False)
+	return frappe.parse_json(raw) if raw else None
+
+
+@frappe.whitelist()
+@has_page_write_perm()
 def new_ai_session(app_id: str, model: str | None = None) -> dict:
 	"""Start a fresh chat on this app — existing sessions stay untouched and
 	switchable. An empty session the user never used IS a fresh chat, so hand that
