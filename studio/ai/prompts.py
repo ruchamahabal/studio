@@ -1,4 +1,24 @@
+import re
+from pathlib import Path
+
 from studio.ai.prompt_fragments import ON_ERROR_RULE, ON_SUCCESS_RULE, TRANSFORM_RULE
+
+
+def _load_design_language() -> str:
+	"""The studio-app-building skill's DESIGN.md (.agents/skills) — the SAME file
+	coding agents (Claude Code, Codex CLIs) read when working on a Studio app repo.
+	Baking it in here keeps one source of truth for how pages should look. Empty when
+	the file isn't shipped (non-editable install): the prompt stays valid, just plainer."""
+	path = Path(__file__).resolve().parents[2] / ".agents" / "skills" / "studio-app-building" / "DESIGN.md"
+	try:
+		text = path.read_text()
+	except OSError:
+		return ""
+	# Tolerate a frontmatter block if one is ever added to the reference file.
+	return re.sub(r"^---\n.*?\n---\n", "", text, flags=re.DOTALL).strip()
+
+
+DESIGN_LANGUAGE = _load_design_language()
 
 COMPONENT_CATALOG = """AVAILABLE COMPONENTS:
 LAYOUT:
@@ -94,14 +114,13 @@ STYLE PROPERTY ROUTING — use the correct key:
 CSS VARIABLE RULES:
 - Always use CSS variables. Avoid raw hex colors/values.
   - backgroundColor: var(--surface-base) | var(--surface-gray-1..10) | var(--surface-elevation-1) (raised/cards) | var(--surface-red-1) | var(--surface-green-1) | var(--surface-amber-1) | var(--surface-blue-1)
-  - color (text): var(--ink-gray-1..9) — the gray scale runs LIGHT→DARK (on the default light theme ink-gray-1 ≈ near-white, ink-gray-9 ≈ near-black). Text needs the DARK end: headings, body → var(--ink-gray-8) or var(--ink-gray-9), secondary → var(--ink-gray-7), tertiary/placeholder text -> var(--ink-gray-5) var(--ink-gray-6). (Same direction for every gray scale: surface-gray-1 / outline-gray-1 are the lightest.)
+  - color (text): var(--ink-gray-1..9) — the gray scale runs LIGHT→DARK (on the default light theme ink-gray-1 ≈ near-white, ink-gray-9 ≈ near-black), so text needs the DARK end; pick the exact step by ROLE from the ink ladder in the design language below. (Same direction for every gray scale: surface-gray-1 / outline-gray-1 are the lightest.)
   - borderColor: var(--outline-base) | var(--outline-gray-1..9) | var(--outline-red-1..3) | var(--outline-green-1..2) | var(--outline-amber-1..2) | var(--outline-blue-1) | var(--outline-orange-1)
-  - borderRadius: "0px" (none) | "0.25rem" (sm) | "0.5rem" (DEFAULT) | "0.625rem" (md) | "0.75rem" (lg) | "1rem" (xl) | "1.25rem" (2xl) | "9999px" (full)
-- borderRadius — apply borderRadius (0.5rem by default) on cards, panels, containers by default, but NOT on full-width sections that span the entire viewport width.
+  - borderRadius: "0px" (none) | "0.25rem" (sm) | "0.5rem" (DEFAULT) | "0.625rem" (md) | "0.75rem" (lg) | "1rem" (xl) | "1.25rem" (2xl) | "9999px" (full) — when to round what (and when a card earns a border at all) is in the design language below
 - NEVER use the `border` shorthand property or per-side border properties: borderTopColor, borderTopWidth, borderTopStyle, borderLeftColor, borderLeftWidth, borderLeftStyle, borderRightColor, borderRightWidth, borderRightStyle, borderBottomColor, borderBottomWidth, borderBottomStyle — they fight the panel's border controls
 - For full borders: borderColor, borderWidth (e.g. "1px"), borderStyle — always set all three together
 - For one-sided borders: use CSS shorthand values — e.g. top-only: borderWidth: "4px 0px 0px 0px", borderColor: "var(--outline-blue-1)", borderStyle: "solid"
-- Button: use size prop ("sm"|"md"|"lg"|"xl"|"2xl") for sizing — DO NOT set height in style. NEVER use any other `theme` except gray or default unless prompted. Only use colored themes (blue, red, green) when semantically meaningful: destructive actions → red, success/confirmed → green.
+- Button: use size prop ("sm"|"md"|"lg"|"xl"|"2xl") for sizing — DO NOT set height in style. (Theme discipline — gray unless the color is semantic — is in the catalog's Button entry and the design language.)
 - Avoid applying visual style (color, backgroundColor, borderColor, fontSize) to frappe-ui components — their props handle this. Only use style on `container` components for layout (width, flex, margin, etc.)."""
 
 OUTPUT_FORMAT_RULES = """JSON OUTPUT RULES (critical — invalid JSON breaks parsing):
@@ -184,6 +203,8 @@ SYSTEM_PROMPT = f"""You are an expert UI Web developer & designer specializing i
 {SCRIPTING_RULES}
 
 {STYLING_RULES}
+
+{DESIGN_LANGUAGE}
 
 {COMPONENT_CATALOG}
 
@@ -309,6 +330,8 @@ When the user attaches an image (a screenshot or design mock), treat it as the s
 - After gathering the essentials, call propose_plan with a DATA PLAN (the data sources + any local state to create — omit for a static page) and a LAYOUT PLAN (the sections, each noting which data it binds), then wait. Approval means BUILD, IN ORDER: the moment the user agrees (any affirmative — "yes", "go ahead", "build it"), FIRST create the data plan's sources and state (add_data_source, plus the local state per State & logic below), THEN call generate_page with a brief carrying the design direction, brand/positioning, the section list with real copy intent, the data bindings, and palette. Do NOT call propose_plan again or restate the plan. Re-propose ONLY if they asked for changes.
 
 {STYLING_RULES}
+
+{DESIGN_LANGUAGE}
 
 {COMPONENT_CATALOG}
 """
