@@ -1,8 +1,10 @@
 """One source of truth for what components exist and what API they carry.
 
-Names come from the editor's own registration constants
-(frontend/src/utils/constants.js) — the same arrays the component panel is
-built from, so the AI can never disagree with the editor about what exists.
+Names come from the editor's own component registry
+(frontend/src/data/components.ts + componentFamilies.ts) — the same map the
+component panel renders, so the AI can never disagree with the editor about
+what exists. The constants.js arrays only classify names into groups, the
+same way the editor's panel groups its tiles.
 
 API facts come from frontend/src/json_types/*/*.json — JSON Schemas generated
 from the component types (tsToJSONGenerator with jsDoc carried through), the
@@ -20,25 +22,48 @@ import re
 from functools import lru_cache
 from pathlib import Path
 
-GROUPS = {
-	"FRAPPE_UI_COMPONENTS": "frappe-ui",
+# Classification arrays from constants.js — molecules first so the List family
+# wins over the general frappe-ui membership.
+CLASSIFIER_ARRAYS = {
 	"FRAPPE_UI_MOLECULES": "frappe-ui list family",
+	"FRAPPE_UI_COMPONENTS": "frappe-ui",
 	"FRAMEWORK_UI_COMPONENTS": "@framework/ui",
-	"STUDIO_COMPONENTS": "studio",
 }
+FALLBACK_GROUP = "studio"
 CATALOG_LINE_RE = re.compile(r"^- ([A-Za-z]+)[:\s]", re.MULTILINE)
+REGISTRY_KEY_RE = re.compile(r"^\t([A-Za-z]+): \{", re.MULTILINE)
 
 
 def registered_components() -> dict[str, list[str]]:
-	"""{group label: [component names]} parsed from the editor's constants."""
+	"""{group label: [component names]} from the editor's component registry."""
 	text = _read_repo_file("frontend/src/utils/constants.js")
-	groups = {}
-	for const, label in GROUPS.items():
+	membership: dict[str, str] = {}
+	for const, label in CLASSIFIER_ARRAYS.items():
 		match = re.search(rf"export const {const} = \[(.*?)\]", text, re.DOTALL)
-		names = re.findall(r'"([^"]+)"', match.group(1)) if match else []
-		if names:
-			groups[label] = names
+		for name in re.findall(r'"([^"]+)"', match.group(1)) if match else []:
+			membership.setdefault(name, label)
+	groups: dict[str, list[str]] = {}
+	for name in _registry_names():
+		groups.setdefault(membership.get(name, FALLBACK_GROUP), []).append(name)
 	return groups
+
+
+def _registry_names() -> list[str]:
+	"""Top-level entries of the editor's registry (data/components.ts +
+	componentFamilies.ts). In the main file, an entry with only a blockTemplate
+	(e.g. Header) is a panel shortcut that drops a template, not a component;
+	family parts are real components that also carry templates."""
+	names = []
+	for relative, skip_templates in (
+		("frontend/src/data/components.ts", True),
+		("frontend/src/data/componentFamilies.ts", False),
+	):
+		parts = REGISTRY_KEY_RE.split(_read_repo_file(relative))
+		for name, body in zip(parts[1::2], parts[2::2], strict=False):
+			if skip_templates and "blockTemplate:" in body:
+				continue
+			names.append(name)
+	return names
 
 
 def component_api(name: str) -> dict | None:

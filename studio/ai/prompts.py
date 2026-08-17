@@ -97,8 +97,6 @@ DATA DISPLAY:
 
 AUTOCOMPLETE:
 - Combobox: {label: "string", modelValue: "string", placeholder: "string", options: [{group: "string", options: [{label, value}]}]} # slots: prefix, suffix, item-label, empty, footer
-- Autocomplete: {modelValue: {label, value} (or [{label, value}] with multiple: true), options: [{label: "string", value: "string"}] OR grouped [{group: "string", items: [{label, value}]}], label: "string", placeholder: "string", multiple: boolean, hideSearch: boolean}
-  # NOTE — grouped Autocomplete options use `items`, NOT `options` (unlike Combobox/Select)
 
 FRAMEWORK WIDGETS (@framework/ui — higher-level, doctype-driven; niche, use only when the request calls for that exact widget):
 - FormLayout: {layout: [] (sections/fields definition)}
