@@ -94,6 +94,10 @@ class AgentRunner:
 		self.registry = get_tool_registry_for_mode(is_standard)
 		self.system_prompt = get_system_prompt_for_mode(is_standard)
 		self.tree: WorkingTree | None = None
+		# Screenshots queued by preview_page this round — flushed as a follow-up user
+		# message after the tool results (tool results can't carry image parts).
+		self.pending_images: list[dict] = []
+		self.preview_counts: dict[str, int] = {}  # previews taken per page this turn
 
 	def is_standard(self) -> bool:
 		if not self.page_id:
@@ -215,6 +219,18 @@ class AgentRunner:
 		for page_id in self.locked_pages:
 			locks.release_page_lock(page_id, self.session_id)
 		self.locked_pages.clear()
+
+	def flush_pending_images(self, messages: list[dict]) -> None:
+		"""Screenshots queued by preview_page ride a follow-up USER message after the
+		round's tool results — the OpenAI tool-result shape can't carry image parts."""
+		if not self.pending_images:
+			return
+		content: list[dict] = []
+		for image in self.pending_images:
+			content.append({"type": "text", "text": image["caption"]})
+			content.append({"type": "image_url", "image_url": {"url": image["data_url"]}})
+		messages.append({"role": "user", "content": content})
+		self.pending_images = []
 
 	# --- message construction --------------------------------------------
 
@@ -486,6 +502,7 @@ class AgentRunner:
 				)
 				for tc_dict, content in zip(raw_tool_calls, results, strict=True):
 					messages.append({"role": "tool", "tool_call_id": tc_dict["id"], "content": content})
+				self.flush_pending_images(messages)
 
 		except CancelledError:
 			self._emit_cancelled()

@@ -95,6 +95,7 @@ def _build_shared_registry() -> ToolRegistry:
 		interactivity,
 		introspect,
 		pages,
+		preview,
 		query,
 	)
 
@@ -108,6 +109,7 @@ def _build_shared_registry() -> ToolRegistry:
 	registry.extend(bindings.TOOLS)
 	registry.extend(interactivity.TOOLS)
 	registry.extend(pages.TOOLS)
+	registry.extend(preview.TOOLS)
 	return registry
 
 
