@@ -30,19 +30,35 @@ FILTER_OPERATORS = {
 }  # fmt: skip
 
 
+MULTI_VALUE_OPERATORS = {"in", "not in"}
+
+
 def invalid_filter_message(filters) -> str | None:
+	"""Reject filter shapes that would crash at fetch time (Frappe unpacks a list
+	filter as exactly `operator, value = value`), repairing the one unambiguous slip
+	IN PLACE: a flat ["in", "A", "B"] can only mean ["in", ["A", "B"]]."""
 	if not isinstance(filters, dict):
 		return None
 	for field, value in filters.items():
-		if isinstance(value, list | tuple):
-			operator = str(value[0]).casefold() if value else ""
-			if operator not in FILTER_OPERATORS:
-				return (
-					f"FAILED: filter for '{field}' is a bare list {list(value)} — Frappe reads a list as "
-					f"[operator, value], so this crashes at fetch time. For multiple values use "
-					f'{{"{field}": ["in", {list(value)}]}}; for one value pass it directly or with an '
-					f'explicit operator like ["!=", "Closed"].'
-				)
+		if not isinstance(value, list | tuple):
+			continue
+		operator = str(value[0]).casefold() if value else ""
+		if operator not in FILTER_OPERATORS:
+			return (
+				f"FAILED: filter for '{field}' is a bare list {list(value)} — Frappe reads a list as "
+				f"[operator, value], so this crashes at fetch time. For multiple values use "
+				f'{{"{field}": ["in", {list(value)}]}}; for one value pass it directly or with an '
+				f'explicit operator like ["!=", "Closed"].'
+			)
+		if len(value) > 2:
+			if operator in MULTI_VALUE_OPERATORS:
+				filters[field] = [value[0], list(value[1:])]
+				continue
+			return (
+				f"FAILED: filter for '{field}' has {len(value)} elements {list(value)} — a list filter "
+				f'is exactly [operator, value]. Pass ["{value[0]}", <one value>], or use "in"/"not in" '
+				f'with a nested list: ["in", ["A", "B"]].'
+			)
 	return None
 
 
