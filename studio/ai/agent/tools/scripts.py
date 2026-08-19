@@ -31,6 +31,7 @@ import frappe
 from studio.ai.agent.registry import Tool
 from studio.ai.agent.tools.page import load_page, save_page
 from studio.export import can_export, write_code_file
+from studio.utils import developer_file_access_denial
 
 
 def run_get_page_script(ctx, args: dict) -> str:
@@ -85,13 +86,11 @@ def _write_db_script(ctx, page, source: str) -> str:
 def _write_file_script(ctx, page, source: str) -> str:
 	"""Standard page: the script is a code file. Only writable in developer mode by a
 	System Manager; the running app reflects it only after the app rebuilds."""
-	if not frappe.conf.developer_mode:
+	if reason := developer_file_access_denial():
 		return (
-			"FAILED: this is a standard page — its script lives in a code file editable only in "
-			"developer mode. Do this on a non-standard page, or ask a developer to enable it."
+			f"FAILED: this is a standard page — its script lives in a code file, but {reason}. "
+			"Do this on a non-standard page, or ask a developer."
 		)
-	if "System Manager" not in frappe.get_roles():
-		return "FAILED: writing a standard page's script requires the System Manager role."
 	# Feed write_code_file via the in-memory field; the DB `script` stays null (the .ts is
 	# the source of truth for a standard page), so we deliberately do NOT save the doc.
 	page.script = source
