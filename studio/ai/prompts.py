@@ -21,6 +21,23 @@ def _load_design_language() -> str:
 
 DESIGN_LANGUAGE = _load_design_language()
 
+
+def _load_skill_rules() -> str:
+	"""The studio-app-building skill's RULES.md — runtime rules written ONCE and read
+	by BOTH surfaces: external coding agents follow SKILL.md's link to the file, and
+	the in-product prompts bake it in here (same pattern as DESIGN.md). Rules there
+	must stay audience-neutral (no repo paths, no tool names). Empty when the file
+	isn't shipped — the prompt stays valid, just without them."""
+	path = Path(__file__).resolve().parents[2] / ".agents" / "skills" / "studio-app-building" / "RULES.md"
+	try:
+		text = path.read_text()
+	except OSError:
+		return ""
+	return re.sub(r"^---\n.*?\n---\n", "", text, flags=re.DOTALL).strip()
+
+
+SHARED_SKILL_RULES = _load_skill_rules()
+
 COMPONENT_CATALOG = """AVAILABLE COMPONENTS:
 LAYOUT:
 - container: layout wrapper (renders as a div). No componentProps. Use baseStyles: display, flexDirection, gap, padding, width, height, flexWrap, alignItems, justifyContent, flexShrink, flex, etc.
@@ -67,7 +84,7 @@ ACTIONS:
 - ContextMenu: {options: [{label: "string", icon: "lucide-icon-name", onClick: "function"}] OR grouped [{group: "string", options: [{label, icon}]}]}
   # A right-click menu — put the target surface as child content in the default slot; the menu opens on right-click of that area.
 # For buttons and dropdowns, icons must be lucide-* strings from https://lucide.dev/icons (e.g. lucide-plus, lucide-edit, etc.)
-# HANDLER PROPS (onClick inside Dialog actions, Dropdown/ContextMenu options, etc.) must be an function string — "() => { counter.value = 0 }" — NOT a bare statement. The component calls it directly, so a plain "counter.value = 0" string throws "onClick is not a function". Variables are refs (write via .value); data sources and route/router are in scope. (This differs from a block's `events`, which ARE bare statements.)
+# HANDLER PROPS: these onClick values are arrow-function STRINGS — "() => { counter.value = 0 }", never a bare statement (see the HANDLER PROPS runtime rule). Variables are refs (write via .value); data sources and route/router are in scope.
 
 OVERLAYS:
 - Dialog: {modelValue: false, title: "string", message: "string", size: "xs|sm|md|lg(DEFAULT)|xl|2xl|3xl|4xl|5xl|6xl|7xl", icon: "lucide-icon-name", position: "center(DEFAULT)|top", dismissible: true, showCloseButton: true, bare: false, actions: [{label: "string", variant: "solid|subtle|outline|ghost", theme: "gray (DEFAULT — omit unless red/green/blue is semantically required; Example: red for destructive actions)", onClick: "function"}]}
@@ -139,8 +156,7 @@ STYLE PROPERTY ROUTING — use the correct key:
 - `mstyle:` (mobile styles) and `tstyle:` (tablet styles) — same properties as `style`, but for mobile and tablet breakpoints. Only include properties that need to change on mobile/tablet — do not duplicate the entire style object.
 - Make sure entire page is RESPONSIVE - Use %, rem for responsive widths. Top-level sections MUST be 100% width
 
-CSS VARIABLE RULES:
-- Always use CSS variables. Avoid raw hex colors/values.
+CSS VARIABLE RULES (the valid espresso tokens — the never-raw-hex rule itself is in the runtime rules):
   - backgroundColor: var(--surface-base) | var(--surface-gray-1..10) | var(--surface-elevation-1) (raised/cards) | var(--surface-red-1) | var(--surface-green-1) | var(--surface-amber-1) | var(--surface-blue-1)
   - color (text): var(--ink-gray-1..9) — the gray scale runs LIGHT→DARK (on the default light theme ink-gray-1 ≈ near-white, ink-gray-9 ≈ near-black), so text needs the DARK end; pick the exact step by ROLE from the ink ladder in the design language below. (Same direction for every gray scale: surface-gray-1 / outline-gray-1 are the lightest.)
   - borderColor: var(--outline-base) | var(--outline-gray-1..9) | var(--outline-red-1..3) | var(--outline-green-1..2) | var(--outline-amber-1..2) | var(--outline-blue-1) | var(--outline-orange-1)
@@ -166,7 +182,7 @@ BLOCK_SCHEMA = """BLOCK SCHEMA (each block is a JSON object with these optional 
 - "style": { }                  — camelCase CSS (see STYLE PROPERTY ROUTING below)
 - "mstyle": { }                 — mobile style overrides
 - "tstyle": { }                 — tablet style overrides
-- "events": { }                 — event handlers, eventName → JS script, e.g. {"click":"counter.value++"}. Variables are refs (write with .value); the script also sees data sources and route/router. `$event` is the event's first argument (as in Vue); define `function handleEvent(...args) { … }` to read multiple arguments by name. For preventDefault/stopPropagation prefer event MODIFIERS on the event name: "dragover.prevent", "submit.prevent.stop", "keydown.enter".
+- "events": { }                 — event handlers, eventName → JS script, e.g. {"click":"counter.value++"}. Variables are refs (write with .value); the script also sees data sources and route/router. Bare statements with `$event`/`handleEvent`/event-name modifiers per the runtime rules below.
 - "visibility": "expr"          — render the block only when a {{ }} expression is truthy, e.g. "{{ todos.data.length > 0 }}"
 - "c": [ ]                       — children list (array of block objects). These are the block's DEFAULT-slot content (e.g. a Dialog's body, a ContextMenu's target surface).
 - "slots": { }                  — NAMED slots only, for components that expose them: {"<slotName>": [ ...child block objects... ]} (each value is a block list in THIS same schema — a slot holds blocks only, so use a TextBlock for a plain label). Default content goes in "c" — use "slots" only for a component's named slots. On an EXISTING block, fill a named slot with set_slot(component_id, slot_name, blocks) and drop a wrong one with remove_slot(component_id, slot_name).
@@ -217,7 +233,6 @@ This JS has the page context in scope plus ordinary browser globals (`window`, `
 - `toast.success(msg)` / `toast.error(msg)`; `getIcon(name)`; variables (refs — read/write via `.value`); `route`, `router`.
 CRUD example — a Dialog "Save" action that creates a Note via the `notes` source (NOT frappe.db), then clears + closes:
   "() => { notes.insert.submit({ title: newNoteTitle.value }).then(() => { newNoteTitle.value = ''; showNewNoteDialog.value = false }) }"
-KEEP {{ }} BINDINGS THIN — property access plus at most one short ternary ({{ item.project ? item.project + ' · ' : '' }} is the ceiling). NEVER put real computation in a binding: no IIFEs, date math, pluralization, or chained ternaries. Define a NAMED HELPER in the page script and bind its call instead — {{ formatDueDate(dataItem.exp_end_date) }} with formatDueDate declared in the script (custom page: a top-level function, auto-exposed; standard page: returned from setup()). Inline logic in a prop is unreadable, undebuggable, and re-evaluated on every render of every Repeater row — the page script is where logic lives.
 """
 
 
@@ -230,6 +245,8 @@ SYSTEM_PROMPT = f"""You are an expert UI Web developer & designer specializing i
 {BINDING_CONTRACT}
 
 {SCRIPTING_RULES}
+
+{SHARED_SKILL_RULES}
 
 {STYLING_RULES}
 
@@ -282,7 +299,6 @@ Two-way inputs (v-model): to make a form input's value mirror a piece of reactiv
 
 Interactivity (events & visibility) — same new-vs-existing rule as bindings:
 - Make a block DO something on interaction with an event handler. New block → put it in the block's `events` field at creation, e.g. a button with {"events":{"click":"counter.value++"}}. Existing block → set_event_handler(component_id, event, script). The script is JS with the page context in scope; reactive state is refs, so write them via .value (increment a counter: counter.value++; reset: counter.value = 0).
-- THE DOM EVENT: `$event` is the event's FIRST argument, as in Vue (e.g. `taskId.value = $event.dataTransfer.getData('text')`). A component event emitting several arguments → define `function handleEvent(a, b) { … }` to name them all. For preventDefault/stopPropagation, don't write code at all: put a MODIFIER on the event name — "dragover.prevent", "drop.prevent", "submit.prevent.stop", "keydown.enter", "click.stop".
 - Show/hide a block conditionally: new block → its `visibility` field, e.g. "{{ todos.data.length > 0 }}". Existing block → set_visibility(component_id, expression) with the expression WITHOUT braces.
 """
 )
@@ -369,6 +385,8 @@ After EVERY generate_page build — and after a substantial visual overhaul — 
 {data_and_code_wiring}
 
 {SCRIPTING_RULES}
+
+{SHARED_SKILL_RULES}
 
 # Asking vs proceeding
 - Small, targeted edits to an existing page (colour, text, spacing, a single block): make a reasonable decision and proceed with the tools. Do NOT ask.

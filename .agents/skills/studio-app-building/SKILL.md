@@ -40,30 +40,11 @@ Stored blocks use the full keys: `componentName`, `componentProps`,
 (`name`/`props`/`style`/`mstyle`/`tstyle`/`slots`/`c`/`events`/`visibility`/`label`);
 the shapes are otherwise identical.
 
-Rules that bite:
-
-- Two-way binds are stored as `{"$type": "variable", "name": "..."}` prop
-  values, resolved against page-script state.
-- `{{ expression }}` works in props, styles, and visibility. Block event
-  scripts are bare statements (no braces); the runtime exposes `$event` (the
-  event's first argument, as in Vue) and calls a `handleEvent(...args)`
-  function if the script defines one. Event-name modifiers
-  (`dragover.prevent`, `keydown.enter`) are preferred over manual
-  preventDefault/stopPropagation.
-- Handler props living INSIDE component props — a Dialog action's `onClick`, a
-  Dropdown/ContextMenu option's `onClick` — must be **arrow-function
-  strings**: `"() => { ... }"`. The component calls the value directly, so a
-  bare statement string throws. This differs from block events.
-- Repeater children see `dataItem` (current row) and `dataIndex`.
-- Keep `{{ }}` bindings THIN — property access plus at most one short
-  ternary. Real computation (date math, pluralization, chained ternaries, any
-  IIFE) belongs in the page script as a named helper the binding calls:
-  `{{ formatDueDate(dataItem.exp_end_date) }}`, with `formatDueDate` declared
-  in the script (custom: top-level function, auto-exposed; standard: returned
-  from `setup()`). An inline IIFE in a prop is unreadable, undebuggable, and
-  re-evaluated on every render of every Repeater row.
-- Use espresso tokens (`var(--ink-...)`, `var(--surface-...)`,
-  `var(--outline-...)`) — never raw hex. Full styling judgment: [DESIGN.md](DESIGN.md).
+Rules that bite — binding/event/handler-prop/styling-token mechanics — live
+in [RULES.md](RULES.md); read them before writing blocks. (That file is
+shared verbatim with the in-product AI prompts, so a rule is written once for
+both.) Full styling judgment — ink ladder, density, when to round — lives in
+[DESIGN.md](DESIGN.md).
 
 ## Data sources
 
