@@ -10,7 +10,10 @@ function schema and a *side* that tells the loop how to handle a call to it:
                 returned string back to the model as a tool result, then loops.
   - "terminal": the call ends the turn and hands control back to the user
                 (e.g. ask a clarifying question, propose a plan). The loop calls
-                `handler(ctx, args)` to emit the appropriate event and stops.
+                `handler(ctx, args)` to emit the appropriate event and stops —
+                unless the handler RETURNS a string: that's a refusal (e.g. an
+                invalid write proposal), fed back as the tool result so the
+                model can fix and retry within the turn.
 
 A tool may additionally produce a large *streamed artifact* (e.g. a full page
 of JSON). Such a tool sets `artifact` + `generator`: when the conversational
@@ -129,12 +132,17 @@ def build_custom_page_registry() -> ToolRegistry:
 def build_standard_page_registry() -> ToolRegistry:
 	"""Standard (exported) app: a real TypeScript codebase. State/logic live in setup() modules,
 	stores and composables edited as files — so it gets the file tools and the module script form, and
-	NO variable-doctype tools (state is declared in code instead)."""
-	from studio.ai.agent.tools import files, scripts
+	NO variable-doctype tools (state is declared in code instead). On a developer bench it can also
+	author the app's Python package — reads free, writes confirm-gated (tools/backend.py)."""
+	import frappe
+
+	from studio.ai.agent.tools import backend, files, scripts
 
 	registry = _build_shared_registry()
 	registry.extend(files.TOOLS)
 	registry.extend(scripts.build_tools(is_standard=True))
+	if frappe.conf.developer_mode:
+		registry.extend(backend.TOOLS)
 	return registry
 
 

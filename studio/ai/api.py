@@ -92,6 +92,8 @@ def run(
 	# where a running turn's edits are landing. The model choice sticks to the chat too.
 	session.set_focus_page(page_id)
 	session.set_selected_model(resolved_model)
+	# Typing a new message instead of answering an approval card supersedes it.
+	session.expire_pending_actions()
 
 	# Store the image on the user message so the chat thread can show a thumbnail on reload.
 	msg_meta = {"attachedImageUrl": image_url} if image_url else None
@@ -126,6 +128,78 @@ def cancel(session_id: str):
 	if session_id:
 		frappe.cache.set_value(f"studio_ai_cancel:{session_id}", "1", expires_in_sec=300)
 	return {"status": "ok"}
+
+
+@frappe.whitelist()
+@has_page_write_perm()
+def confirm_pending_action(session_id: str, message_id: str, decision: str = "approve"):
+	"""Apply (or skip) a sensitive action the agent proposed. The privileged write runs
+	HERE, on this user-triggered request — never inside the model's turn. Reads the
+	stored payload off the pending-action message and dispatches by its whitelisted
+	kind (agent/pending.py), then resumes the agent so it carries on with the plan."""
+	from studio.ai.agent.pending import apply_pending_action
+
+	session = AISession.get(session_id)  # asserts ownership
+	row = frappe.db.get_value(
+		AISession.MESSAGE_DOCTYPE, message_id, ["session", "status", "metadata_json"], as_dict=True
+	)
+	if not row or row.session != session.name:
+		frappe.throw(_("Pending action not found"))
+	if row.status != "pending_action":
+		frappe.throw(_("This action was already resolved"))
+
+	if decision != "approve":
+		frappe.db.set_value(
+			AISession.MESSAGE_DOCTYPE, message_id, "status", "action_skipped", update_modified=False
+		)
+		outcome = _("Skipped — nothing was changed.")
+	else:
+		meta = frappe.parse_json(row.metadata_json or "{}") or {}
+		outcome = apply_pending_action(meta.get("kind"), meta.get("payload") or {})
+		frappe.db.set_value(
+			AISession.MESSAGE_DOCTYPE, message_id, "status", "action_applied", update_modified=False
+		)
+	# The outcome joins the conversation: visible in the chat after a reload, and
+	# context for the agent's later turns (it knows what was applied or declined).
+	session.append_message("assistant", outcome, message_type="chat", task_type="agent")
+	# Commit NOW, not at request end: applying a backend write restarts the dev server,
+	# which can kill this request before the auto-commit — leaving the file on disk but
+	# the card still pending. (apply is idempotent, so a re-approve after that heals.)
+	frappe.db.commit()
+	resumed = resume_after_action(session, outcome)
+	return {
+		"status": "applied" if decision == "approve" else "skipped",
+		"message": outcome,
+		"resumed": resumed,
+	}
+
+
+def resume_after_action(session: AISession, outcome: str) -> bool:
+	"""Carry on once a confirm-gated action has been decided. A card authorises one
+	step, it doesn't change the plan — ending there would leave the user typing
+	"continue" to re-trigger the job. Best effort: the decision is already recorded
+	and must not be undone by a queue failure."""
+	if AISession.is_session_running(session.name) or not session.page:
+		return False
+	try:
+		model = ModelRegistry.get_default(session.selected_model or None)
+		resolve_api_key(model)
+		frappe.enqueue(
+			run_agent_job,
+			queue="long",
+			timeout=600,
+			# run_agent_job doesn't persist its prompt, so no phantom "continue" in the chat.
+			prompt=f"{outcome}\n\nContinue with what you were doing. Do not repeat this step.",
+			model=model,
+			user=frappe.session.user,
+			page_id=session.page,
+			app_id=session.app,
+			session_id=session.name,
+		)
+		return True
+	except Exception:
+		logger.warning(f"could not resume session {session.name} after a confirmed action", exc_info=True)
+		return False
 
 
 @frappe.whitelist()

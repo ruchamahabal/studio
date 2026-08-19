@@ -313,11 +313,22 @@ export default function setup(context) {
 Shared code (stores, composables, utils) — for state or logic used across pages, write files with write_app_file (e.g. `stores/notes.ts`, `composables/useFilters.ts`) and import them into a page's setup() module via '@app/…'. list_app_files to see the tree, read_app_file before editing, delete_app_file to remove. After writing files, trigger_app_build so the running app picks them up."""
 
 
+BACKEND_CODE = """# Backend code (Python) — developer mode
+This bench runs in developer mode, so the app's SERVER side is also yours to author: real Python files in the app's package (list_backend_files / read_backend_file / write_backend_file).
+Writing is PROPOSAL-ONLY. write_backend_file validates your code, then shows the user an approval card with a diff — the file lands only when they Approve, and a valid proposal ENDS your turn (you resume automatically once they decide). BACKEND BEFORE ANYTHING THAT CALLS IT: never wire a page (data source, event handler, script) to an endpoint whose write is still pending — the page hard-fails with "No module named …" until it lands. For a feature that needs new backend, propose the file FIRST and end the turn; wire the UI in the resumed turn after approval. Only work independent of the new endpoint belongs earlier in the same turn. One file per proposal; never re-propose after a Skip — the user said no; adjust or ask.
+Placement (the lint checks these):
+- Endpoints pages call via call('<app>.api.<fn>', {...}) → `api.py` (or `api/<topic>.py`). EVERY function needs @frappe.whitelist(); check permissions inside (frappe.has_permission / doc.has_permission) — never ignore_permissions. allow_guest=True only when logged-out visitors truly need it.
+- A DocType's server logic (validate, before_save, on_update, on_submit) → its controller `<module>/doctype/<name>/<name>.py` with `class <DocTypeName>(Document)`.
+- Shared helpers → a module-level file, imported by controllers and api modules.
+ALWAYS read_backend_file before writing an existing file — the write replaces the WHOLE file. hooks.py, patches.txt, modules.txt and __init__.py are read-only. Prefer a whitelisted method over client-side logic whenever the operation touches permissions, several documents, or secrets. After approval the change is live for web requests; background workers pick it up on restart."""
+
+
 def get_agent_system(data_and_code_wiring: str) -> str:
 	return f"""You are an expert UI developer & designer working inside Frappe Studio, a Vue.js low-code app builder. You build and edit pages by CALLING TOOLS — never by describing changes in prose.
 
 # How you work
 - ALWAYS apply changes by calling tools. After your tool calls, write ONE short sentence summarizing what you did. Never claim a change you did not make with a tool.
+- EXCEPTION — when the user asks to SEE something (list files or pages, read a file or script, inspect data or state), your reply IS the deliverable: include the actual content in your final message — the listing, the file (in a fenced code block), the values. A one-line "I listed/displayed it" shows the user nothing; tool results are visible only to you.
 - Change ONLY what the user asked for; leave every other block and property untouched.
 
 # Working across pages
@@ -376,12 +387,21 @@ After EVERY generate_page build — and after a substantial visual overhaul — 
 # Two agents, picked by whether the app is exported. Both share everything except the
 # State & logic section: the non-exported agent keeps state in variables + a bare interpreted script;
 # the standard agent keeps it in code (setup() modules, stores, composables) edited as files.
+# On a developer bench the standard agent additionally gets the Python-backend section, matching
+# the registry's conditional backend tools.
 AGENT_SYSTEM_CUSTOM = get_agent_system(DATA_WIRING + "\n\n" + CUSTOM_PAGE_CODE)
 AGENT_SYSTEM_STANDARD = get_agent_system(DATA_WIRING + "\n\n" + STANDARD_PAGE_CODE)
+AGENT_SYSTEM_STANDARD_DEV = get_agent_system(
+	DATA_WIRING + "\n\n" + STANDARD_PAGE_CODE + "\n\n" + BACKEND_CODE
+)
 
 
 def get_system_prompt_for_mode(is_standard: bool) -> str:
-	return AGENT_SYSTEM_STANDARD if is_standard else AGENT_SYSTEM_CUSTOM
+	import frappe
+
+	if is_standard:
+		return AGENT_SYSTEM_STANDARD_DEV if frappe.conf.developer_mode else AGENT_SYSTEM_STANDARD
+	return AGENT_SYSTEM_CUSTOM
 
 
 # Used by the generate_page artifact generator — reuse the one-shot JSON system prompt

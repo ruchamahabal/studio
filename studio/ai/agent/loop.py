@@ -470,10 +470,28 @@ class AgentRunner:
 				tool_operations, summary_text, raw_tool_calls = self.call_tool_llm(messages)
 
 				# A terminal tool ends the turn and hands control back to the user. If the
-				# model emits more than one, the first wins (the turn is over).
+				# model emits more than one, the first wins (the turn is over). A terminal
+				# handler may instead RETURN a string to refuse the call (e.g. an invalid
+				# write proposal) — feed it back as the tool result and keep looping so the
+				# model can fix and retry within the turn. Other ops in the refused round
+				# are dropped (terminal tools must be called alone), so respond to just
+				# the one tool call.
 				if terminal_ops := self._terminal_ops(tool_operations):
-					self.handle_terminal(terminal_ops[0])
-					return
+					refusal = self.handle_terminal(terminal_ops[0])
+					if refusal is None:
+						return
+					index = tool_operations.index(terminal_ops[0])
+					messages.append(
+						{
+							"role": "assistant",
+							"content": summary_text or None,
+							"tool_calls": [raw_tool_calls[index]],
+						}
+					)
+					messages.append(
+						{"role": "tool", "tool_call_id": raw_tool_calls[index]["id"], "content": refusal}
+					)
+					continue
 
 				# Apply this round in call order: server tools run their handler, block ops
 				# mutate the working tree, generation streams + replaces it (the loop keeps
@@ -612,12 +630,14 @@ class AgentRunner:
 		frappe.db.commit()
 		self.emit("complete", message=msg)
 
-	def handle_terminal(self, op: dict):
+	def handle_terminal(self, op: dict) -> str | None:
 		"""Run a terminal tool's handler (which emits the appropriate event and persists
-		the message). Terminal tools register a handler."""
+		the message). Terminal tools register a handler. None means the turn is over; a
+		string is a refusal the caller feeds back to the model (see run)."""
 		tool = self.registry.get(op["tool_name"])
 		if tool and tool.handler:
-			tool.handler(self, op["args"])
+			return tool.handler(self, op["args"])
+		return None
 
 
 def run_agent_job(prompt: str, model: str, **kwargs):
