@@ -1,6 +1,14 @@
 <template>
 	<div class="flex flex-1 flex-col overflow-hidden bg-surface-base">
-		<div v-if="!isAIEnabled" class="flex flex-1 flex-col items-start gap-3 p-4">
+		<!-- A failed models fetch is NOT "no providers": the one-shot request can land in a
+		     server-restart window (approving a backend write restarts the dev server), and
+		     without a retry the panel dead-ends — hiding any pending approval card. -->
+		<div v-if="aiModels.error" class="flex flex-1 flex-col items-start gap-3 p-4">
+			<p class="text-p-xs text-ink-gray-6">Couldn't load the AI models — {{ modelsErrorHint }}</p>
+			<Button variant="solid" label="Retry" @click="retryModels" />
+		</div>
+
+		<div v-else-if="!isAIEnabled" class="flex flex-1 flex-col items-start gap-3 p-4">
 			<p class="text-p-xs text-ink-gray-6">
 				Connect an AI provider — an API key or your ChatGPT subscription — to use the assistant.
 			</p>
@@ -77,6 +85,60 @@
 							:disabled="loading"
 							@click="sendPrompt('Yes, that looks good - go ahead and build it.')"
 						/>
+					</div>
+
+					<!-- Sensitive action (e.g. a backend file write): diff + Approve/Skip. Gated by
+					     the PERSISTED status, never lastMessageId — the card must survive reloads
+					     and resolve exactly once. -->
+					<div
+						v-else-if="isActionCard(msg)"
+						class="flex w-full min-w-0 flex-col gap-2 rounded-md border border-outline-gray-1 bg-surface-gray-1 p-3"
+					>
+						<div class="flex items-center justify-between gap-2">
+							<span class="truncate font-mono text-[11px] text-ink-gray-7">{{ msg.metadata.file_path }}</span>
+							<Badge v-if="msg.metadata.status !== 'pending_action'" variant="subtle" size="sm">
+								{{ actionStatusLabel(msg.metadata.status) }}
+							</Badge>
+						</div>
+						<div
+							v-if="msg.metadata.diff"
+							class="max-h-64 overflow-auto rounded p-2 font-mono text-[11px] leading-4"
+						>
+							<div
+								v-for="(line, i) in diffLines(msg.metadata.diff)"
+								:key="i"
+								class="whitespace-pre px-1"
+								:class="diffLineClass(line)"
+							>
+								{{ line || " " }}
+							</div>
+						</div>
+						<ul v-if="msg.metadata.warnings?.length" class="flex flex-col gap-1">
+							<li
+								v-for="(warning, i) in msg.metadata.warnings"
+								:key="i"
+								class="break-words text-[11px] text-ink-amber-3"
+							>
+								⚠ {{ warning }}
+							</li>
+						</ul>
+						<div v-if="msg.metadata.status === 'pending_action'" class="flex justify-end gap-1.5">
+							<Button
+								variant="outline"
+								size="sm"
+								label="Skip"
+								:disabled="loading || !!pendingActionBusy"
+								@click="resolvePendingAction(msg, 'skip')"
+							/>
+							<Button
+								variant="solid"
+								size="sm"
+								label="Approve"
+								:loading="pendingActionBusy === msg.id"
+								:disabled="loading || !!pendingActionBusy"
+								@click="resolvePendingAction(msg, 'approve')"
+							/>
+						</div>
 					</div>
 
 					<!-- Clarification: tappable answer options -->
@@ -260,6 +322,70 @@ const messagesEl = ref<HTMLElement | null>(null)
 // the last message. On older ones they're stale (already answered), so gate the buttons on this.
 const lastMessageId = computed(() => messages.value[messages.value.length - 1]?.id)
 
+// Sensitive-action cards are different: they're gated by the message's PERSISTED status
+// (pending → resolved/expired server-side), so they survive reloads and resolve exactly once.
+const ACTION_STATUSES = ["pending_action", "action_applied", "action_skipped", "action_expired"]
+const pendingActionBusy = ref<string | number | null>(null)
+
+function isActionCard(msg: any): boolean {
+	return !!msg.metadata?.kind && ACTION_STATUSES.includes(msg.metadata?.status)
+}
+
+function diffLines(diff: string): string[] {
+	return diff.replace(/\n$/, "").split("\n")
+}
+
+function diffLineClass(line: string): string {
+	if (line.startsWith("+++") || line.startsWith("---")) return "text-ink-gray-4"
+	if (line.startsWith("@@")) return "text-ink-gray-5"
+	if (line.startsWith("+")) return "bg-surface-green-1 text-ink-green-6"
+	if (line.startsWith("-")) return "bg-surface-red-2 text-ink-red-6"
+	return "text-ink-gray-7"
+}
+
+function actionStatusLabel(status: string): string {
+	const labels: Record<string, string> = {
+		action_applied: "Applied",
+		action_skipped: "Skipped",
+		action_expired: "Superseded",
+	}
+	return labels[status] ?? status
+}
+
+async function resolvePendingAction(msg: any, decision: "approve" | "skip") {
+	if (loading.value || pendingActionBusy.value) return
+	// The transient card (shown before the session reload) carries the persisted
+	// message id in metadata; a reloaded card's own id IS the docname.
+	const messageId = typeof msg.id === "string" ? msg.id : msg.metadata?.message_id
+	if (!messageId) return
+	pendingActionBusy.value = msg.id
+	try {
+		const res: any = await call("studio.ai.api.confirm_pending_action", {
+			session_id: controller.sessionId,
+			message_id: messageId,
+			decision,
+		})
+		// Re-pull the session first (the server appended the outcome and flipped the
+		// card's status) — the reload REPLACES the message list, so the resumed turn's
+		// pending bubble must be created after it, never before.
+		await sessionResource.submit({
+			app_id: appId.value,
+			session_id: controller.sessionId || undefined,
+		})
+		if (res?.resumed) controller.beginResumedTurn("Continuing…")
+	} catch (e: any) {
+		// Applying a backend write restarts the dev server, which can kill this very
+		// request ("socket hang up"). The apply is idempotent server-side, so the
+		// honest advice is: wait a beat and press Approve again.
+		error.value =
+			"Couldn't reach the server while applying — it may have restarted to load the change. " +
+			"Wait a few seconds and try again."
+		reloadSession()
+	} finally {
+		pendingActionBusy.value = null
+	}
+}
+
 const pageId = computed(() => store.activePage?.name ?? "")
 // Sessions are scoped to the app; the open page is just the turn's target.
 const appId = computed(() => store.activeApp?.name ?? "")
@@ -297,6 +423,23 @@ const isModifyMode = computed(() => !!selectedBlock.value)
 const aiModels = createResource({
 	url: "studio.ai.models.get_ai_models",
 	auto: true,
+})
+
+function retryModels() {
+	aiModels.reload()
+	// The session fetch may have failed in the same restart window — re-pull it too
+	// so a pending approval card comes back with the models.
+	reloadSession()
+}
+
+// Logged-out and server-restarting both land here; tell the user which it is —
+// "retry in a few seconds" is a dead end when what they need is to log in.
+const modelsErrorHint = computed(() => {
+	const message = aiModels.error?.messages?.[0] || aiModels.error?.message || ""
+	if (/login|permitted|permission/i.test(message)) {
+		return "you appear to be logged out. Log in to the site, then retry."
+	}
+	return "the server may have been restarting. Retry in a few seconds."
 })
 
 const modelOptions = computed(() =>

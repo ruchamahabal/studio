@@ -147,12 +147,19 @@ export class AIChatController {
 	 * turn — pending bubble + spinner — and replay any in-flight generation stream.
 	 * Returns the build's target page (for the panel's "Building…" chip) or null. */
 	async resumeRunningTurn(): Promise<{ page_id: string; page_title: string } | null> {
+		this.beginResumedTurn("Reconnecting to the running build…")
+		return await this.fetchStreamBuffer()
+	}
+
+	/** A turn continues server-side without a submit from this panel (a reload found it
+	 * running, or resolving an approval card re-enqueued the agent): spinner + a fresh
+	 * pending bubble so the streamed reply has somewhere to land. */
+	beginResumedTurn(status: string) {
 		this.ctx.loading.value = true
-		this.ctx.statusMessage.value = "Reconnecting to the running build…"
+		this.ctx.statusMessage.value = status
 		if (this.pendingAssistantId == null) {
 			this.pendingAssistantId = this.pushMessage("assistant", "Working…")
 		}
-		return await this.fetchStreamBuffer()
 	}
 
 	cancel = async () => {
@@ -260,7 +267,15 @@ export class AIChatController {
 		this.ctx.setAIOwnsCanvas(false)
 		this.ctx.loading.value = false
 		this.ctx.statusMessage.value = ""
-		if (data.plan_summary) {
+		if (data.pending_action) {
+			// A sensitive action awaits approval: render the card right away; the session
+			// reload below swaps in the persisted message (same metadata shape, and the
+			// persisted status is what gates the buttons).
+			this.updatePending(data.question || "Approve this change?", {
+				status: "pending_action",
+				...data.pending_action,
+			})
+		} else if (data.plan_summary) {
 			this.updatePending(data.headline || "Here's my plan", {
 				status: "plan_summary",
 				headline: data.headline || "",
