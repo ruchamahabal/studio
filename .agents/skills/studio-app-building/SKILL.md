@@ -55,6 +55,13 @@ Rules that bite:
   strings**: `"() => { ... }"`. The component calls the value directly, so a
   bare statement string throws. This differs from block events.
 - Repeater children see `dataItem` (current row) and `dataIndex`.
+- Keep `{{ }}` bindings THIN — property access plus at most one short
+  ternary. Real computation (date math, pluralization, chained ternaries, any
+  IIFE) belongs in the page script as a named helper the binding calls:
+  `{{ formatDueDate(dataItem.exp_end_date) }}`, with `formatDueDate` declared
+  in the script (custom: top-level function, auto-exposed; standard: returned
+  from `setup()`). An inline IIFE in a prop is unreadable, undebuggable, and
+  re-evaluated on every render of every Repeater row.
 - Use espresso tokens (`var(--ink-...)`, `var(--surface-...)`,
   `var(--outline-...)`) — never raw hex. Full styling judgment: [DESIGN.md](DESIGN.md).
 

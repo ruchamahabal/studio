@@ -217,6 +217,7 @@ This JS has the page context in scope plus ordinary browser globals (`window`, `
 - `toast.success(msg)` / `toast.error(msg)`; `getIcon(name)`; variables (refs — read/write via `.value`); `route`, `router`.
 CRUD example — a Dialog "Save" action that creates a Note via the `notes` source (NOT frappe.db), then clears + closes:
   "() => { notes.insert.submit({ title: newNoteTitle.value }).then(() => { newNoteTitle.value = ''; showNewNoteDialog.value = false }) }"
+KEEP {{ }} BINDINGS THIN — property access plus at most one short ternary ({{ item.project ? item.project + ' · ' : '' }} is the ceiling). NEVER put real computation in a binding: no IIFEs, date math, pluralization, or chained ternaries. Define a NAMED HELPER in the page script and bind its call instead — {{ formatDueDate(dataItem.exp_end_date) }} with formatDueDate declared in the script (custom page: a top-level function, auto-exposed; standard page: returned from setup()). Inline logic in a prop is unreadable, undebuggable, and re-evaluated on every render of every Repeater row — the page script is where logic lives.
 """
 
 
