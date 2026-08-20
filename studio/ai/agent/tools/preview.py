@@ -95,7 +95,7 @@ def run_preview_page(ctx, args: dict) -> str:
 	page = frappe.get_doc("Studio Page", page_id)
 	ctx.emit("progress", message=f"Looking at '{page.page_title}'…")
 	try:
-		image = capture_page(ctx, page)
+		image, errors = capture_page(ctx, page)
 	except Exception:
 		logger.warning("preview_page: render failed for %s", page_id, exc_info=True)
 		return (
@@ -120,21 +120,31 @@ def run_preview_page(ctx, args: dict) -> str:
 			"your eyes only. Study its design language — palette, typography, spacing rhythm, "
 			"section structure — and carry it into your work on the focused page."
 		)
-	return f"{extent} {REVIEW_RUBRIC}"
+	from studio.ai.agent.capture import error_report
+
+	if report := error_report(errors):
+		return (
+			f"{extent}\nRUNTIME ERRORS during the render — the page is broken in ways the "
+			f"screenshot may not show. Fix these FIRST (a [network] error names the failing "
+			f"server call; a [js] error usually points at a binding or script):\n{report}\n"
+			f"{REVIEW_RUBRIC}"
+		)
+	clean = " No runtime errors were detected during the render." if errors == [] else ""
+	return f"{extent}{clean} {REVIEW_RUBRIC}"
 
 
-def capture_page(ctx, page) -> bytes:
-	"""Screenshot the page's /dev draft preview as the requesting user."""
-	from frappe.utils.preview import capture_screenshot
+def capture_page(ctx, page) -> tuple[bytes, list[dict] | None]:
+	"""Screenshot the page's /dev draft preview as the requesting user, plus the
+	runtime errors collected during the render (None = collection unavailable)."""
+	from studio.ai.agent.capture import capture_with_errors
 
 	url = preview_url(ctx, page)
 	sid = mint_preview_sid(ctx.user)
 	try:
-		return capture_screenshot(
-			"webp",
-			url=url,
+		return capture_with_errors(
+			url,
 			headers={"Cookie": f"sid={sid}"} if sid else None,
-			wait_for=SPA_RENDER_WAIT_MS,
+			wait_ms=SPA_RENDER_WAIT_MS,
 			width=PREVIEW_WIDTH,
 			height=CAPTURE_HEIGHT,
 		)
@@ -248,10 +258,13 @@ TOOLS = [
 		handler=run_preview_page,
 		description=(
 			"Render the focused page's draft to a screenshot attached to you so you can SEE what "
-			"you built (the user is not shown the image in chat). Call it after EVERY generate_page "
-			"build, BEFORE moving to the next page or ending the turn: it returns a review rubric "
-			"(breakage + design-language checks); fix failures with surgical block edits, optionally "
-			"preview once more, never loop screenshots. Also works on ANOTHER page (pass page_name) "
+			"you built (the user is not shown the image in chat), AND report the runtime errors hit "
+			"during the render — uncaught JS, console errors, failed server calls — which catch "
+			"breakage invisible in pixels (an empty list that is really a crashed data source). Call "
+			"it after EVERY generate_page build and after wiring data/scripts, BEFORE moving to the "
+			"next page or ending the turn: fix reported errors first, then the visual rubric, with "
+			"surgical edits; optionally preview once more, never loop screenshots. Also works on "
+			"ANOTHER page (pass page_name) "
 			"to study it as a visual reference before building a page that must match it. If the "
 			"renderer is unavailable, continue without it."
 		),
