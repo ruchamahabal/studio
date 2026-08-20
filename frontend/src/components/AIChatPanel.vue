@@ -95,7 +95,9 @@
 						class="flex w-full min-w-0 flex-col gap-2 rounded-md border border-outline-gray-1 bg-surface-gray-1 p-3"
 					>
 						<div class="flex items-center justify-between gap-2">
-							<span class="truncate font-mono text-[11px] text-ink-gray-7">{{ msg.metadata.file_path }}</span>
+							<span class="truncate font-mono text-[11px] text-ink-gray-7">
+								{{ msg.metadata.title || msg.metadata.file_path }}
+							</span>
 							<Badge v-if="msg.metadata.status !== 'pending_action'" variant="subtle" size="sm">
 								{{ actionStatusLabel(msg.metadata.status) }}
 							</Badge>

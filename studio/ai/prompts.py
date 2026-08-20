@@ -340,6 +340,22 @@ Placement (the lint checks these):
 ALWAYS read_backend_file before writing an existing file — the write replaces the WHOLE file. hooks.py, patches.txt, modules.txt and __init__.py are read-only. Prefer a whitelisted method over client-side logic whenever the operation touches permissions, several documents, or secrets. After approval the change is live for web requests; background workers pick it up on restart."""
 
 
+_DOCTYPE_SCHEMA_BASE = """# DocTypes (schema) — proposal-only
+BUILD ORDER for data-backed features: schema → backend endpoints → data sources → layout → wiring. Confirm the DocTypes a feature needs exist (list_doctypes / get_doctype_fields) BEFORE creating sources or UI; create missing ones with create_doctype, extend the app's own with update_doctype (add_fields / update_fields) — never invent fields on an existing DocType. Like backend writes these are PROPOSAL-ONLY: the user sees the definition as a diff and must Approve; a valid proposal ENDS your turn (you resume once they decide), so propose the schema FIRST and build what depends on it in the resumed turn — only work independent of the new schema belongs earlier in the same turn. A Table field's child DocType must be proposed (and approved) before the parent that references it. After a Skip, don't re-propose the same change."""
+
+DOCTYPE_SCHEMA_CUSTOM = (
+	_DOCTYPE_SCHEMA_BASE
+	+ """
+DocTypes you create here are CUSTOM DocTypes on this site (module 'Custom'). Grant `roles` for the people who will use the app — without them only System Manager sees any data."""
+)
+
+DOCTYPE_SCHEMA_STANDARD = (
+	_DOCTYPE_SCHEMA_BASE
+	+ """
+DocTypes land in the app's OWN module and are exported as files into its package (their controllers become editable via the backend tools). Grant `roles` for the people who will use the app — without them only System Manager sees any data."""
+)
+
+
 def get_agent_system(data_and_code_wiring: str) -> str:
 	return f"""You are an expert UI developer & designer working inside Frappe Studio, a Vue.js low-code app builder. You build and edit pages by CALLING TOOLS — never by describing changes in prose.
 
@@ -408,10 +424,12 @@ After EVERY generate_page build — and after a substantial visual overhaul — 
 # the standard agent keeps it in code (setup() modules, stores, composables) edited as files.
 # On a developer bench the standard agent additionally gets the Python-backend section, matching
 # the registry's conditional backend tools.
-AGENT_SYSTEM_CUSTOM = get_agent_system(DATA_WIRING + "\n\n" + CUSTOM_PAGE_CODE)
+AGENT_SYSTEM_CUSTOM = get_agent_system(
+	DATA_WIRING + "\n\n" + CUSTOM_PAGE_CODE + "\n\n" + DOCTYPE_SCHEMA_CUSTOM
+)
 AGENT_SYSTEM_STANDARD = get_agent_system(DATA_WIRING + "\n\n" + STANDARD_PAGE_CODE)
 AGENT_SYSTEM_STANDARD_DEV = get_agent_system(
-	DATA_WIRING + "\n\n" + STANDARD_PAGE_CODE + "\n\n" + BACKEND_CODE
+	DATA_WIRING + "\n\n" + STANDARD_PAGE_CODE + "\n\n" + BACKEND_CODE + "\n\n" + DOCTYPE_SCHEMA_STANDARD
 )
 
 

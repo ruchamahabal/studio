@@ -120,12 +120,14 @@ def _build_shared_registry() -> ToolRegistry:
 
 def build_custom_page_registry() -> ToolRegistry:
 	"""Non-exported (visual/DB) app: reactive state as Studio Page variables, page logic as a bare
-	interpreted script. No file surface — the app lives in the DB."""
-	from studio.ai.agent.tools import scripts, variables
+	interpreted script. No file surface — the app lives in the DB, so its schema surface is custom
+	DocTypes (confirm-gated proposals, tools/doctypes.py)."""
+	from studio.ai.agent.tools import doctypes, scripts, variables
 
 	registry = _build_shared_registry()
 	registry.extend(variables.TOOLS)
 	registry.extend(scripts.build_tools(is_standard=False))
+	registry.extend(doctypes.TOOLS)
 	return registry
 
 
@@ -133,16 +135,18 @@ def build_standard_page_registry() -> ToolRegistry:
 	"""Standard (exported) app: a real TypeScript codebase. State/logic live in setup() modules,
 	stores and composables edited as files — so it gets the file tools and the module script form, and
 	NO variable-doctype tools (state is declared in code instead). On a developer bench it can also
-	author the app's Python package — reads free, writes confirm-gated (tools/backend.py)."""
+	author the app's Python package — reads free, writes confirm-gated (tools/backend.py) — and
+	propose DocTypes in the app's own modules (tools/doctypes.py)."""
 	import frappe
 
-	from studio.ai.agent.tools import backend, files, scripts
+	from studio.ai.agent.tools import backend, doctypes, files, scripts
 
 	registry = _build_shared_registry()
 	registry.extend(files.TOOLS)
 	registry.extend(scripts.build_tools(is_standard=True))
 	if frappe.conf.developer_mode:
 		registry.extend(backend.TOOLS)
+		registry.extend(doctypes.TOOLS)
 	return registry
 
 
