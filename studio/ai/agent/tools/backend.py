@@ -3,14 +3,14 @@
 Registered only on a developer-mode bench for standard apps. Reads are free (but
 gated: they expose server source). A write never lands directly — write_backend_file
 validates the code (syntax + path-aware lint), then hands the user an Approve/Skip
-card via the confirm gate (agent/pending.py) and ENDS the turn. Whitelisted APIs,
+card via the confirm gate (agent/approvals.py) and ENDS the turn. Whitelisted APIs,
 DocType controllers and shared helpers are all authored through this one tool; the
 lint knows what each path must look like.
 """
 
 import os
 
-from studio.ai.agent import backend_files, pending
+from studio.ai.agent import approvals, backend_files
 from studio.ai.agent.registry import Tool
 from studio.ai.agent.tools.page import load_page, text_arg
 from studio.utils import developer_file_access_denial
@@ -63,7 +63,7 @@ def run_write_backend_file(ctx, args: dict) -> str | None:
 
 	current = backend_files.read_current(app, path)
 	summary = _describe(path, exists=current is not None, whitelisted=whitelisted)
-	pending.request_confirmation(
+	approvals.request_confirmation(
 		ctx,
 		"write_backend_file",
 		summary,

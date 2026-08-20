@@ -136,8 +136,8 @@ def confirm_pending_action(session_id: str, message_id: str, decision: str = "ap
 	"""Apply (or skip) a sensitive action the agent proposed. The privileged write runs
 	HERE, on this user-triggered request — never inside the model's turn. Reads the
 	stored payload off the pending-action message and dispatches by its whitelisted
-	kind (agent/pending.py), then resumes the agent so it carries on with the plan."""
-	from studio.ai.agent.pending import apply_pending_action
+	kind (agent/approvals.py), then resumes the agent so it carries on with the plan."""
+	from studio.ai.agent.approvals import apply_pending_action
 
 	session = AISession.get(session_id)  # asserts ownership
 	row = frappe.db.get_value(

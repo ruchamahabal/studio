@@ -3,7 +3,7 @@
 A schema change creates/alters a DB table and (standard apps, developer mode)
 exports files into the app's package — so like backend writes it is
 PROPOSAL-ONLY: tools/doctypes.py validates here, raises an approval card, and
-pending.py re-validates with the same functions before applying in the
+approvals.py re-validates with the same functions before applying in the
 approving user's request context.
 
 Ownership jail: a standard page only touches DocTypes in its own app's modules

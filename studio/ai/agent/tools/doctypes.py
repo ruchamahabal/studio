@@ -3,7 +3,7 @@
 Reading the data model lives in introspect.py (list_doctypes, get_doctype_fields).
 Here the agent proposes schema changes: both tools validate the definition
 (doctype_schema.py), then hand the user an Approve/Skip card with the definition
-as a diff via the confirm gate (agent/pending.py) and END the turn. An invalid
+as a diff via the confirm gate (agent/approvals.py) and END the turn. An invalid
 proposal returns a FAILED string instead, so the model fixes it in-turn.
 
 Registered for custom pages always (custom=1 DocTypes) and for standard pages
@@ -12,7 +12,7 @@ on a developer bench (DocTypes in the app's own modules, exported as files).
 
 import frappe
 
-from studio.ai.agent import backend_files, doctype_schema, pending
+from studio.ai.agent import approvals, backend_files, doctype_schema
 from studio.ai.agent.registry import Tool
 from studio.ai.agent.tools.page import load_page, text_arg
 
@@ -62,7 +62,7 @@ def run_create_doctype(ctx, args: dict) -> str | None:
 		title_field=title_field,
 		roles=roles,
 	)
-	pending.request_confirmation(
+	approvals.request_confirmation(
 		ctx,
 		"create_doctype",
 		f"Create DocType `{name}` — {len(fields)} fields{', child table' if istable else ''}. "
@@ -118,7 +118,7 @@ def run_update_doctype(ctx, args: dict) -> str | None:
 		for f in add_fields
 		if f.get("reqd") and not f.get("default")
 	]
-	pending.request_confirmation(
+	approvals.request_confirmation(
 		ctx,
 		"update_doctype",
 		f"Update DocType `{doctype}` — {_change_summary(add_fields, update_fields)}. Approve to apply.",

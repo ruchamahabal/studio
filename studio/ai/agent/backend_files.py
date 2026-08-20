@@ -5,13 +5,13 @@ frontend folder, so it gets its own jail with its own rules. Writing `.py` is
 RCE-by-design; the rules are correspondingly strict:
 
   - developer mode + System Manager (studio.utils.developer_file_access_denial),
-  - every write approved by the user before it lands (see pending.py),
+  - every write approved by the user before it lands (see approvals.py),
   - paths realpath-jailed to the package, `.py` only,
   - the files that REGISTER code to run implicitly are read-only: one line in
     hooks.py or patches.txt escalates far beyond the file itself.
 
 Shared by the proposer tool (tools/backend.py) and the apply function
-(pending.py) so a proposal is validated identically at propose and apply time.
+(approvals.py) so a proposal is validated identically at propose and apply time.
 """
 
 import ast
