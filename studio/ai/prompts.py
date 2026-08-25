@@ -1,7 +1,7 @@
 import re
 from pathlib import Path
 
-from studio.ai.component_registry import component_families_appendix
+from studio.ai.component_registry import component_families_appendix, icon_catalog_appendix
 from studio.ai.prompt_fragments import ON_ERROR_RULE, ON_SUCCESS_RULE, TRANSFORM_RULE
 
 
@@ -83,7 +83,7 @@ ACTIONS:
 - Dropdown: {options: [{label: "string", icon: "lucide-icon-name", onClick: "function"}] OR grouped [{group: "string", options: [{label, icon}]}], button: {label: "string"}}
 - ContextMenu: {options: [{label: "string", icon: "lucide-icon-name", onClick: "function"}] OR grouped [{group: "string", options: [{label, icon}]}]}
   # A right-click menu — put the target surface as child content in the default slot; the menu opens on right-click of that area.
-# For buttons and dropdowns, icons must be lucide-* strings from https://lucide.dev/icons (e.g. lucide-plus, lucide-edit, etc.)
+# For buttons and dropdowns, icons must be lucide-* strings (e.g. lucide-plus, lucide-edit) — the name after `lucide-` must come from VALID ICON NAMES below.
 # HANDLER PROPS: these onClick values are arrow-function STRINGS — "() => { counter.value = 0 }", never a bare statement (see the HANDLER PROPS runtime rule). Variables are refs (write via .value); data sources and route/router are in scope.
 
 OVERLAYS:
@@ -98,7 +98,7 @@ NAVIGATION:
 - Tabs: {tabs: [{label: "string"}]} # slots: tab-item, tab-panel
 - TabButtons: {options: [{label: "string", value: "string"}], modelValue: "string", type: "subtle|ghost|underline|browser-tab", size: "sm|md"}
 - Sidebar: {header: {title: "string", subtitle: "string"}, sections: [{label: "string", items: [{label: "string", icon: "{{ getIcon('icon-name') }}", to: "string"}]}]} # slots: header, header-logo, sidebar-item, footer-items
-  # icon-name must be a valid kebab-case lucide icon from https://lucide.dev/icons
+  # icon-name must be a bare kebab-case name from VALID ICON NAMES below (no `lucide-` prefix inside getIcon)
 
 DATA DISPLAY:
 - ListView: {columns: [{label: "string", key: "string", width: number}], rows: [{key: value}], rowKey: "string"}
@@ -141,6 +141,7 @@ FRAMEWORK WIDGETS (@framework/ui — higher-level, doctype-driven; niche, use on
 # props plus the canonical composition the editor inserts. Registered components
 # outside the catalog surface only via the list_components/describe_component tools.
 COMPONENT_FAMILIES = component_families_appendix(COMPONENT_CATALOG)
+ICON_NAMES = icon_catalog_appendix()
 
 STYLING_RULES = """COMPONENT STYLING RULES:
 STYLE PROPERTY ROUTING — use the correct key:
@@ -255,6 +256,8 @@ SYSTEM_PROMPT = f"""You are an expert UI Web developer & designer specializing i
 {COMPONENT_CATALOG}
 
 {COMPONENT_FAMILIES}
+
+{ICON_NAMES}
 
 {OUTPUT_FORMAT_RULES}
 
@@ -416,6 +419,8 @@ After EVERY generate_page build — and after a substantial visual overhaul — 
 {COMPONENT_CATALOG}
 
 {COMPONENT_FAMILIES}
+
+{ICON_NAMES}
 """
 
 

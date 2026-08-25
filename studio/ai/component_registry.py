@@ -33,6 +33,12 @@ FALLBACK_GROUP = "studio"
 CATALOG_LINE_RE = re.compile(r"^- ([A-Za-z]+)[:\s]", re.MULTILINE)
 REGISTRY_KEY_RE = re.compile(r"^\t([A-Za-z]+): \{", re.MULTILINE)
 
+# The lucide sprite frappe-ui's <Icon> resolves `name` against at runtime — the same
+# file IconPicker scrapes its options from, so the AI's icon vocabulary is exactly the
+# editor's. Symbol ids ARE the icon names.
+ICON_SPRITE = "frontend/node_modules/lucide-static/sprite.svg"
+ICON_SYMBOL_RE = re.compile(r'<symbol[^>]*\bid="([a-z0-9-]+)"')
+
 
 def registered_components() -> dict[str, list[str]]:
 	"""{group label: [component names]} from the editor's component registry."""
@@ -222,6 +228,31 @@ def _schema_type(spec: dict) -> str:
 		items = spec.get("items")
 		return f"{_schema_type(items)}[]" if isinstance(items, dict) else "array"
 	return kind or ("object" if spec.get("properties") else "any")
+
+
+@lru_cache(maxsize=1)
+def icon_names() -> tuple[str, ...]:
+	"""Every icon name `getIcon(name)` / a component's `icon` prop can resolve.
+
+	Read from the installed lucide sprite rather than a checked-in copy, so the
+	list tracks whatever lucide-static the editor actually renders. Empty when
+	node_modules isn't installed (the prompt then falls back to prose)."""
+	return tuple(sorted(set(ICON_SYMBOL_RE.findall(_read_repo_file(ICON_SPRITE)))))
+
+
+def icon_catalog_appendix() -> str:
+	"""The full icon vocabulary, inlined. Naming an icon that isn't in the sprite
+	renders an empty <svg>, and models reliably invent plausible-but-absent names
+	from a prose 'see lucide.dev' pointer — so the names ship in the prompt."""
+	if not (names := icon_names()):
+		return ""
+	return (
+		f"VALID ICON NAMES ({len(names)} lucide icons — the COMPLETE set Studio can render).\n"
+		"Any `icon` / `iconLeft` / `iconRight` prop and every getIcon('...') call must use a "
+		"name from this list, VERBATIM. There are no others: if the icon you want isn't here, "
+		"pick the closest name that is. Prefix with `lucide-` only where the catalog entry "
+		"shows `lucide-icon-name`; getIcon('...') takes the bare name.\n" + ", ".join(names)
+	)
 
 
 @lru_cache(maxsize=1)
