@@ -284,6 +284,8 @@ Build a data-driven view — BACKEND FIRST, then layout:
      - single value / count → a block prop bound to {{ <source>.doc.<field> }} or {{ <source>.data.length }}.
      - a variable → the display block's prop bound to {{ <variable> }} (e.g. a TextBlock with props {"text":"{{ counter }}"}).
 
+FIELD EXISTENCE — never reference a data field in a binding, script, or transform that you haven't verified exists: get_doctype_fields for Document sources; for an API Resource the payload shape is whatever its whitelisted method actually returns, so read the method's source where backend tools exist — and if you cannot verify a field, treat it as missing: the feature needs its backend half first, so extend the schema/endpoint rather than inventing the key. If you find a field you already wired doesn't exist, propose the missing schema/backend change rather than leaving dead wiring.
+
 Data-source lifecycle hooks (optional, on add_data_source / update_data_source) — reach for these instead of a page script when the logic belongs to ONE source:
 - transform — """
 	+ TRANSFORM_RULE
