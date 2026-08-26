@@ -9,10 +9,6 @@ import App from "./App.vue"
 import { resourcesPlugin, frappeRequest } from "frappe-ui"
 import { spritePlugin } from "frappe-ui/icons"
 import { registerGlobalComponents } from "./globals"
-import * as Vue from "vue"
-import * as VueRouter from "vue-router"
-import * as Pinia from "pinia"
-import * as FrappeUI from "frappe-ui"
 
 import { COMPONENTS } from "@/data/components"
 import Block from "@/utils/block"
@@ -30,19 +26,12 @@ studio.use(spritePlugin)
 studio.use(pinia)
 registerGlobalComponents(studio)
 window.__APP_COMPONENTS__ = studio._context.components
-window.__STUDIO_SHARED_MODULES__ = {
-	vue: Vue,
-	"vue-router": VueRouter,
-	pinia: Pinia,
-	"frappe-ui": FrappeUI,
-}
 
 declare global {
 	interface Window {
 		site_url: string
 		is_developer_mode?: boolean
 		__APP_COMPONENTS__: any
-		__STUDIO_SHARED_MODULES__: any
 		[key: string]: string
 	}
 }

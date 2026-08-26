@@ -16,6 +16,7 @@ import frappeui from "frappe-ui/vite"
 import sharedDependencyResolver from "../../vite/sharedDependencyResolver.js"
 import studioRootAlias from "../../vite/studioRootAlias.js"
 import frameworkUIAlias from "../../vite/frameworkUIAlias.js"
+import { EDITOR_RUNTIME_ENTRIES, isEditorRuntimeImport } from "../../vite/editorRuntime.js"
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url))
 // bench apps folder (scripts -> src -> frontend -> studio -> apps)
@@ -62,7 +63,7 @@ const FRAMEWORK_UI_BARREL_COMPONENTS = new Set([
 
 // create a temp directory for app renderers in studio app folder
 const TEMP_DIR = path.resolve(__dirname, "../../../.temp-app-renderers")
-const SHARED_EDITOR_MODULES = new Set(["vue", "vue-router", "pinia", "frappe-ui"])
+const SHARED_EDITOR_MODULES = Object.keys(EDITOR_RUNTIME_ENTRIES)
 if (!fs.existsSync(TEMP_DIR)) {
 	fs.mkdirSync(TEMP_DIR, { recursive: true })
 }
@@ -364,20 +365,19 @@ async function buildEditorWithVite(appName, entryFilePath, outDir, basePath) {
 			}),
 			studioRootAlias(),
 			sharedDependencyResolver(path.resolve(__dirname, "../../")),
-			replaceSharedEditorImports(),
 		],
 		resolve: {
 			alias: [
 				...(frameworkUIAvailable ? frameworkUIAlias(APPS_DIR) : []),
 				{ find: "@", replacement: path.resolve(__dirname, "../") },
 			],
-			dedupe: [...SHARED_EDITOR_MODULES],
+			dedupe: SHARED_EDITOR_MODULES,
 		},
 		build: {
 			manifest: true,
 			rolldownOptions: {
 				input: { studioEditor: path.resolve(__dirname, entryFilePath) },
-				external: (id) => SHARED_EDITOR_MODULES.has(id),
+				external: isEditorRuntimeImport,
 				preserveEntrySignatures: "strict",
 			},
 			outDir: editorDirectory,
@@ -386,46 +386,21 @@ async function buildEditorWithVite(appName, entryFilePath, outDir, basePath) {
 			sourcemap: true,
 		},
 	})
+	validateEditorBuild(editorDirectory)
 }
 
-function replaceSharedEditorImports() {
-	return {
-		name: "studio-shared-editor-imports",
-		renderChunk(code) {
-			for (const moduleName of SHARED_EDITOR_MODULES) {
-				const escapedName = moduleName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
-				const sideEffectImports = new RegExp(`import\\s*["']${escapedName}["'];?`, "g")
-				code = code.replace(
-					sideEffectImports,
-					`void window.__STUDIO_SHARED_MODULES__[${JSON.stringify(moduleName)}];`,
-				)
-				const namespaceImports = new RegExp(
-					`import\\s*\\*\\s*as\\s*(\\w+)\\s*from\\s*["']${escapedName}["'];?`,
-					"g",
-				)
-				code = code.replace(
-					namespaceImports,
-					`const $1 = window.__STUDIO_SHARED_MODULES__[${JSON.stringify(moduleName)}];`,
-				)
-				const imports = new RegExp(`import\\s*\\{([^}]+)\\}\\s*from\\s*["']${escapedName}["'];?`, "g")
-				code = code.replace(imports, (_match, names) => {
-					const bindings = names.replace(/\\bas\\b/g, ":")
-					return `const {${bindings}} = window.__STUDIO_SHARED_MODULES__[${JSON.stringify(moduleName)}];`
-				})
-			}
-			assertNoSharedEditorImports(code)
-			return { code, map: null }
-		},
-	}
-}
-
-function assertNoSharedEditorImports(code) {
-	for (const moduleName of SHARED_EDITOR_MODULES) {
-		const escapedName = moduleName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
-		const unresolvedImport = new RegExp(`(?:from\\s*|import\\s*\\(?)['"]${escapedName}['"]`)
-		if (unresolvedImport.test(code)) {
-			throw new Error(`Editor bundle contains an unresolved shared import: ${moduleName}`)
-		}
+function validateEditorBuild(editorDirectory) {
+	const assetsDirectory = path.join(editorDirectory, "assets")
+	const javascriptFiles = fs.readdirSync(assetsDirectory).filter((file) => file.endsWith(".js"))
+	const totalBytes = javascriptFiles.reduce(
+		(size, file) => size + fs.statSync(path.join(assetsDirectory, file)).size,
+		0,
+	)
+	const budget = 1024 * 1024
+	if (totalBytes > budget) {
+		throw new Error(
+			`Editor bundle is ${(totalBytes / 1024).toFixed(1)} KiB; the limit is ${budget / 1024} KiB`,
+		)
 	}
 }
 
