@@ -71,7 +71,7 @@ function getComponentProps(componentName: string, component: ConcreteComponent |
 				propertySchema,
 				componentDefinitions,
 				propName,
-				propType
+				propType,
 			)
 
 			const config: ComponentProp = {
@@ -291,6 +291,7 @@ async function fetchCustomComponentTemplate(componentName: string): Promise<stri
 	if (templateCache.has(componentName)) {
 		return templateCache.get(componentName) || ""
 	}
+	if (import.meta.env.PROD) return ""
 
 	const filePath = customComponentFilePaths.get(componentName)
 	if (!filePath) return ""
@@ -358,7 +359,7 @@ function resolveProperty(
 	propertySchema: any,
 	componentDefinitions: Record<string, any>,
 	propName: string,
-	propType?: string
+	propType?: string,
 ) {
 	let type = propType
 

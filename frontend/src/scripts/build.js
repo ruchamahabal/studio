@@ -62,6 +62,7 @@ const FRAMEWORK_UI_BARREL_COMPONENTS = new Set([
 
 // create a temp directory for app renderers in studio app folder
 const TEMP_DIR = path.resolve(__dirname, "../../../.temp-app-renderers")
+const SHARED_EDITOR_MODULES = new Set(["vue", "vue-router", "pinia", "frappe-ui"])
 if (!fs.existsSync(TEMP_DIR)) {
 	fs.mkdirSync(TEMP_DIR, { recursive: true })
 }
@@ -107,10 +108,35 @@ export async function generateAppBuild(
 	// pageScripts: [{ page_name, file_path }]
 	const pageScripts = pageScriptsJson ? JSON.parse(pageScriptsJson) : []
 	const componentSources = findComponentSources(componentList, customComponents)
+
 	const rendererContent = getRendererContent(componentSources, pageScripts)
 	const tempRendererPath = writeRendererFile(appName, rendererContent)
 	await buildWithVite(appName, tempRendererPath, outDir, base)
+
+	const editorContent = getEditorContent(componentSources, pageScripts)
+	const tempEditorPath = writeEditorFile(appName, editorContent)
+	await buildEditorWithVite(appName, tempEditorPath, outDir, base)
+
 	deleteRendererFile(tempRendererPath)
+	deleteRendererFile(tempEditorPath)
+}
+
+function getEditorContent(componentSources, pageScripts = []) {
+	const customComponentNames = Object.keys(componentSources.customComponents)
+	const customImports = customComponentNames
+		.map((name) => `import ${name} from "${componentSources.customComponents[name]}"`)
+		.join("\n")
+	const pageScriptImporters = pageScripts
+		.map((page) => `\t${JSON.stringify(page.page_name)}: () => import(${JSON.stringify(page.file_path)}),`)
+		.join("\n")
+
+	return `${customImports}
+
+export const protocolVersion = 1
+export const components = { ${customComponentNames.join(", ")} }
+export const pageScripts = {
+${pageScriptImporters}
+}`
 }
 
 function findComponentSources(appComponents, customComponents = {}) {
@@ -265,6 +291,12 @@ function writeRendererFile(appName, content) {
 	return rendererPath
 }
 
+function writeEditorFile(appName, content) {
+	const editorPath = path.resolve(TEMP_DIR, `editor-${appName}.js`)
+	writeFileSync(editorPath, content)
+	return editorPath
+}
+
 async function buildWithVite(appName, entryFilePath, outDir, basePath) {
 	outDir = outDir || path.resolve(__dirname, `../../../studio/public/app_builds/${appName}`)
 	basePath = basePath || `/assets/studio/app_builds/${appName}/`
@@ -312,6 +344,89 @@ async function buildWithVite(appName, entryFilePath, outDir, basePath) {
 	})
 
 	console.log(`Vite build completed for ${appName}`)
+}
+
+async function buildEditorWithVite(appName, entryFilePath, outDir, basePath) {
+	const buildDirectory = outDir || path.resolve(__dirname, `../../../studio/public/app_builds/${appName}`)
+	const editorDirectory = path.join(buildDirectory, "editor")
+	const editorBase = `${basePath || `/assets/studio/app_builds/${appName}/`}editor/`
+
+	await build({
+		root: path.resolve(__dirname, "../"),
+		base: editorBase,
+		plugins: [
+			vue(),
+			frappeui({
+				frappeProxy: true,
+				lucideIcons: true,
+				buildConfig: false,
+				jinjaBootData: false,
+			}),
+			studioRootAlias(),
+			sharedDependencyResolver(path.resolve(__dirname, "../../")),
+			replaceSharedEditorImports(),
+		],
+		resolve: {
+			alias: [
+				...(frameworkUIAvailable ? frameworkUIAlias(APPS_DIR) : []),
+				{ find: "@", replacement: path.resolve(__dirname, "../") },
+			],
+			dedupe: [...SHARED_EDITOR_MODULES],
+		},
+		build: {
+			manifest: true,
+			rolldownOptions: {
+				input: { studioEditor: path.resolve(__dirname, entryFilePath) },
+				external: (id) => SHARED_EDITOR_MODULES.has(id),
+				preserveEntrySignatures: "strict",
+			},
+			outDir: editorDirectory,
+			emptyOutDir: true,
+			target: "es2015",
+			sourcemap: true,
+		},
+	})
+}
+
+function replaceSharedEditorImports() {
+	return {
+		name: "studio-shared-editor-imports",
+		renderChunk(code) {
+			for (const moduleName of SHARED_EDITOR_MODULES) {
+				const escapedName = moduleName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+				const sideEffectImports = new RegExp(`import\\s*["']${escapedName}["'];?`, "g")
+				code = code.replace(
+					sideEffectImports,
+					`void window.__STUDIO_SHARED_MODULES__[${JSON.stringify(moduleName)}];`,
+				)
+				const namespaceImports = new RegExp(
+					`import\\s*\\*\\s*as\\s*(\\w+)\\s*from\\s*["']${escapedName}["'];?`,
+					"g",
+				)
+				code = code.replace(
+					namespaceImports,
+					`const $1 = window.__STUDIO_SHARED_MODULES__[${JSON.stringify(moduleName)}];`,
+				)
+				const imports = new RegExp(`import\\s*\\{([^}]+)\\}\\s*from\\s*["']${escapedName}["'];?`, "g")
+				code = code.replace(imports, (_match, names) => {
+					const bindings = names.replace(/\\bas\\b/g, ":")
+					return `const {${bindings}} = window.__STUDIO_SHARED_MODULES__[${JSON.stringify(moduleName)}];`
+				})
+			}
+			assertNoSharedEditorImports(code)
+			return { code, map: null }
+		},
+	}
+}
+
+function assertNoSharedEditorImports(code) {
+	for (const moduleName of SHARED_EDITOR_MODULES) {
+		const escapedName = moduleName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+		const unresolvedImport = new RegExp(`(?:from\\s*|import\\s*\\(?)['"]${escapedName}['"]`)
+		if (unresolvedImport.test(code)) {
+			throw new Error(`Editor bundle contains an unresolved shared import: ${moduleName}`)
+		}
+	}
 }
 
 function deleteRendererFile(rendererPath) {
