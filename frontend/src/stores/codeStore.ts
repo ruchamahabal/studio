@@ -335,21 +335,6 @@ const useCodeStore = defineStore("codeStore", () => {
 		disposePageScriptScope()
 	}
 
-	// VARIABLES
-	async function setPageVariables(page: StudioPage, preloadedVariables?: Variable[]) {
-		let variableRows = preloadedVariables
-		if (!variableRows) {
-			studioVariables.filters = { parent: page.name }
-			await studioVariables.reload()
-			variableRows = studioVariables.data as Variable[]
-		}
-		variables.value = {}
-
-		variableRows.map((variable: Variable) => {
-			variables.value[variable.variable_name] = getInitialVariableValue(variable)
-		})
-	}
-
 	function getValueFromBinding(bindingPath: string, localContext?: ExpressionEvaluationContext) {
 		const context = { ...pageScriptTemplateBindings.value, ...localContext }
 		return getValueFromObject(context, bindingPath)

@@ -376,8 +376,6 @@ PAGE_RESOURCE_FIELDS = (
 	"on_error",
 )
 
-PAGE_VARIABLE_FIELDS = ("variable_name", "variable_type", "initial_value")
-
 
 @frappe.whitelist(allow_guest=True, methods=["GET"])
 def get_page(app_name: str, page_route: str, preview: bool = False) -> dict:
@@ -419,10 +417,6 @@ def get_page(app_name: str, page_route: str, preview: bool = False) -> dict:
 		"resources": [
 			{"resource_id": row.name, **{field: row.get(field) for field in PAGE_RESOURCE_FIELDS}}
 			for row in page.resources
-		],
-		"variables": [
-			{"name": row.name, **{field: row.get(field) for field in PAGE_VARIABLE_FIELDS}}
-			for row in page.variables
 		],
 	}
 
