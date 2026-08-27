@@ -24,8 +24,6 @@ def execute():
 	for page_name, variables in _read_variables().items():
 		_migrate_page(page_name, variables)
 
-	frappe.delete_doc("DocType", "Studio Page Variable", ignore_missing=True, force=True)
-
 
 def _read_variables() -> dict[str, list[frappe._dict]]:
 	variable = frappe.qb.DocType("Studio Page Variable")
