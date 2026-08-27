@@ -33,44 +33,12 @@
 				/>
 			</div>
 		</CollapsibleSection>
-
-		<!-- Page state — declared in the page script, read-only here -->
-		<CollapsibleSection sectionName="State">
-			<div class="ml-3 flex flex-col gap-1" v-if="!isObjectEmpty(codeStore.pageScriptTemplateBindings)">
-				<div
-					v-for="(value, name) in codeStore.pageScriptTemplateBindings"
-					:key="name"
-					class="group/item flex flex-row items-center justify-between"
-				>
-					<ObjectBrowser
-						v-if="typeof value === 'object' && value !== null"
-						:object="value"
-						:name="name"
-						class="-ml-[0.9rem] overflow-hidden"
-					/>
-					<div v-else class="flex flex-row justify-between font-mono text-xs">
-						<div class="font-semibold text-ink-pink-8">{{ name }}</div>
-						<template v-if="value !== '' && typeof value !== 'function'">
-							<div class="text-ink-gray-5">&nbsp;=&nbsp;</div>
-							<div class="text-ink-violet-8">{{ value }}</div>
-						</template>
-					</div>
-					<ItemActions
-						class="-mt-1 self-start"
-						:menuOptions="getStateMenu(String(name), value)"
-						@edit="openPageScript"
-					/>
-				</div>
-			</div>
-
-			<EmptyState v-else message="No state declared in the page script" />
-		</CollapsibleSection>
 	</div>
 </template>
 
 <script setup lang="ts">
 import { ref, watch } from "vue"
-import { Dialog, Tooltip, Button, FormControl } from "frappe-ui"
+import { Tooltip, Button } from "frappe-ui"
 import useStudioStore from "@/stores/studioStore"
 import useCodeStore from "@/stores/codeStore"
 import CollapsibleSection from "@/components/CollapsibleSection.vue"
@@ -196,27 +164,6 @@ const getResourceMenu = (resource: Resource, resource_name: string) => {
 			onClick: () => {
 				copyToClipboard(resource)
 			},
-		},
-	]
-}
-
-// page state is declared in the page script; this panel only inspects it
-const openPageScript = () => {
-	store.studioLayout.leftPanelActiveTab = "Code"
-	store.studioLayout.showLeftPanel = true
-}
-
-const getStateMenu = (name: string, value: any) => {
-	return [
-		{
-			label: "Copy Name",
-			icon: "lucide-copy",
-			onClick: () => copyToClipboard(name),
-		},
-		{
-			label: "Copy Value",
-			icon: "lucide-copy",
-			onClick: () => copyToClipboard(value),
 		},
 	]
 }
