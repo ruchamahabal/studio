@@ -157,7 +157,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from "vue"
-import { Tooltip, Popover, Dropdown } from "frappe-ui"
+import { Tooltip, Popover, Dropdown, FeatherIcon, Button } from "frappe-ui"
 import useStudioStore from "@/stores/studioStore"
 import useCanvasStore from "@/stores/canvasStore"
 
@@ -166,6 +166,7 @@ import StudioLogo from "@/components/Icons/StudioLogo.vue"
 import ExportAppDialog from "@/components/ExportAppDialog.vue"
 import PublishButton from "@/components/PublishButton.vue"
 import StudioSettingsDialog from "@/components/StudioSettingsDialog.vue"
+import AppDialog from "@/components/AppDialog.vue"
 
 import type { StudioMode } from "@/types"
 import session from "@/utils/session"

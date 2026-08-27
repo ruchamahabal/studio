@@ -77,7 +77,8 @@ export default defineConfig(async () => {
 			}),
 			...frameworkUIPlugins,
 			studioRootAlias(),
-			sharedDependencyResolver(path.resolve(__dirname, "..")),
+			// Root must be the frontend dir
+			sharedDependencyResolver(path.resolve(__dirname)),
 			studioFolderWatcher(appsDir),
 		],
 		resolve: {
@@ -107,7 +108,6 @@ export default defineConfig(async () => {
 				// CommonJS dep reached through the now-unbundled frappe-ui (tailwind/colorPalette.js)
 				"tailwindcss/colors",
 				"feather-icons",
-				"showdown",
 				"engine.io-client",
 				"highlight.js/lib/core",
 				"interactjs",

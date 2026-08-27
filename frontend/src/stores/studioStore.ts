@@ -191,9 +191,9 @@ const useStudioStore = defineStore("store", () => {
 	async function setPage(pageName: string) {
 		settingPage.value = true
 		pageConflict.value = false
-		// leaving the current page: drop its in-flight-save flag so the new page isn't blocked
-		// waiting on a save it doesn't own (that save's own callback no longer clears this flag)
 		savingPage.value = false
+		codeStore.teardownPage()
+
 		const page = await fetchPage(pageName)
 		if (!page) {
 			settingPage.value = false
@@ -289,16 +289,19 @@ const useStudioStore = defineStore("store", () => {
 	}
 
 	function updateActivePage(key: string, value: string | number) {
+		if (!activePage.value) return
+		const page = activePage.value
 		return studioPages.runDocMethod
 			.submit({
-				name: activePage.value?.name,
+				name: page.name,
 				method: "save_page_field",
 				fieldname: key,
 				value: value,
-				known_modified: activePage.value?.modified,
+				known_modified: page.modified,
 			})
 			.then((response: any) => {
-				activePage.value![key] = value
+				if (activePage.value?.name !== page.name) return
+				activePage.value[key] = value
 				syncPageModified(response)
 			})
 			.catch(handlePageWriteConflict)
@@ -344,9 +347,15 @@ const useStudioStore = defineStore("store", () => {
 				}
 			)
 			.then(async () => {
-				await generateAppBuild()
+				const buildError = await generateAppBuild()
 				activePage.value = await fetchPage(selectedPage.value!)
-				if (activeApp.value && activePage.value) {
+				if (!activeApp.value || !activePage.value) return
+				if (buildError) {
+					showBuildErrorDialog(
+						buildError,
+						"The page was published, but the app build failed - it may not reflect your latest changes.",
+					)
+				} else {
 					openPageInBrowser(activeApp.value, activePage.value)
 				}
 			})
@@ -354,21 +363,25 @@ const useStudioStore = defineStore("store", () => {
 
 	async function unpublishPage() {
 		if (!activePage.value) return
+		const page = activePage.value
 		const confirmed = await confirm(
-			`Are you sure you want to unpublish the page "${activePage.value.page_title}"? It will no longer be publicly accessible.`,
+			`Are you sure you want to unpublish the page "${page.page_title}"? It will no longer be publicly accessible.`,
 		)
 		if (!confirmed) {
 			return
 		}
 		return studioPages.runDocMethod.submit(
 			{
-				name: selectedPage.value,
+				name: page.name,
 				method: "unpublish",
 			},
 			{
 				onSuccess(data: any) {
-					activePage.value!.published = 0
-					syncPageModified(data)
+					if (activePage.value?.name === page.name) {
+						activePage.value.published = 0
+						syncPageModified(data)
+					}
+					if (appPages.value[page.name]) appPages.value[page.name].published = 0
 					toast.success("Page unpublished")
 				},
 				onError(error: any) {
@@ -421,8 +434,16 @@ const useStudioStore = defineStore("store", () => {
 				async onSuccess(data: any) {
 					activePage.value = await fetchPage(selectedPage.value!)
 					setAppPages(activeApp.value!.name)
-					openPageInBrowser(activeApp.value!, activePage.value!)
-					toast.success(`App published successfully (${data?.message?.published_pages} pages)`)
+					const buildError = data?.message?.build_error
+					if (buildError) {
+						showBuildErrorDialog(
+							buildError,
+							"The app was published, but the build failed - published pages may not reflect your latest changes.",
+						)
+					} else {
+						openPageInBrowser(activeApp.value!, activePage.value!)
+						toast.success(`App published successfully (${data?.message?.published_pages} pages)`)
+					}
 				},
 				onError(error: any) {
 					toast.error("Failed to publish the app", {
@@ -436,7 +457,7 @@ const useStudioStore = defineStore("store", () => {
 	async function unpublishApp() {
 		if (!activeApp.value) return
 		const confirmed = await confirm(
-			`Are you sure you want to unpublish the app <b>${activeApp.value.app_name}</b>? It will no longer be publicly accessible.`,
+			`Are you sure you want to unpublish the app "${activeApp.value.app_name}"? It will no longer be publicly accessible.`,
 		)
 		if (!confirmed) {
 			return
@@ -508,21 +529,50 @@ const useStudioStore = defineStore("store", () => {
 	}
 
 	// build
-	function generateAppBuild() {
-		if (!activeApp.value) return
-		return studioApps.runDocMethod.submit({
-			name: activeApp.value.name,
-			method: "generate_app_build",
-		}, {
-			onSuccess() {
+	async function generateAppBuild(): Promise<{ error_log: string } | null> {
+		if (!activeApp.value) return null
+		try {
+			const data: any = await studioApps.runDocMethod.submit({
+				name: activeApp.value.name,
+				method: "generate_app_build",
+			})
+			const buildError = data?.message?.build_error
+			if (!buildError) {
 				toast.success("App build generated")
-			},
-			onError(error: any) {
-				toast.warning("Skipped app build due to errors", {
-					description: error?.messages?.join(", "),
-					duration: Infinity,
-				})
-			},
+			}
+			return buildError ?? null
+		} catch (error: any) {
+			toast.warning("Skipped app build due to errors", {
+				description: error?.messages?.join(", "),
+				duration: Infinity,
+			})
+			return null
+		}
+	}
+
+	function showBuildErrorDialog(buildError: { error_log: string }, message: string) {
+		dialog.confirm({
+			title: "App build failed",
+			message: `${message} Check the error log for the full build output.`,
+			theme: "yellow",
+			actions: [
+				{
+					label: "View Page",
+					variant: "outline",
+					onClick: () => {
+						if (activeApp.value && activePage.value) {
+							openPageInBrowser(activeApp.value, activePage.value)
+						}
+					},
+				},
+				{
+					label: "View Error Log",
+					variant: "solid",
+					onClick: () => {
+						window.open(`/app/error-log/${buildError.error_log}`, "_blank")
+					},
+				},
+			],
 		})
 	}
 
@@ -533,7 +583,8 @@ const useStudioStore = defineStore("store", () => {
 	const routeObject = computed(() => {
 		if (!activePage.value) return ""
 
-		const newRoute = toRaw(router.currentRoute.value)
+		// copy — mutating the live route object would wipe the editor router's own params (appID/pageID)
+		const newRoute = { ...toRaw(router.currentRoute.value) }
 		// Seed each dynamic param with its design-time test value (empty string when unset),
 		// e.g. "/hr/:employee/:id" -> { employee, id } filled from routeVariables
 		const paramNames = getRouteVariables(activePage.value.route)

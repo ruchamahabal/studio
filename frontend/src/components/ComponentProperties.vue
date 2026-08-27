@@ -67,7 +67,7 @@
 			<CollapsibleSection
 				v-show="filteredSections.includes('visibility')"
 				sectionName="Visibility Condition"
-				:sectionCollapsed="sections.visibility?.collapsed"
+				:sectionCollapsed="toValue(sections.visibility?.collapsed) && !studioStore.propertyFilter"
 			>
 				<template #actions>
 					<Button
@@ -94,7 +94,7 @@
 			<CollapsibleSection
 				v-show="filteredSections.includes('attributes')"
 				sectionName="Attributes"
-				:sectionCollapsed="sections.attributes?.collapsed"
+				:sectionCollapsed="toValue(sections.attributes?.collapsed) && !studioStore.propertyFilter"
 			>
 				<ObjectEditor
 					ref="attributesEditor"
@@ -108,12 +108,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watchEffect } from "vue"
+import { ref, computed, toValue, watchEffect } from "vue"
+import { Combobox, Button, Tooltip, Badge, FeatherIcon } from "frappe-ui"
 import Block from "@/utils/block"
 import { getComponentSlots } from "@/utils/components"
 import PropsEditor from "@/components/PropsEditor.vue"
 import ObjectEditor from "@/components/ObjectEditor.vue"
 import EmptyState from "@/components/EmptyState.vue"
+import SectionContainer from "@/components/SectionContainer.vue"
+import CollapsibleSection from "@/components/CollapsibleSection.vue"
 import { confirm, isObjectEmpty } from "@/utils/helpers"
 import Code from "@/components/Code.vue"
 import blockController from "@/utils/blockController"

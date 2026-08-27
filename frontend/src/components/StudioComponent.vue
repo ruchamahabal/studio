@@ -93,6 +93,7 @@
 			:block="block.extendedFromComponent || block"
 			:breakpoint="breakpoint"
 			:isSelected="isSelected"
+			:isPrimaryInstance="isPrimaryInstance"
 			:target="(target as HTMLElement)"
 		/>
 	</teleport>
@@ -105,6 +106,7 @@ import { useEventListener } from "@vueuse/core"
 import StudioComponentWrapper from "@/components/StudioComponentWrapper.vue"
 import SlotScopeProvider from "@/components/SlotScopeProvider.vue"
 import ComponentEditor from "@/components/ComponentEditor.vue"
+import StudioComponentEditorWrapper from "@/components/StudioComponentEditorWrapper.vue"
 import { customVueComponentsRegistry } from "@/globals"
 
 import Block from "@/utils/block"
@@ -146,7 +148,15 @@ const slotClasses = ["__studio_component_slot__", "outline-none", "select-none"]
 
 const canvasProps = inject("canvasProps") as CanvasProps
 
+const rendersProxy = computed(() => {
+	if (canvasStore.editingMode === "page" || props.block.isContainer()) return false
+	return Boolean(props.block.getProxyComponent())
+})
+
 const styles = computed(() => {
+	// Isolate proxies from block styles entirely since they never reach a teleported overlay at runtime,
+	// and falling through onto a proxy they'd clobber its placement.
+	if (rendersProxy.value) return {}
 	const _styles = { ...props.block.getStyles(props.breakpoint) }
 	Object.entries(_styles).forEach(([key, value]) => {
 		if (value) {
@@ -169,13 +179,7 @@ const isOverlayNode = computed(() => {
 const componentName = computed(() => {
 	if (props.block.isContainer()) return props.block.originalElement || "div"
 
-	let name
-	if (canvasStore.editingMode === "page") {
-		name = props.block.componentName
-	} else {
-		const proxyComponent = props.block.getProxyComponent()
-		name = proxyComponent ? proxyComponent : props.block.componentName
-	}
+	let name = rendersProxy.value ? props.block.getProxyComponent() : props.block.componentName
 
 	if (props.block.isCustomVueComponent) {
 		name = customVueComponentsRegistry.value[name]
@@ -261,6 +265,13 @@ watch(
 	},
 	{ immediate: true },
 )
+
+// Show component editor only on the first instance; the rest render as faint outlines
+const isPrimaryInstance = computed(() => {
+	if (!props.block.isRepeated()) return true
+	const instanceIndex = slotScope?.value?.dataIndex
+	return instanceIndex === undefined || instanceIndex === 0
+})
 
 const target = computed<HTMLElement | null>(() => {
 	if (!componentRef.value) return null

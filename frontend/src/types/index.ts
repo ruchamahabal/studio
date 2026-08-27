@@ -20,7 +20,6 @@ export interface BlockOptions {
 	originalElement?: string
 	children?: Array<Block | BlockOptions>
 	baseStyles?: BlockStyleMap
-	rawStyles?: BlockStyleMap
 	mobileStyles?: BlockStyleMap
 	tabletStyles?: BlockStyleMap
 	blockName?: string // optional user-friendly name for the block
@@ -161,7 +160,8 @@ export type Operators =
 export type Filter = {
 	fieldname: string
 	operator: Operators
-	value?: string | null
+	// in / not in carry a list of values; everything else a scalar
+	value?: string | string[] | number | null
 	field: DocTypeField
 }
 

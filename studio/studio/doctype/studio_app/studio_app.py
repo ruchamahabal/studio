@@ -2,6 +2,7 @@
 # For license information, please see license.txt
 import json
 import os
+from urllib.parse import quote
 
 import frappe
 from frappe import _
@@ -14,6 +15,20 @@ from studio.realtime import publish_doc_change
 
 
 class StudioAppRenderer(DocumentPage):
+	def render(self):
+		# redirect guests to login instead of serving a dead page.
+		if frappe.session.user == "Guest" and not self.can_render_for_guest():
+			frappe.flags.redirect_location = f"/login?redirect-to=/{quote(self.path)}"
+			raise frappe.Redirect(http_status_code=302)
+		return super().render()
+
+	def can_render_for_guest(self):
+		if self.is_preview():
+			return False
+		return bool(
+			frappe.db.exists("Studio Page", dict(studio_app=self.docname, published=1, allow_guest=1))
+		)
+
 	def can_render(self):
 		if app := self.find_app_for_path():
 			self.doctype = "Studio App"
@@ -95,9 +110,11 @@ class StudioApp(WebsiteGenerator):
 		context.app_title = self.app_title
 		context.frappe_app = self.frappe_app or ""
 		context.base_url = frappe.utils.get_url(self.route)
-		context.app_pages = frappe.get_all(
-			"Studio Page", dict(studio_app=self.name, published=1), ["name", "page_title", "route"]
-		)
+		context.is_guest = frappe.session.user == "Guest"
+		page_filters = dict(studio_app=self.name, published=1)
+		if context.is_guest:
+			page_filters["allow_guest"] = 1
+		context.app_pages = frappe.get_all("Studio Page", page_filters, ["name", "page_title", "route"])
 		context.is_developer_mode = frappe.utils.cint(frappe.conf.developer_mode)
 		context.vite_dev_server_host = get_vite_dev_server_host()
 
@@ -156,18 +173,33 @@ class StudioApp(WebsiteGenerator):
 		delete_folder(old_path)
 
 	@frappe.whitelist()
-	def generate_app_build(self):
+	def generate_app_build(self) -> dict:
+		"""Build the app bundle. Failures are logged to an Error Log and returned as
+		`build_error` instead of raised, so callers can surface them in the UI."""
 		if not frappe.has_permission("Studio App", ptype="write"):
 			frappe.throw(_("You do not have permission to generate the app build"), frappe.PermissionError)
 
+		try:
+			self.build_app_bundle()
+			return {"build_error": None}
+		except Exception as e:
+			return {"build_error": self._log_build_failure(e)}
+
+	def build_app_bundle(self):
+		"""Build the app bundle, raising on failure — background jobs enqueue this
+		so a failed build marks the job as failed instead of looking successful."""
 		from studio.build import StudioAppBuilder
 
-		try:
-			StudioAppBuilder(
-				studio_app=self.name, is_standard=self.is_standard, frappe_app=self.frappe_app
-			).build()
-		except Exception as e:
-			raise Exception(f"Build process failed: {str(e)}")
+		StudioAppBuilder(
+			studio_app=self.name, is_standard=self.is_standard, frappe_app=self.frappe_app
+		).build()
+
+	def _log_build_failure(self, exception: Exception) -> dict:
+		error_log = frappe.log_error(
+			title=f"Studio app build failed: {self.name}",
+			message=getattr(exception, "output", None) or frappe.get_traceback(),
+		)
+		return {"error_log": error_log.name}
 
 	@frappe.whitelist()
 	def publish_app(self):
@@ -176,12 +208,7 @@ class StudioApp(WebsiteGenerator):
 			page_doc = frappe.get_doc("Studio Page", page)
 			page_doc.publish()
 
-		try:
-			self.generate_app_build()
-		except Exception:
-			pass
-
-		return {"published_pages": len(pages)}
+		return {"published_pages": len(pages), **self.generate_app_build()}
 
 	@frappe.whitelist()
 	def unpublish_app(self):

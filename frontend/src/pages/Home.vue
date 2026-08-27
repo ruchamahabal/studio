@@ -102,9 +102,11 @@
 
 <script setup lang="ts">
 import { ref } from "vue"
+import { Dropdown, FeatherIcon, Button } from "frappe-ui"
 import { studioApps } from "@/data/studioApps"
 import { UseTimeAgo } from "@vueuse/components"
 import Input from "@/components/Input.vue"
+import AppDialog from "@/components/AppDialog.vue"
 import StudioLogo from "@/components/Icons/StudioLogo.vue"
 import session from "@/utils/session"
 import { watchDebounced } from "@vueuse/core"

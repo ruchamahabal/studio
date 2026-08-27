@@ -3,14 +3,26 @@
 import json
 import os
 import re
+import subprocess
+import traceback
 
 import click
 import frappe
 from frappe.build import get_node_env
-from frappe.commands import popen
 from frappe.utils import get_files_path
 
 from studio.constants import DEFAULT_COMPONENTS, NON_VUE_COMPONENTS
+from studio.utils import walk_blocks
+
+ANSI_ESCAPE_REGEX = re.compile(r"\x1b\[[0-9;]*[a-zA-Z]")
+
+
+class StudioAppBuildError(RuntimeError):
+	"""Build failure carrying the full build output on `output`."""
+
+	def __init__(self, message: str, output: str):
+		super().__init__(message)
+		self.output = output
 
 
 class StudioAppBuilder:
@@ -103,7 +115,23 @@ class StudioAppBuilder:
 			command += f" --page-scripts '{page_scripts_json}'"
 
 		studio_app_path = frappe.get_app_source_path("studio")
-		popen(command, cwd=studio_app_path, env=get_node_env(), raise_err=True)
+		result = subprocess.run(
+			command,
+			cwd=studio_app_path,
+			env={**os.environ, **get_node_env()},
+			shell=True,
+			capture_output=True,
+			text=True,
+		)
+		if result.stdout:
+			click.echo(result.stdout)
+		if result.stderr:
+			click.echo(result.stderr, err=True)
+		if result.returncode:
+			output = ANSI_ESCAPE_REGEX.sub("", f"{result.stdout or ''}\n{result.stderr or ''}")
+			raise StudioAppBuildError(
+				f"build failed for app '{self.app_name}' (exit status {result.returncode})", output
+			)
 
 	def get_app_components(self) -> set[str]:
 		pages = frappe.get_all(
@@ -168,23 +196,14 @@ class StudioAppBuilder:
 		for match in matches:
 			self.components.add(match)
 
-	def _add_block_components(self, block: dict) -> None:
-		if block.get("isStudioComponent"):
-			self._add_studio_components(block)
-		elif block.get("isCustomVueComponent"):
-			self._add_custom_vue_component(block.get("componentName"))
-		elif block.get("componentName") not in NON_VUE_COMPONENTS:
-			self.components.add(block.get("componentName"))
-		for child in block.get("children", []):
-			self._add_block_components(child)
-
-		if slots := block.get("componentSlots"):
-			for slot in slots.values():
-				content = slot.get("slotContent")
-				if not isinstance(content, list):
-					continue
-				for slot_child in content:
-					self._add_block_components(slot_child)
+	def _add_block_components(self, blocks) -> None:
+		for block in walk_blocks(blocks):
+			if block.get("isStudioComponent"):
+				self._add_studio_components(block)
+			elif block.get("isCustomVueComponent"):
+				self._add_custom_vue_component(block.get("componentName"))
+			elif block.get("componentName") not in NON_VUE_COMPONENTS:
+				self.components.add(block.get("componentName"))
 
 	def _add_studio_components(self, block: dict):
 		if self.is_standard:
@@ -234,18 +253,14 @@ class StudioAppBuilder:
 				break
 
 
-def build_standard_apps(app: str | None = None) -> None:
-	"""Scan all apps on the bench for studio/ folders and build each exported app.
+def build_standard_apps(apps: list[str] | None = None) -> None:
+	"""Scan passed apps on the bench for studio/ folders and build each exported app.
 
 	This function works without DB access — it reads component data from
 	exported JSON files on disk.
-
-	Args:
-	        app: Only build studio apps exported to this specific frappe app
 	"""
-	apps = [app] if app else frappe.get_all_apps()
-
-	for frappe_app in apps:
+	failed_apps = []
+	for frappe_app in apps or frappe.get_all_apps():
 		studio_folder = get_studio_folder(frappe_app)
 		if not os.path.exists(studio_folder):
 			continue
@@ -268,7 +283,12 @@ def build_standard_apps(app: str | None = None) -> None:
 				StudioAppBuilder(studio_app, is_standard=True, frappe_app=frappe_app).build()
 				click.echo(click.style("✔", fg="green") + f" Built {studio_app}")
 			except Exception:
+				traceback.print_exc()
 				click.echo(click.style("✖", fg="red") + f" Build failed for {studio_app}")
+				failed_apps.append(studio_app)
+
+	if failed_apps:
+		raise RuntimeError(f"Studio app builds failed: {', '.join(failed_apps)}")
 
 
 def build_custom_apps() -> None:
@@ -308,7 +328,9 @@ def get_studio_folder(frappe_app: str) -> str | None:
 	return frappe.get_app_source_path(frappe_app, "studio")
 
 
-def after_build() -> None:
-	"""Hook called after `bench build`. Builds all standard studio apps"""
+def after_app_build(built_apps: list[str]) -> None:
+	"""Hook called after any app is built. Builds studio apps for the built apps."""
+	if not built_apps:
+		return
 	click.secho("\nBuilding Studio Apps...", fg="cyan")
-	build_standard_apps()
+	build_standard_apps(built_apps)

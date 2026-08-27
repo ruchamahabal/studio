@@ -1,7 +1,7 @@
 <template>
 	<!-- prettier-ignore -->
 	<div
-		class="flex [&>div>input]:!bg-surface-red-7 [&>div>input]:pr-6"
+		class="flex"
 		:class="[type === 'textarea' ? 'flex-col gap-1.5' : 'flex-row items-center justify-between', attrs.class]"
 		:style="(attrs.style as StyleValue)"
 	>
@@ -49,7 +49,7 @@
 		/>
 		<Input
 			v-else
-			:type="type"
+			:type="inputType"
 			:modelValue="modelValue"
 			:options="inputOptions"
 			@update:modelValue="handleChange"
@@ -62,8 +62,9 @@
 
 <script setup lang="ts">
 import { isNumber } from "@tiptap/vue-3"
-import { Popover } from "frappe-ui"
+import { Popover, FeatherIcon } from "frappe-ui"
 import { computed, StyleValue, useAttrs } from "vue"
+import { isDynamicValue } from "@/utils/code"
 import { extractNumberAndUnit, normalizeValueWithUnits } from "@/utils/helpers"
 import Input from "@/components/Input.vue"
 import Autocomplete from "@/components/Autocomplete.vue"
@@ -115,6 +116,10 @@ type Option = {
 	label: string
 	value: string
 }
+
+const inputType = computed(() =>
+	props.type === "select" && isDynamicValue(props.modelValue as string) ? "text" : props.type,
+)
 
 const inputOptions = computed(() => {
 	return (props.options || []).map((option) => {

@@ -142,6 +142,20 @@ function kebabToCamelCase(str: string) {
 	});
 }
 
+function camelToKebabCase(str: string) {
+	// convert borderColor to border-color
+	return str.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)
+}
+
+function toTitleCase(cssProperty: string) {
+	// convert border-color to Border Color
+	return cssProperty
+		.split("-")
+		.filter(Boolean)
+		.map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+		.join(" ")
+}
+
 function areObjectsEqual(obj1: ObjectLiteral, obj2: ObjectLiteral): boolean {
 	const keys1 = Object.keys(obj1)
 	const keys2 = Object.keys(obj2)
@@ -271,15 +285,20 @@ async function fetchPage(pageName: string) {
 	return pageResource.doc
 }
 
-async function findPageWithRoute(appName: string, pageRoute: string) {
-	let pageName = createResource({
-		url: "studio.studio.doctype.studio_page.studio_page.find_page_with_route",
+// Fetches the page definition (blocks + resources + variables) in one unprivileged call.
+// Data the page renders stays permission-checked by the endpoints its resources call.
+async function findPageWithRoute(appName: string, pageRoute: string, preview: boolean = false) {
+	const page = createResource({
+		url: "studio.studio.doctype.studio_page.studio_page.get_page",
 		method: "GET",
-		params: { app_name: appName, page_route: pageRoute },
+		params: { app_name: appName, page_route: pageRoute, preview },
 	})
-	await pageName.fetch()
-	pageName = pageName.data
-	return fetchPage(pageName)
+	try {
+		await page.fetch()
+	} catch (error) {
+		return null
+	}
+	return page.data
 }
 
 // extract dynamic route variables from a vue-router route, e.g. "/articles/:category" -> ["category"]
@@ -522,6 +541,8 @@ export {
 	extractNumberAndUnit,
 	normalizeValueWithUnits,
 	kebabToCamelCase,
+	camelToKebabCase,
+	toTitleCase,
 	areObjectsEqual,
 	isObjectEmpty,
 	getValueFromObject,
