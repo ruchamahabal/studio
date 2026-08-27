@@ -201,8 +201,8 @@ const useStudioStore = defineStore("store", () => {
 		}
 		activePage.value = page
 		loadRouteVariables(page)
-		await codeStore.setPageResources(page, true)
 		await codeStore.setPageScript(page, Boolean(page.is_standard))
+		await codeStore.setPageResources(page, true)
 
 		const blocks = JSON.parse(page.draft_blocks || page.blocks || "[]")
 		if (blocks.length === 0) {
@@ -629,10 +629,8 @@ const useStudioStore = defineStore("store", () => {
 	const resetState = useDebounceFn(async () => {
 		const page = activePage.value
 		if (!page) return
-		// re-resolve data sources with the new value, then re-run the page script so bindings that
-		// derive from a resource (e.g. refs seeded from note.doc via a watcher) re-bind to the new doc.
-		await codeStore.setPageResources(page, true)
 		await codeStore.setPageScript(page, Boolean(page.is_standard))
+		await codeStore.setPageResources(page, true)
 	}, 300)
 
 	const codeStore = useCodeStore()
