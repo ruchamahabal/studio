@@ -127,14 +127,20 @@ function getEditorContent(componentSources, pageScripts = []) {
 	const customImports = customComponentNames
 		.map((name) => `import ${name} from "${componentSources.customComponents[name]}"`)
 		.join("\n")
+	// TODO: rethink slot discovery to avoid raw imports of templates
+	const templateImports = customComponentNames
+		.map((name) => `import ${name}Template from "${componentSources.customComponents[name]}?raw"`)
+		.join("\n")
 	const pageScriptImporters = pageScripts
 		.map((page) => `\t${JSON.stringify(page.page_name)}: () => import(${JSON.stringify(page.file_path)}),`)
 		.join("\n")
 
 	return `${customImports}
+${templateImports}
 
 export const protocolVersion = 1
 export const components = { ${customComponentNames.join(", ")} }
+export const componentTemplates = { ${customComponentNames.map((name) => `${name}: ${name}Template`).join(", ")} }
 export const pageScripts = {
 ${pageScriptImporters}
 }`

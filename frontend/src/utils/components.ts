@@ -224,6 +224,12 @@ const templateCache = new Map<string, string>()
 
 const customComponentFilePaths = new Map<string, string>()
 
+function registerBuiltCustomComponentTemplates(templates: Record<string, string>) {
+	for (const [componentName, template] of Object.entries(templates)) {
+		if (template) templateCache.set(componentName, template)
+	}
+}
+
 async function registerCustomComponentPaths(components: CustomVueComponentMeta[]) {
 	customComponentFilePaths.clear()
 	for (const comp of components) {
@@ -406,4 +412,5 @@ export {
 	componentHasDefaultSlot,
 	invalidateComponentCache,
 	registerCustomComponentPaths,
+	registerBuiltCustomComponentTemplates,
 }

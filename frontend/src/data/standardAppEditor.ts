@@ -1,10 +1,12 @@
 import { createResource } from "frappe-ui"
 import { customVueComponentsRegistry } from "@/globals"
 import { setPageScriptImporters } from "@/data/studioPageScripts"
+import { registerBuiltCustomComponentTemplates } from "@/utils/components"
 
 type EditorModule = {
 	protocolVersion: number
 	components: Record<string, any>
+	componentTemplates: Record<string, string>
 	pageScripts: Record<string, () => Promise<Record<string, any>>>
 }
 
@@ -42,6 +44,7 @@ export async function loadStandardAppEditor(studioApp: string): Promise<boolean>
 	}
 
 	customVueComponentsRegistry.value = editorModule.components || {}
+	registerBuiltCustomComponentTemplates(editorModule.componentTemplates || {})
 	setPageScriptImporters(editorModule.pageScripts || {})
 	return true
 }
