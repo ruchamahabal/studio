@@ -1,11 +1,10 @@
-import json
 import re
 
 import frappe
 
-MARKER = "// Migrated from page variables."
+from studio.studio.doctype.studio_page.legacy_variables import get_declaration
 
-TYPE_DEFAULTS = {"String": '""', "Number": "0", "Boolean": "false", "Object": "{}"}
+MARKER = "// Migrated from page variables."
 
 
 def execute():
@@ -54,7 +53,7 @@ def _migrate_page(page_name: str, variables: list[frappe._dict]) -> None:
 	if MARKER in existing:
 		return  # already migrated
 
-	declarations = [_declare(v) for v in variables if not _already_declared(existing, v.variable_name)]
+	declarations = [get_declaration(v) for v in variables if not _already_declared(existing, v.variable_name)]
 	if not declarations:
 		return
 
@@ -68,7 +67,7 @@ def _report_unmigrated(page, variables: list[frappe._dict]) -> None:
 	"""An exported page's script is the on-disk `<page>.ts`, a real ES module whose setup() must both
 	declare and RETURN each ref — surgery too fragile to automate, and the file is checked into the
 	owning app's repo. So log exactly what to paste, and where."""
-	declarations = "\n".join(f"  {_declare(v)}" for v in variables)
+	declarations = "\n".join(f"  {get_declaration(v)}" for v in variables)
 	names = ", ".join(v.variable_name for v in variables)
 	frappe.log_error(
 		title=f"Studio: port page variables for '{page.page_title or page.name}'",
@@ -80,24 +79,6 @@ def _report_unmigrated(page, variables: list[frappe._dict]) -> None:
 		reference_doctype="Studio Page",
 		reference_name=page.name,
 	)
-
-
-def _declare(variable: frappe._dict) -> str:
-	return f"const {variable.variable_name} = ref({_initial_value(variable)})"
-
-
-def _initial_value(variable: frappe._dict) -> str:
-	"""The stored value is already a JS literal for every variable type (Number as a bare number,
-	Boolean as true/false, String/Object as JSON), so it drops straight into `ref(...)`."""
-	default = TYPE_DEFAULTS.get(variable.variable_type, '""')
-	value = (variable.initial_value or "").strip()
-	if not value:
-		return default
-	try:
-		json.loads(value)
-	except ValueError:
-		return default
-	return value
 
 
 def _already_declared(script: str, name: str) -> bool:

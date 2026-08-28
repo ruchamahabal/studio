@@ -19,6 +19,7 @@ from studio.export import (
 )
 from studio.realtime import publish_doc_change
 from studio.studio.doctype.studio_component.studio_component import get_components_for_blocks
+from studio.studio.doctype.studio_page.legacy_variables import get_declaration
 from studio.utils import camel_case_to_kebab_case, has_page_write_perm
 
 
@@ -418,6 +419,31 @@ def get_page(app_name: str, page_route: str, preview: bool = False) -> dict:
 			{"resource_id": row.name, **{field: row.get(field) for field in PAGE_RESOURCE_FIELDS}}
 			for row in page.resources
 		],
+	}
+
+
+@frappe.whitelist(methods=["GET"])
+def get_legacy_variable_migration(page_name: str) -> dict | None:
+	page = frappe.get_doc("Studio Page", page_name)
+	if not frappe.has_permission("Studio Page", ptype="read", doc=page):
+		frappe.throw(_("You do not have permission to read this page"), frappe.PermissionError)
+	if not page.is_standard:
+		return None
+
+	variables = frappe.get_all(
+		"Studio Page Variable",
+		filters={"parent": page.name, "parenttype": "Studio Page"},
+		fields=["variable_name", "variable_type", "initial_value"],
+		order_by="idx asc",
+	)
+	if not variables:
+		return None
+
+	declarations = "\n".join(get_declaration(variable) for variable in variables)
+	variable_names = [variable.variable_name for variable in variables]
+	return {
+		"code": f"{declarations}\n\nreturn {{ {', '.join(variable_names)} }}",
+		"variable_names": variable_names,
 	}
 
 
